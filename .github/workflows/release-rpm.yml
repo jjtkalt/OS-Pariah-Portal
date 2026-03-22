@@ -1,0 +1,42 @@
+name: Build and Publish RPM
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-rpm:
+    runs-on: ubuntu-latest
+    # THIS is the magic: GitHub will pull a native openSUSE container to run our commands!
+    container:
+      image: opensuse/leap:15.6
+
+    steps:
+    # 1. OpenSUSE minimal containers don't come with git or tar, so we install them first
+    - name: Install Prerequisites & RPM Tools
+      run: |
+        zypper refresh
+        zypper install -y git tar gzip rsync rpm-build rpmdevtools
+
+    # 2. Checkout the code (now that git is installed)
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 3. Setup the build tree and pack the tarball
+    - name: Prepare RPM Environment
+      run: |
+        rpmdev-setuptree
+        mkdir -p /tmp/os-pariah-portal-0.9.0
+        rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-0.9.0/
+        tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-0.9.0.tar.gz -C /tmp os-pariah-portal-0.9.0
+        cp packaging/os-pariah.spec $HOME/rpmbuild/SPECS/
+
+    # 4. Compile the RPM natively on openSUSE!
+    - name: Compile the RPM
+      run: rpmbuild -ba $HOME/rpmbuild/SPECS/os-pariah.spec
+
+    # 5. Attach the finished .rpm file to your GitHub Release
+    - name: Attach RPM to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: /github/home/rpmbuild/RPMS/x86_64/os-pariah-portal-*.rpm

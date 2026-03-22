@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}My Notices - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
+    <h2>My Notices</h2>
+</div>
+
+<p style="color: var(--text-muted); margin-bottom: 24px;">
+    System notifications, ticket updates, and backup alerts.
+</p>
+
+{% if notices %}
+    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+        <table style="margin: 0; width: 100%;">
+            <tbody>
+                {% for notice in notices %}
+                <tr style="{% if not notice.is_read %}background: var(--info-bg); font-weight: 600;{% endif %} border-bottom: 1px solid var(--border-color);">
+                    <td style="width: 150px; color: var(--text-muted); font-size: 0.85rem; vertical-align: top; padding-top: 16px;">
+                        {{ notice.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </td>
+                    <td style="padding: 16px; line-height: 1.4; color: var(--text-main);">
+                        {{ notice.message }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="center group" style="padding: 40px;">
+        <h3 style="color: var(--text-muted);">You're all caught up!</h3>
+        <p style="color: var(--text-muted);">You have no system notices.</p>
+    </div>
+{% endif %}
+{% endblock %}

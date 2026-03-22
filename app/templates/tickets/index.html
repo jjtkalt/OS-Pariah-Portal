@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Helpdesk - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h1 style="margin: 0; color: var(--primary);">Helpdesk Tickets</h1>
+        <p style="color: var(--text-muted); margin-top: 5px;">View your support requests or open a new one.</p>
+    </div>
+    
+    <a href="{{ url_for('tickets.new_ticket') }}" class="btn">
+        + Submit New Ticket
+    </a>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Ticket #</th>
+            <th>Subject</th>
+            <th>Status</th>
+            {% if session.get('is_admin') %}<th>Assigned To</th>{% endif %}
+            <th>Last Updated</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if tickets %}
+            {% for ticket in tickets %}
+            <tr>
+                <td style="color: var(--text-muted);">#{{ ticket.id }}</td>
+                <td style="font-weight: 600;">{{ ticket.subject }}</td>
+                <td>
+                    <span style="font-weight: bold; font-size: 0.85rem; padding: 4px 8px; border-radius: 4px;
+                        {% if ticket.status in ['Open', 'New'] %} color: #856404; background: #ffeeba;
+                        {% elif ticket.status == 'Completed' %} color: var(--success); background: var(--success-bg);
+                        {% elif ticket.status == 'In Progress' %} color: var(--info); background: var(--info-bg);
+                        {% else %} color: var(--text-muted); background: #e2e8f0; {% endif %}">
+                        {{ ticket.status }}
+                    </span>
+                </td>
+                {% if session.get('is_admin') %}
+                    <td style="color: var(--text-muted); font-size: 0.9rem;">{{ ticket.assigned_to_name or 'Unassigned' }}</td>
+                {% endif %}
+                <td style="color: var(--text-muted);">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') if ticket.updated_at else '' }}</td>
+                <td>
+                    <a href="{{ url_for('tickets.view', ticket_id=ticket.id) }}" style="font-weight: bold; color: var(--primary); text-decoration: none;">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="6" class="center" style="padding: 40px; color: var(--text-muted);">
+                    No tickets found. You're all caught up!
+                </td>
+            </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

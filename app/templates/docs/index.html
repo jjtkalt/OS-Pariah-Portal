@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Knowledge Base - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="center" style="margin-bottom: 30px;">
+    <h1 style="color: var(--primary); margin-bottom: 10px;">{{ grid_name }} Knowledge Base</h1>
+    <p style="color: var(--text-muted); margin-top: 0;">Everything you need to connect, play, and create on the grid.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+    
+    <div class="group" style="max-height: none;">
+        <h2>Viewer Setup & Connection</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Learn how to configure Firestorm or other OpenSim viewers to connect to our grid.</p>
+        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+            {% if guides %}
+                {% for g in guides %}
+                    {% if not g.requires_login or session.get('uuid') %}
+                    <li>
+                        <a href="{{ url_for('policies.view_policy', slug=g.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+                            {{ g.title }} {% if g.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <li style="color: var(--text-muted);">No guides published yet.</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="group" style="max-height: none;">
+        <h2>Grid Rules & Policies</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">Review our community guidelines, mature content policies, and griefing definitions.</p>
+        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+            {% if policies %}
+                {% for p in policies %}
+                    {% if not p.requires_login or session.get('uuid') %}
+                    <li>
+                        <a href="{{ url_for('policies.view_policy', slug=p.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+                            {{ p.title }} {% if p.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <li style="color: var(--text-muted);">No policies published yet.</li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="group" style="max-height: none;">
+        <h2>Creator Resources</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">OAR files, freebie scripts, and building limits for region owners.</p>
+        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+            {% if resources %}
+                {% for r in resources %}
+                    {% if not r.requires_login or session.get('uuid') %}
+                    <li>
+                        <a href="{{ url_for('policies.view_policy', slug=r.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+                            {{ r.title }} {% if r.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <li style="color: var(--text-muted);">No resources published yet.</li>
+            {% endif %}
+        </ul>
+    </div>
+
+</div>
+
+<div class="center" style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 30px;">
+    <p style="color: var(--text-muted); margin-bottom: 15px;">Can't find what you're looking for?</p>
+    <a href="{{ url_for('tickets.new_ticket') }}" class="btn">Open a Support Ticket</a>
+</div>
+{% endblock %}

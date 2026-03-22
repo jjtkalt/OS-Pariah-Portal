@@ -1,0 +1,10 @@
+[Unit]
+Description=Run OS Pariah Gatekeeper Parser Daily
+
+[Timer]
+# Runs at 2:00 AM every single day
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage DNS Mappings - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+        <div>
+            <h1 style="color: var(--primary); margin: 0;">Region DNS Mappings</h1>
+            <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Map physical server IPs to their public FQDNs.</p>
+        </div>
+        <a href="{{ url_for('regions.manage_regions') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back to Regions</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('regions.manage_hosts') }}" class="group">
+        <fieldset>
+            <legend>Add or Update Mapping</legend>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+                <em>Enter an existing IP to overwrite its External Hostname.</em>
+            </p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: flex-start;">
+                <div>
+                    <label for="host_ip">Server Request IP</label>
+                    <input type="text" id="host_ip" name="host_ip" placeholder="e.g., 203.0.113.50" required>
+                </div>
+                <div>
+                    <label for="external_hostname">External Hostname (FQDN)</label>
+                    <input type="text" id="external_hostname" name="external_hostname" placeholder="e.g., sim1.ospariah.com" required>
+                </div>
+            </div>
+            
+            <div style="text-align: right; margin-top: 10px;">
+                <button type="submit">Save Mapping</button>
+            </div>
+        </fieldset>
+    </form>
+
+    <h3 style="color: var(--text-muted); margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 5px;">Current Mappings</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Physical Server IP</th>
+                <th>Resolved FQDN (ExternalHostName)</th>
+                <th style="text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if hosts %}
+                {% for host in hosts %}
+                <tr>
+                    <td style="font-family: monospace; font-weight: bold;">{{ host.host_ip }}</td>
+                    <td style="color: var(--info);">{{ host.external_hostname }}</td>
+                    <td style="text-align: right;">
+                        <form action="{{ url_for('regions.delete_host', ip=host.host_ip) }}" method="POST" style="margin: 0;" onsubmit="return confirm('WARNING: Deleting this mapping will cause regions on this IP to fall back to SYSTEMIP. Proceed?');">
+                            <button type="submit" class="btn-danger" style="padding: 6px 12px; font-size: 0.85rem;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="3" class="center" style="padding: 30px; color: var(--text-muted);">
+                        No DNS mappings exist. All servers will fall back to SYSTEMIP.
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

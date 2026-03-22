@@ -1,0 +1,23 @@
+# Security & Secrets (CRITICAL)
+.env
+private.pem
+*.log
+
+# Virtual Environments
+venv/
+.venv/
+venv_*/
+.env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing Caches
+.pytest_cache/
+.coverage
+
+# User Uploads / IAR Backups (So we don't commit gigabytes of user data!)
+app/static/uploads/
+app/static/downloads/

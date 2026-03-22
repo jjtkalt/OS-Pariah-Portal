@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}System Settings - {{ grid_name }} Portal{% endblock %}
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <h1 style="color: var(--primary); margin-bottom: 5px;">System Configuration</h1>
+    <p style="color: var(--text-muted); margin-bottom: 24px;">Manage global variables stored in the <code>config</code> table. Changes to DB credentials or Caching require restarting Gunicorn.</p>
+
+    <form action="{{ url_for('admin.system_settings') }}" method="POST">
+        <fieldset style="background: #fff;">
+            <legend>Portal Parameters</legend>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                {% for item in settings %}
+                <div style="margin-bottom: 10px;">
+                    <label for="cfg_{{ item.config_key }}" style="font-weight: 600; margin-bottom: 5px;">{{ item.config_key }}</label>
+                    <input type="text" id="cfg_{{ item.config_key }}" name="cfg_{{ item.config_key }}" value="{{ item.config_value }}" required>
+                </div>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <div style="text-align: right;">
+            <button type="submit" style="background: var(--success); font-size: 1.1rem; padding: 10px 20px;">Save Configurations</button>
+        </div>
+    </form>
+    <fieldset style="margin-top: 40px; background: #f0fdf4; border-color: #86efac;">
+        <legend style="background: transparent; color: #166534; font-weight: bold;">Advanced: Add Custom Setting</legend>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+            Use this tool to safely inject override variables (like <code>iar_retention_days</code> or <code>allowed_attachment_exts</code>) without opening a database console.
+        </p>
+
+        <form action="{{ url_for('admin.add_setting') }}" method="POST" style="display: flex; gap: 15px; align-items: flex-end; margin: 0; padding: 0; box-shadow: none; background: transparent;">
+            <div style="flex: 1;">
+                <label>Configuration Key</label>
+                <input type="text" name="new_key" placeholder="e.g., iar_retention_days" required style="margin-bottom: 0;">
+            </div>
+            <div style="flex: 1;">
+                <label>Configuration Value</label>
+                <input type="text" name="new_value" placeholder="e.g., 7" required style="margin-bottom: 0;">
+            </div>
+            <button type="submit" style="background: #16a34a; white-space: nowrap;">+ Add Variable</button>
+        </form>
+    </fieldset>
+</div>
+{% endblock %}

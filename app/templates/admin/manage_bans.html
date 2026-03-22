@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Bans - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1 style="color: var(--danger); margin: 0;">Active Ban Records</h1>
+        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Removing a ban here will automatically restore associated avatars to Level 0.</p>
+    </div>
+    
+    <div>
+        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="btn" style="background: var(--info);">Gatekeeper Search</a>
+        <a href="{{ url_for('user_mgmt.create_ban') }}" class="btn btn-danger">+ Issue Ban</a>
+    </div>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Date & Reason</th>
+            <th>Type</th>
+            <th>Enforcement Targets</th>
+            <th style="text-align: right;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% if bans %}
+            {% for ban in bans %}
+            <tr>
+                <td style="max-width: 250px;">
+                    <strong>{{ ban.date.strftime('%Y-%m-%d %H:%M') }}</strong><br>
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">{{ ban.reason }}</span>
+                </td>
+                <td>
+                    <span style="background: var(--danger-bg); color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">
+                        {{ ban.type }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted);">
+                    {% if ban.uuids %}<strong>UUIDs:</strong> <span style="word-break: break-all;">{{ ban.uuids }}</span><br>{% endif %}
+                    {% if ban.ips %}<strong>IPs:</strong> <span style="word-break: break-all;">{{ ban.ips }}</span><br>{% endif %}
+                    {% if ban.macs %}<strong>MACs:</strong> <span style="word-break: break-all;">{{ ban.macs }}</span><br>{% endif %}
+                    {% if ban.hostids %}<strong>Hosts:</strong> <span style="word-break: break-all;">{{ ban.hostids }}</span>{% endif %}
+                </td>
+                <td style="text-align: right; vertical-align: middle;">
+                    <form action="{{ url_for('user_mgmt.delete_ban', ban_id=ban.banid) }}" method="POST" style="margin: 0;" onsubmit="return confirm('WARNING: Are you sure you want to remove this ban and restore these avatars to Level 0?');">
+                        <button type="submit" class="btn" style="background: var(--text-muted); font-size: 0.8rem; padding: 6px 12px;">Remove Ban</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="4" class="center" style="padding: 40px; color: var(--success); font-weight: bold;">
+                    No active bans found. Your grid is peaceful!
+                </td>
+            </tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endblock %}

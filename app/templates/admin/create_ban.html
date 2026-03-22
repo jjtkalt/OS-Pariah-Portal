@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Ban - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+        <div>
+            <h1 style="color: var(--danger); margin: 0;">Issue Ban</h1>
+            <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Actively block avatars, hardware, or networks.</p>
+        </div>
+        <a href="{{ url_for('user_mgmt.manage_bans') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; View All Bans</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('user_mgmt.create_ban') }}" class="group" style="border-top: 4px solid var(--danger);">
+        
+        <fieldset>
+            <legend>Ban Details</legend>
+            <label for="reason">Reason for Ban</label>
+            <input type="text" id="reason" name="reason" placeholder="e.g., Griefing Welcome Area" required>
+            
+            <label for="type">Ban Scope</label>
+            <select id="type" name="type">
+                <option value="account">Account Only (Locks UUID)</option>
+                <option value="ip">Network Only (Blocks IP)</option>
+                <option value="mac">Hardware Only (Blocks MAC)</option>
+                <option value="mixed" selected>Mixed / Blanket (Blocks everything provided below)</option>
+            </select>
+        </fieldset>
+
+        <fieldset style="background: var(--danger-bg);">
+            <legend style="color: #991b1b; background: transparent;">Ban Targets (One per line)</legend>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label>Avatar UUIDs</label>
+                    <textarea name="uuids" rows="4" style="font-family: monospace;">{{ prep_uuid }}</textarea>
+                </div>
+                <div>
+                    <label>IP Addresses</label>
+                    <textarea name="ips" rows="4" style="font-family: monospace;">{{ prep_ip }}</textarea>
+                </div>
+                <div>
+                    <label>MAC Addresses</label>
+                    <textarea name="macs" rows="4" style="font-family: monospace;">{{ prep_mac }}</textarea>
+                </div>
+                <div>
+                    <label>Host IDs</label>
+                    <textarea name="hostids" rows="4" style="font-family: monospace;">{{ prep_hostid }}</textarea>
+                </div>
+            </div>
+        </fieldset>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="submit" class="btn-danger">Enforce Ban</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

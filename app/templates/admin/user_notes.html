@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Staff Notes - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+        <div>
+            <h1 style="color: var(--primary); margin: 0;">Staff Notes & Warnings</h1>
+            <p class="uuid" style="margin-top: 5px; margin-bottom: 0;">Target UUID: {{ target_uuid }}</p>
+        </div>
+        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back to Lookup</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('user_mgmt.user_notes', uuid=target_uuid) }}" class="group">
+        <fieldset>
+            <legend>Add New Note</legend>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+                Notes added here are permanently attached to this UUID and are visible to all staff members.
+            </p>
+            <textarea name="note" rows="4" placeholder="Enter staff warning, observation, or alt-account information here..." required></textarea>
+            <div style="text-align: right; margin-top: 10px;">
+                <button type="submit">+ Save Note</button>
+            </div>
+        </fieldset>
+    </form>
+
+    <h3 style="color: var(--text-muted); margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 5px;">Existing Notes</h3>
+
+    {% if notes %}
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            {% for note in notes %}
+            <div class="group" style="max-height: none; margin: 0; border-left: 4px solid var(--info);">
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed var(--border-color); padding-bottom: 5px;">
+		    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        <strong>Added By:</strong> {{ note.admin_name }} 
+                        <span class="uuid" style="font-size: 0.75rem;">({{ note.admin_uuid }})</span>
+                    </span>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        {{ note.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </span>
+                </div>
+                
+                <div style="white-space: pre-wrap; line-height: 1.5; color: var(--text-main);">{{ note.note }}</div>
+                
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert info">No staff notes currently exist for this user.</div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Post News - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
+    <h2>
+        <a href="{{ url_for('comms.news_feed') }}" style="text-decoration: none; color: var(--text-muted); font-size: 1rem;">&larr; Back to News</a><br>
+        Post Grid Announcement
+    </h2>
+</div>
+
+<form method="POST" action="{{ url_for('comms.post_news') }}" onsubmit="showLoading('newsSpinner', 'newsBtn')">
+    <fieldset>
+        <legend>Announcement Details</legend>
+        
+        <label>Headline / Title</label>
+        <input type="text" name="title" placeholder="e.g., Scheduled Maintenance for Sunday" required>
+        
+        <label>Message Body</label>
+        <textarea name="body" rows="6" placeholder="Type your announcement here..." required></textarea>
+        
+        <div style="background: var(--danger-bg); border: 1px solid var(--danger); padding: 12px; border-radius: 6px; margin-top: 10px;">
+            <label class="radio" style="margin: 0; color: var(--danger); font-weight: bold;">
+                <input type="checkbox" name="is_alert">
+                Mark as Critical Alert (Highlights in Red)
+            </label>
+        </div>
+        
+        <button type="submit" id="newsBtn" style="margin-top: 16px; width: 100%;">
+            <span>Publish Announcement</span>
+            <div id="newsSpinner" class="spinner" style="display: none;"></div>
+        </button>
+    </fieldset>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function showLoading(spinnerId, btnId) {
+        document.getElementById(spinnerId).style.display = "inline-block";
+        document.getElementById(btnId).style.opacity = "0.8";
+    }
+</script>
+{% endblock %}

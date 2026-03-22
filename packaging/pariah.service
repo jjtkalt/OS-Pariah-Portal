@@ -1,0 +1,28 @@
+[Unit]
+Description=Gunicorn instance to serve OS Pariah Portal
+After=network.target
+
+[Service]
+# The will automatically create this user during installation
+User=pariah
+Group=pariah
+WorkingDirectory=/opt/os_pariah
+Environment="PATH=/opt/os_pariah/venv/bin"
+EnvironmentFile=/etc/os_pariah/os-pariah.conf
+
+# Automatically creates /run/os_pariah/ owned by the pariah user
+RuntimeDirectory=os_pariah
+
+# Gunicorn Command
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/check_mariadb.py
+ExecStart=/opt/os_pariah/venv/bin/gunicorn \
+    --workers 4 \
+    --forwarded-allow-ips="127.0.0.1" \
+    --bind unix:/run/os_pariah/pariah.sock \
+    -m 000 \
+    wsgi:app
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

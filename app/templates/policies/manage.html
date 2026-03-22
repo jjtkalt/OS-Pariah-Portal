@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Manage Documents - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
+    <h2>Grid Policies & Guides</h2>
+    <a href="{{ url_for('policies.create_policy') }}" class="btn" style="background: var(--success);">+ Create New Document</a>
+</div>
+<p style="color: var(--text-muted);">Current Global Policy Version: <strong>{{ current_version }}</strong></p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Document Title</th>
+            <th>Type</th>
+            <th>Visibility</th>
+            <th>Last Updated</th>
+            <th style="text-align: right;">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for policy in policies %}
+        <tr>
+            <td><strong>{{ policy.title }}</strong></td>
+            <td><span style="background: var(--info-bg); color: var(--info); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">{{ policy.category }}</span></td>
+            <td>
+                {% if policy.requires_login %}
+                    <span style="color: var(--danger); font-size: 0.8rem; font-weight: bold;">🔒 Private (Login Req)</span>
+                {% else %}
+                    <span style="color: var(--success); font-size: 0.8rem;">🌍 Public</span>
+                {% endif %}
+            </td>
+            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ policy.updated_at.strftime('%Y-%m-%d') }}</td>
+            <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+                <a href="{{ url_for('policies.view_policy', slug=policy.slug) }}" class="btn" style="background: var(--info); padding: 4px 8px; font-size: 0.8rem;" target="_blank">View</a>
+                <a href="{{ url_for('policies.edit_policy', slug=policy.slug) }}" class="btn" style="padding: 4px 8px; font-size: 0.8rem;">Edit</a>
+                <form action="{{ url_for('policies.delete_policy', slug=policy.slug) }}" method="POST" style="margin: 0;" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this document?');">
+                    <button type="submit" class="btn-danger" style="padding: 4px 8px; font-size: 0.8rem;">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

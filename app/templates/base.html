@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OS Pariah Portal{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/central.css') }}">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+    <div class="background">
+        <div class="main">
+            
+            <nav class="nav-bar">
+                <a href="{{ grid_website_url }}" style="font-size: 1.5rem; font-weight: bold; color: var(--primary); text-decoration: none;">
+                    {{ grid_name }}
+                </a>
+
+                <div class="nav-links">
+                    <a href="{{ url_for('index') }}">Home</a>
+                    <a href="{{ url_for('docs') }}">Docs</a>
+                    <a href="{{ url_for('tickets.index') }}">Helpdesk</a>
+
+                    {% if session.get('uuid') %}
+                        {% if session.get('is_admin') %}
+                            <div style="position: relative; display: inline-block;" class="admin-dropdown">
+                                <span style="color: #d97706; font-weight: bold; cursor: pointer; padding: 6px 12px; margin-right: 16px;">Admin Tools &#9662;</span>
+                                <div class="dropdown-content" style="display: none; position: absolute; background-color: var(--card-bg); min-width: 180px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1; border-radius: 8px; overflow: hidden; margin-top: 5px;">
+                                    <a href="{{ url_for('admin.pending_approvals') }}" style="display: block; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main);">Registration Approvals</a>
+                                    <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" style="display: block; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main);">Gatekeeper & Bans</a>
+                                    <a href="{{ url_for('regions.manage_regions') }}" style="display: block; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main);">Region Configs</a>
+                                    <a href="{{ url_for('policies.manage_policies') }}" style="display: block; margin: 0; padding: 12px 16px; color: var(--text-main);">Grid Policies</a>
+                                    <a href="{{ url_for('admin.system_settings') }}" style="display: block; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main);">System Settings</a>
+                                </div>
+                            </div>
+                        {% endif %}
+                        <a href="{{ url_for('user.profile') }}">My Profile</a>
+                        <a href="{{ url_for('auth.logout') }}" style="color: var(--danger);">Logout</a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}">Login</a>
+                        <a href="{{ url_for('register.register') }}" class="btn">Register</a>
+                    {% endif %}
+                </div>
+            </nav>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert {{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+            
+        </div>
+    </div>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

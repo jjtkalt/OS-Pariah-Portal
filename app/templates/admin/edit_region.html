@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Region - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+        <div>
+            <h1 style="color: var(--primary); margin: 0;">Edit: {{ region.region_name }}</h1>
+            <p class="uuid" style="margin-top: 5px; margin-bottom: 0;">UUID: {{ region_uuid }}</p>
+        </div>
+        <a href="{{ url_for('regions.manage_regions') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back to List</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('regions.edit_region', region_uuid=region_uuid) }}" class="group">
+        <fieldset>
+            <legend>Basic Configuration</legend>
+            <label for="region_name">Region Name</label>
+            <input type="text" id="region_name" name="region_name" value="{{ region.region_name }}" required>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label for="Location">Location (Grid X, Y)</label>
+                    <input type="text" id="Location" name="Location" value="{{ settings.get('Location', '') }}" placeholder="1000,1000" required>
+                </div>
+                <div>
+                    <label for="InternalPort">Internal Port</label>
+                    <input type="text" id="InternalPort" name="InternalPort" value="{{ settings.get('InternalPort', '') }}" required>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Limits & Dimensions</legend>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label for="MaxPrims">Max Prims</label>
+                    <input type="text" id="MaxPrims" name="MaxPrims" value="{{ settings.get('MaxPrims', '10000') }}">
+                </div>
+                <div>
+                    <label for="Size">Region Size (Square)</label>
+                    <select id="Size" name="Size" required>
+                        {% for s in sizes %}
+                            <option value="{{ s }}" {% if settings.get('SizeX', '256')|int == s %}selected{% endif %}>{{ s }}x{{ s }} meters</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </fieldset>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 15px;">
+            <em>Note: Max Agents is controlled globally. Networking values like ExternalHostName, ResolveAddress, and InternalAddress are injected dynamically by the Portal API.</em>
+        </p>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button type="submit">Save Configuration</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

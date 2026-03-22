@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}My Profile - OS Pariah Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
+    <h2>Avatar Profile: {{ session.get('name') }}</h2>
+</div>
+
+<p style="color: var(--text-muted); margin-bottom: 24px;">
+    Manage your OpenSimulator security, contact details, and inventory backups here.
+</p>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px;">
+
+    <div style="flex: 1; min-width: 300px;">
+        
+        <form method="POST" action="{{ url_for('user.update_password') }}" onsubmit="return validatePassword()">
+            <fieldset>
+                <legend>Update Password</legend>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+                    Changes here sync instantly with the OpenSim grid.
+                </p>
+                
+                <label>New Password</label>
+                <input type="password" id="new_password" name="new_password" required>
+                
+                <label>Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required>
+                <small id="passMatchText" style="color: var(--danger); display: none;">Passwords do not match.</small>
+                
+                <button type="submit" id="passSubmitBtn" style="margin-top: 10px; width: 100%;">Change Password</button>
+            </fieldset>
+        </form>
+
+        <form method="POST" action="{{ url_for('user.request_email_change') }}" onsubmit="showLoading('emailSpinner', 'emailBtn')">
+            <fieldset>
+                <legend>Update Email Address</legend>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+                    You will need to click a verification link sent to the new address.
+                </p>
+                
+                <label>New Email</label>
+                <input type="email" name="new_email" placeholder="new.email@example.com" required>
+                
+                <button type="submit" id="emailBtn" style="margin-top: 10px; width: 100%;">
+                    <span>Request Change</span>
+                    <div id="emailSpinner" class="spinner" style="display: none;"></div>
+                </button>
+            </fieldset>
+        </form>
+    </div>
+
+    <div style="flex: 1; min-width: 300px;">
+        <div class="group" style="max-height: none;">
+            <legend style="font-size: 1.1rem; padding: 0;">Inventory Backups (IAR)</legend>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+                You can request a complete archive of your inventory. This is processed in the background to keep the grid stable.
+            </p>
+
+            {% if backups %}
+                <table style="margin-bottom: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Date Requested</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for backup in backups %}
+                        <tr>
+                            <td style="font-size: 0.85rem;">{{ backup.requested_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                {% if backup.status == 'pending' %}
+                                    <span style="color: var(--info); font-weight: bold;">Queued</span>
+                                {% elif backup.status == 'processing' %}
+                                    <span style="color: var(--primary); font-weight: bold;">Processing...</span>
+                                {% elif backup.status == 'completed' %}
+                                    <span style="color: var(--success); font-weight: bold;">Ready</span>
+                                {% elif backup.status == 'failed' %}
+                                    <span style="color: var(--danger); font-weight: bold;">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if backup.status == 'completed' and backup.file_path %}
+                                    <a href="{{ url_for('user.download_iar', filename=backup.file_path) }}" class="btn" style="padding: 4px 8px; font-size: 0.8rem;">Download</a>
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-size: 0.8rem;">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="alert info" style="font-size: 0.85rem;">You have no recent backups.</div>
+            {% endif %}
+
+            {% set has_active = false %}
+            {% for backup in backups %}
+                {% if backup.status in ['pending', 'processing'] %}
+                    {% set has_active = true %}
+                {% endif %}
+            {% endfor %}
+
+            <form method="POST" action="{{ url_for('user.request_iar_backup') }}" onsubmit="showLoading('iarSpinner', 'iarBtn')">
+                <button type="submit" id="iarBtn" style="width: 100%; background: var(--success);" {% if has_active %}disabled{% endif %}>
+                    <span>Request New IAR Backup</span>
+                    <div id="iarSpinner" class="spinner" style="display: none;"></div>
+                </button>
+                {% if has_active %}
+                    <p style="font-size: 0.8rem; color: var(--danger); text-align: center; margin-top: 8px;">
+                        You already have a backup in progress. Please wait for it to finish.
+                    </p>
+                {% endif %}
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // UX Script: Prevent submission if passwords don't match
+    const newPass = document.getElementById('new_password');
+    const confPass = document.getElementById('confirm_password');
+    const matchText = document.getElementById('passMatchText');
+
+    function checkMatch() {
+        if (confPass.value.length > 0 && newPass.value !== confPass.value) {
+            matchText.style.display = 'block';
+            return false;
+        } else {
+            matchText.style.display = 'none';
+            return true;
+        }
+    }
+
+    newPass.addEventListener('input', checkMatch);
+    confPass.addEventListener('input', checkMatch);
+
+    function validatePassword() {
+        if (!checkMatch() || newPass.value === '') {
+            matchText.style.display = 'block';
+            return false;
+        }
+        showLoading('passSpinner', 'passSubmitBtn'); // Assumes you add a spinner to the button
+        return true;
+    }
+
+    // Generic loading spinner toggle for buttons
+    function showLoading(spinnerId, btnId) {
+        document.getElementById(spinnerId).style.display = "inline-block";
+        const btn = document.getElementById(btnId);
+        btn.style.opacity = "0.8";
+        // We don't disable the button immediately here because it can block the actual form submission in some browsers  (Oops?)
+    }
+</script>
+{% endblock %}

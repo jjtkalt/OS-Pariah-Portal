@@ -1,0 +1,10 @@
+[Unit]
+Description=OS Pariah Gatekeeper Log Parser
+
+[Service]
+Type=oneshot
+User=opensim
+Group=opensim
+WorkingDirectory=/opt/os_pariah
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/check_mariadb.py
+ExecStart=/opt/os_pariah/venv/bin/python /opt/os_pariah/worker.py logs
