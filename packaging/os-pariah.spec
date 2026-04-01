@@ -4,7 +4,7 @@
 
 Name:           os-pariah-portal
 Version:        0.9.0
-Release:        1%{?dist}
+Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
 License:        MIT

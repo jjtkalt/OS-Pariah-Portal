@@ -16,24 +16,33 @@ jobs:
     - name: Install Prerequisites & RPM Tools
       run: |
         zypper refresh
-        zypper install -y git tar gzip rsync rpm-build rpmdevtools
+        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
 
     # 2. Checkout the code (now that git is installed)
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 3. Setup the build tree and pack the tarball
+    # 3. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
       run: |
+        # Grab the GitHub Release Tag (e.g., "v0.9.1") and strip the "v" prefix
+        TAG="${{ github.event.release.tag_name }}"
+        APP_VERSION="${TAG#v}"
+        
+        echo "Building version: $APP_VERSION"
+        
         rpmdev-setuptree
-        mkdir -p /tmp/os-pariah-portal-0.9.0
-        rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-0.9.0/
-        tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-0.9.0.tar.gz -C /tmp os-pariah-portal-0.9.0
+        mkdir -p /tmp/os-pariah-portal-$APP_VERSION
+        rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-$APP_VERSION/
+        tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-$APP_VERSION.tar.gz -C /tmp os-pariah-portal-$APP_VERSION
+        
+        # Copy the spec file and dynamically update the Version line
         cp packaging/os-pariah.spec $HOME/rpmbuild/SPECS/
+        sed -i "s/^Version:.*/Version: $APP_VERSION/" $HOME/rpmbuild/SPECS/os-pariah.spec
 
     # 4. Compile the RPM natively on openSUSE!
     - name: Compile the RPM
-      run: rpmbuild -ba $HOME/rpmbuild/SPECS/os-pariah.spec
+      run: rpmbuild -ba --define "build_number ${{ github.run_number }}" $HOME/rpmbuild/SPECS/os-pariah.spec
 
     # 5. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
