@@ -23,7 +23,7 @@
                     <h3 style="margin: 0; {% if item.is_alert %}color: var(--danger);{% else %}color: var(--primary);{% endif %}">
                         {% if item.is_alert %}🚨 ALERT: {% endif %}{{ item.title }}
                     </h3>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">
+                    <span class="date">
                         {{ item.created_at.strftime('%B %d, %Y') }}
                     </span>
                 </div>

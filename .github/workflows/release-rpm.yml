@@ -16,26 +16,69 @@ jobs:
     - name: Install Prerequisites & RPM Tools
       run: |
         zypper refresh
-        zypper install -y git tar gzip rsync rpm-build rpmdevtools
+        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
 
     # 2. Checkout the code (now that git is installed)
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 3. Setup the build tree and pack the tarball
+    # 3. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
       run: |
+        # Grab the GitHub Release Tag (e.g., "v0.9.1") and strip the "v" prefix
+        TAG="${{ github.event.release.tag_name }}"
+        APP_VERSION="${TAG#v}"
+        
+        echo "Building version: $APP_VERSION"
+        
         rpmdev-setuptree
-        mkdir -p /tmp/os-pariah-portal-0.9.0
-        rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-0.9.0/
-        tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-0.9.0.tar.gz -C /tmp os-pariah-portal-0.9.0
+        mkdir -p /tmp/os-pariah-portal-$APP_VERSION
+        rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-$APP_VERSION/
+        tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-$APP_VERSION.tar.gz -C /tmp os-pariah-portal-$APP_VERSION
+        
+        # Copy the spec file and dynamically update the Version line
         cp packaging/os-pariah.spec $HOME/rpmbuild/SPECS/
+        sed -i "s/^Version:.*/Version: $APP_VERSION/" $HOME/rpmbuild/SPECS/os-pariah.spec
 
     # 4. Compile the RPM natively on openSUSE!
     - name: Compile the RPM
-      run: rpmbuild -ba $HOME/rpmbuild/SPECS/os-pariah.spec
+      run: rpmbuild -ba --define "build_number ${{ github.run_number }}" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 5. Attach the finished .rpm file to your GitHub Release
+    # 5. Sign the RPM using our injected GPG Key
+    - name: Sign the RPM
+      env:
+        GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASS: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        # 1. GPG is extremely paranoid about permissions. Set them explicitly.
+        mkdir -p ~/.gnupg
+        chmod 700 ~/.gnupg
+        
+        # 2. Force GPG to run headless without trying to pop up a password window
+        echo "use-agent" > ~/.gnupg/gpg.conf
+        echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+        echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+        
+        # 3. Explicitly boot the agent in the background so the IPC socket is ready
+        gpg-agent --daemon
+        
+        # 4. Import the key to the container using batch mode
+        echo "$GPG_KEY" | gpg --batch --yes --import
+        
+        # 5. Get the key ID we just imported
+        KEY_ID=$(gpg --list-keys --with-colons | awk -F: '/^pub:/ { print $5; exit }')
+        
+        # 6. Configure RPM to use this key and a non-interactive passphrase loopback
+        echo "%_signature gpg" > ~/.rpmmacros
+        echo "%_gpg_name $KEY_ID" >> ~/.rpmmacros
+        
+        # Tell RPM exactly how to call GPG silently
+        echo "%__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --passphrase $GPG_PASS -u %{_gpg_name} -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}" >> ~/.rpmmacros
+        
+        # 7. Sign the package!
+        rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/*.rpm
+
+    # 6. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@v2
       with:

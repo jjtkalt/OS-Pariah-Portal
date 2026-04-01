@@ -97,7 +97,7 @@ def policy_agreement():
     if not session.get('uuid'):
         return redirect(url_for('auth.login'))
 
-    current_version = get_dynamic_config('global_policy_version', '1.0')
+    current_version = get_dynamic_config('global_policy_version')
     pariah_conn = get_pariah_db()
 
     if request.method == 'POST':

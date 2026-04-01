@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from app.utils.db import get_pariah_db
 from app.utils.auth_helpers import require_admin
+from app.blueprints.api.routes import fetch_all_online_users
+from app.utils.robust_api import get_total_regions_count
 
 comms_bp = Blueprint('comms', __name__, url_prefix='/comms')
 
@@ -82,3 +84,27 @@ def delete_news(news_id):
         flash("A database error occurred while deleting the announcement.", "error")
 
     return redirect(url_for('comms.news_feed'))
+
+@comms_bp.route('/splash', methods=['GET'])
+def viewer_splash():
+    """Lightweight landing page for OpenSim Viewer CEF browsers."""
+    
+    # 1. Fetch Grid Stats (Both are utilizing memory caching!)
+    online_users = fetch_all_online_users()
+    online_count = len(online_users) if online_users else 0
+    region_count = get_total_regions_count()
+
+    # 2. Fetch Latest News (Limit to top 10 for the splash screen)
+    pariah_conn = get_pariah_db()
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT id, title, body, author_name, created_at, is_alert
+            FROM global_news
+            ORDER BY created_at DESC LIMIT 10
+        """)
+        latest_news = cursor.fetchall()
+
+    return render_template('comms/splash.html', 
+                           online_count=online_count, 
+                           region_count=region_count, 
+                           news=latest_news)

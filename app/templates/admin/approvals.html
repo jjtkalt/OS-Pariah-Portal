@@ -4,11 +4,11 @@
 
 {% block content %}
 <div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>Pending Registrations (Level -1)</h2>
+    <h2>Pending Registrations</h2>
 </div>
 
 <p style="color: var(--text-muted); margin-bottom: 24px;">
-    These users have verified their emails but are locked at Level -1. Approving them grants Level 0 access via the Robust API. Rejecting them locks them permanently.
+    These users have verified their emails but are awaiting approval. Approving them grants access. Rejecting them locks them permanently.
 </p>
 
 {% if users %}

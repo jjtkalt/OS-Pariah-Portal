@@ -20,11 +20,11 @@
             <input type="text" id="reason" name="reason" placeholder="e.g., Griefing Welcome Area" required>
             
             <label for="type">Ban Scope</label>
-            <select id="type" name="type">
-                <option value="account">Account Only (Locks UUID)</option>
-                <option value="ip">Network Only (Blocks IP)</option>
-                <option value="mac">Hardware Only (Blocks MAC)</option>
-                <option value="mixed" selected>Mixed / Blanket (Blocks everything provided below)</option>
+            <select name="type" id="type" class="form-control">
+                <option value="account" {% if request.args.get('type') == 'account' %}selected{% endif %}>Account</option>
+                <option value="ip" {% if request.args.get('type') == 'ip' %}selected{% endif %}>IP Firewall</option>
+                <option value="mac" {% if request.args.get('type') == 'mac' %}selected{% endif %}>MAC Hardware</option>
+                <option value="hostid" {% if request.args.get('type') == 'hostid' %}selected{% endif %}>Host ID</option>
             </select>
         </fieldset>
 

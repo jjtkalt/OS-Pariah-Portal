@@ -48,12 +48,12 @@ def send_matrix_discord_webhook(title, message, color=3447003, fields=None):
 
 def send_verification_email(to_email, token):
     """Generates the unique link and emails the user."""
-    grid_name = get_dynamic_config('grid_name', 'OS Pariah')
+    grid_name = get_dynamic_config('grid_name')
     smtp_server = get_dynamic_config('smtp_server')
-    smtp_port = int(get_dynamic_config('smtp_port', 587))
+    smtp_port = int(get_dynamic_config('smtp_port'))
     smtp_user = get_dynamic_config('smtp_user')
     smtp_pass = get_dynamic_config('smtp_pass')
-    smtp_from = get_dynamic_config('smtp_from', 'noreply@example.com')
+    smtp_from = get_dynamic_config('smtp_from')
     
     # Generate the absolute URL to the verification endpoint
     verify_url = url_for('register.verify_email', token=token, _external=True)
@@ -88,10 +88,10 @@ def send_verification_email(to_email, token):
 def send_approval_email(to_email, grid_name):
     """Sends the welcome email to the user once staff approves them."""
     smtp_server = get_dynamic_config('smtp_server')
-    smtp_port = int(get_dynamic_config('smtp_port', 587))
+    smtp_port = int(get_dynamic_config('smtp_port'))
     smtp_user = get_dynamic_config('smtp_user')
     smtp_pass = get_dynamic_config('smtp_pass')
-    smtp_from = get_dynamic_config('smtp_from', 'noreply@example.com')
+    smtp_from = get_dynamic_config('smtp_from')
 
     msg = EmailMessage()
     msg.set_content(
@@ -138,12 +138,12 @@ def notify_staff_new_app(first_name, last_name, user_uuid, inviter, discord, mat
 
 def send_ticket_transcript_email(to_email, ticket_id, subject, reply_body, replier_name):
     """Sends a ticket reply transcript to the user/guest."""
-    grid_name = get_dynamic_config('grid_name', 'OS Pariah')
+    grid_name = get_dynamic_config('grid_name')
     smtp_server = get_dynamic_config('smtp_server')
-    smtp_port = int(get_dynamic_config('smtp_port', 587))
+    smtp_port = int(get_dynamic_config('smtp_port'))
     smtp_user = get_dynamic_config('smtp_user')
     smtp_pass = get_dynamic_config('smtp_pass')
-    smtp_from = get_dynamic_config('smtp_from', 'noreply@example.com')
+    smtp_from = get_dynamic_config('smtp_from')
 
     if not smtp_server or not to_email:
         return
@@ -174,12 +174,12 @@ def send_ticket_transcript_email(to_email, ticket_id, subject, reply_body, repli
 
 def send_password_reset_email(to_email, token):
     """Sends the secure password reset link to the user."""
-    grid_name = get_dynamic_config('grid_name', 'OS Pariah')
+    grid_name = get_dynamic_config('grid_name')
     smtp_server = get_dynamic_config('smtp_server')
-    smtp_port = int(get_dynamic_config('smtp_port', 587))
+    smtp_port = int(get_dynamic_config('smtp_port'))
     smtp_user = get_dynamic_config('smtp_user')
     smtp_pass = get_dynamic_config('smtp_pass')
-    smtp_from = get_dynamic_config('smtp_from', 'noreply@example.com')
+    smtp_from = get_dynamic_config('smtp_from')
 
     reset_url = url_for('auth.reset_password', token=token, _external=True)
 

@@ -9,7 +9,7 @@ from app.utils.notifications import send_matrix_discord_webhook, send_ticket_tra
 tickets_bp = Blueprint('tickets', __name__, url_prefix='/tickets')
 
 def allowed_file(filename):
-    allowed_str = get_dynamic_config('allowed_attachment_exts', 'png,jpg,jpeg,gif,txt,pdf,log')
+    allowed_str = get_dynamic_config('allowed_attachment_exts')
     allowed_exts = [ext.strip().lower() for ext in allowed_str.split(',')]
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_exts
 
@@ -108,7 +108,7 @@ def new_ticket():
             flash('A database error occurred while saving your ticket.', 'error')
 
     # Explicitly grab the site key from the dynamic config!
-    site_key = get_dynamic_config('TURNSTILE_SITE_KEY', '3x00000000000000000000FF')
+    site_key = get_dynamic_config('TURNSTILE_SITE_KEY')
     return render_template('tickets/new_ticket.html', site_key=site_key)
 
 @tickets_bp.route('/view/<int:ticket_id>')
@@ -141,7 +141,7 @@ def view(ticket_id):
 
     allow_delete = False
     if is_admin:
-        allow_delete = get_dynamic_config('allow_ticket_deletion', 'false') == 'true'
+        allow_delete = get_dynamic_config('allow_ticket_deletion') == 'true'
 
     return render_template('tickets/view.html', ticket=ticket, replies=replies, attachments=attachments, allow_delete=allow_delete)
 
@@ -253,7 +253,7 @@ def reply_ticket(ticket_id):
 
 @tickets_bp.route('/<int:ticket_id>/delete', methods=['POST'])
 def delete_ticket(ticket_id):
-    if int(session.get('user_level', 0)) < 250 or get_dynamic_config('allow_ticket_deletion', 'false') != 'true':
+    if int(session.get('user_level', 0)) < 250 or get_dynamic_config('allow_ticket_deletion') != 'true':
         flash("Unauthorized: Ticket deletion is disabled globally or you lack clearance.", "error")
         return redirect(url_for('tickets.view', ticket_id=ticket_id))
 

@@ -15,12 +15,12 @@ def validate_invite_code(code):
 @register_bp.route('/', methods=['GET', 'POST'])
 def register():
     # Fetch dynamic configurations from OS_Pariah DB
-    require_approval = get_dynamic_config('require_admin_approval', 'true') == 'true'
-    require_other_info = get_dynamic_config('require_other_info', 'true') == 'true'
-    require_invite_code = get_dynamic_config('require_invite_code', 'false') == 'true'
+    require_approval = get_dynamic_config('require_admin_approval') == 'true'
+    require_other_info = get_dynamic_config('require_other_info') == 'true'
+    require_invite_code = get_dynamic_config('require_invite_code') == 'true'
 
     if request.method == 'GET':
-        site_key = get_dynamic_config('TURNSTILE_SITE_KEY', '3x00000000000000000000FF')
+        site_key = get_dynamic_config('TURNSTILE_SITE_KEY')
 
         # Fetch the dynamic policy links
         pariah_conn = get_pariah_db()

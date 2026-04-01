@@ -23,7 +23,7 @@ def view_policy(slug):
         flash("You must be logged in to view this document.", "error")
         return redirect(url_for('auth.login'))
 
-    current_version = get_dynamic_config('global_policy_version', '1.0')
+    current_version = get_dynamic_config('global_policy_version')
     return render_template('policies/view.html', policy=policy, version=current_version)
 
 @policies_bp.route('/admin/manage', methods=['GET'])
@@ -35,7 +35,7 @@ def manage_policies():
         return redirect(url_for('comms.news_feed'))
 
     pariah_conn = get_pariah_db()
-    current_version = get_dynamic_config('global_policy_version', '1.0')
+    current_version = get_dynamic_config('global_policy_version')
     
     with pariah_conn.cursor() as cursor:
         cursor.execute("SELECT slug, title, category, requires_login, updated_at FROM policies ORDER BY category ASC, title ASC")
@@ -68,7 +68,7 @@ def create_policy():
                                (slug, title, body, category, requires_login))
 
                 if version_action in ['minor', 'major']:
-                    current_version = get_dynamic_config('global_policy_version', '1.0')
+                    current_version = get_dynamic_config('global_policy_version')
                     try:
                         major, minor = map(int, current_version.split('.'))
                         new_version = f"{major + 1}.0" if version_action == 'major' else f"{major}.{minor + 1}"
@@ -115,7 +115,7 @@ def edit_policy(slug):
                            (title, body, category, requires_login, slug))
 
             if version_action in ['minor', 'major']:
-                current_version = get_dynamic_config('global_policy_version', '1.0')
+                current_version = get_dynamic_config('global_policy_version')
                 try:
                     major, minor = map(int, current_version.split('.'))
                     new_version = f"{major + 1}.0" if version_action == 'major' else f"{major}.{minor + 1}"

@@ -3,8 +3,8 @@
 #
 
 Name:           os-pariah-portal
-Version:        0.9.0
-Release:        1%{?dist}
+Version:        0.9.2
+Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
 License:        MIT
@@ -38,7 +38,7 @@ mkdir -p %{buildroot}/etc/nginx/vhosts.d
 mkdir -p %{buildroot}/var/log/os_pariah
 
 # Copy application files
-cp -r app migrations wsgi.py worker.py migrate.py requirements.txt %{buildroot}/opt/os_pariah/
+cp -r app scripts migrations wsgi.py worker.py migrate.py requirements.txt %{buildroot}/opt/os_pariah/
 
 # Install the default blank config template
 cp .env.example %{buildroot}/etc/os_pariah/os-pariah.conf
@@ -54,7 +54,7 @@ cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
 
 %post
 # Add sudo permissions for pariah user
-echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service" > /etc/sudoers.d/pariah_worker
+echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" > /etc/sudoers.d/pariah_worker
 chmod 0440 /etc/sudoers.d/pariah_worker
 
 # This runs AFTER the files are copied to the server.
@@ -69,14 +69,41 @@ echo "Installing Python Dependencies..."
 chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /etc/os_pariah
 chmod 640 /etc/os_pariah/os-pariah.conf
 
+# Initialize Firewalld Ban Hammer IPSet (If firewalld is running)
+echo "Configuring firewalld rules for Pariah Ban Hammer..."
+if systemctl is-active --quiet firewalld; then
+    firewall-cmd --permanent --new-ipset=pariah_banned_ips --type=hash:net || true
+    firewall-cmd --permanent --add-rich-rule='rule source ipset="pariah_banned_ips" drop' || true
+    firewall-cmd --reload || true
+else
+    echo "WARNING: firewalld is not currently active."
+    echo "The pariah_banned_ips ipset will need to be created manually once the firewall is started."
+fi
+
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
 
-# Setup dummy certs
-openssl req -x509 -out /etc/nginx/dummy.crt -keyout /etc/nginx/dummy.key -newkey rsa:2048 -nodes -sha256 -subj '/CN=pariahhost' -extensions EXT -config <( printf "[dn]\\nCN=pariahhost\\n[req]\\ndistinguished_name = dn\\n[EXT]\\nsubjectAltName=DNS:pariahhost\\nkeyUsage=digitalSignature\\nextendedKeyUsage=serverAuth")
+# Safely generate the dummy SSL certificate using a temporary config file
+cat << 'EOF' > /tmp/pariah-openssl.cnf
+[dn]
+CN=pariahhost
+[req]
+distinguished_name = dn
+[EXT]
+subjectAltName=DNS:pariahhost
+keyUsage=digitalSignature
+extendedKeyUsage=serverAuth
+EOF
+
+openssl req -x509 -out /etc/nginx/dummy.crt -keyout /etc/nginx/dummy.key \
+    -newkey rsa:2048 -nodes -sha256 -subj '/CN=pariahhost' \
+    -extensions EXT -config /tmp/pariah-openssl.cnf
+
+# Clean up the temp file
+rm -f /tmp/pariah-openssl.cnf
 
 echo "========================================================="
-echo "OS Pariah Portal v0.9.0 Installed Successfully!"
+echo "OS Pariah Portal Installed Successfully!"
 echo "1. Edit /etc/os_pariah/os-pariah.conf with your DB credentials."
 echo "2. Run database migrations: sudo su - pariah -s /bin/bash -c 'cd /opt/os_pariah && venv/bin/python migrate.py'"
 echo "3. Start the portal: sudo systemctl enable --now pariah"

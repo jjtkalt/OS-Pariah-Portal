@@ -1,3 +1,4 @@
+import subprocess
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.auth_helpers import require_admin
@@ -129,11 +130,27 @@ def manage_bans():
         
     return render_template('admin/manage_bans.html', bans=bans)
 
+def trigger_system_sync_workers(ban_id="Manual/Unknown"):
+    """Triggers the secure background scripts to sync firewalld and Robust."""
+    current_app.logger.info(f"Triggering system synchronizations for Ban ID {ban_id}...")
+    try:
+        # 1. Fire the IP/HostID Firewall Sync
+        subprocess.Popen(
+            ["/usr/bin/sudo", "/opt/os_pariah/venv/bin/python", "/opt/os_pariah/scripts/sync_firewall.py"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
+        )
+        # 2. Fire the Robust MAC Sync
+        subprocess.Popen(
+            ["/usr/bin/sudo", "/opt/os_pariah/venv/bin/python", "/opt/os_pariah/scripts/sync_robust.py"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
+        )
+    except Exception as e:
+        current_app.logger.error(f"Failed to trigger sync workers: {e}")
+
 @user_mgmt_bp.route('/bans/create', methods=['GET', 'POST'])
 @require_admin
 def create_ban():
     if request.method == 'GET':
-        # Accept pre-population arguments from the Gatekeeper Lookup buttons
         prep_uuid = request.args.get('uuid', '')
         prep_ip = request.args.get('ip', '')
         prep_mac = request.args.get('mac', '')
@@ -148,12 +165,34 @@ def create_ban():
     macs = [m.strip() for m in request.form.get('macs', '').split('\n') if m.strip()]
     hostids = [h.strip() for h in request.form.get('hostids', '').split('\n') if h.strip()]
 
+    # --- SEVERITY DATA FILTERING ---
+    # If the admin downgrades the ban type, we discard the higher-level identifiers 
+    # so we don't accidentally enforce a firewall block on an "Account Only" ban.
+    if ban_type == 'account':
+        ips, macs, hostids = [], [], []
+    elif ban_type == 'ip':
+        macs, hostids = [], []
+    elif ban_type == 'mac':
+        hostids = []
+    # If 'hostid', we keep everything (the ultimate ban).
+
+    # --- Determine Severity Level ---
+    target_level = int(get_dynamic_config('ban_level_account'))
+    if ban_type == 'hostid':
+        target_level = int(get_dynamic_config('ban_level_host'))
+    elif ban_type == 'mac':
+        target_level = int(get_dynamic_config('ban_level_mac'))
+    elif ban_type == 'ip':
+        target_level = int(get_dynamic_config('ban_level_ip'))
+
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
+            # 1. Master Record
             cursor.execute("INSERT INTO bans_master (reason, type) VALUES (%s, %s)", (reason, ban_type))
             ban_id = cursor.lastrowid
 
+            # 2. Cascading Data Inserts
             for ip in ips:
                 cursor.execute("INSERT INTO bans_ip (banid, ip) VALUES (%s, %s)", (ban_id, ip))
             for mac in macs:
@@ -161,16 +200,21 @@ def create_ban():
             for hostid in hostids:
                 cursor.execute("INSERT INTO bans_host_id (banid, hostid) VALUES (%s, %s)", (ban_id, hostid))
 
+            # 3. Robust Execution
             for uuid in uuids:
                 cursor.execute("INSERT INTO bans_uuid (banid, uuid) VALUES (%s, %s)", (ban_id, uuid))
-                # ACTIVE ENFORCEMENT: Pull from dynamic config!
-                banned_level = int(get_dynamic_config('rejected_user_level', '-5'))
-                if ban_type in ['account', 'mixed']:
-                    set_user_level(uuid, banned_level)
-                    current_app.logger.info(f"Actively enforced ban on UUID {uuid} via Robust API.")
+                
+                # Push the exact tier to Robust
+                set_user_level(uuid, target_level)
+                current_app.logger.info(f"Ban Level {target_level} actively enforced on UUID {uuid}.")
 
         pariah_conn.commit()
-        flash(f'Ban created and actively enforced successfully.', 'success')
+
+        # 4. Trigger Firewall & Robust Workers
+        if ban_type in ['ip', 'mac', 'hostid']:
+            trigger_system_sync_workers(ban_id)
+
+        flash(f'Severity Level {target_level} Ban created and actively enforced successfully.', 'success')
     except Exception as e:
         current_app.logger.error(f"Ban creation failed: {e}")
         flash('Failed to create ban. Check logs.', 'error')
@@ -196,9 +240,35 @@ def delete_ban(ban_id):
         for uuid in banned_uuids:
             set_user_level(uuid, 0)
 
+        # --- Trigger System Synchronization ---
+        trigger_system_sync_workers(ban_id)
+        # --------------------------------------
+
         flash(f"Ban removed. {len(banned_uuids)} associated avatars have been restored to Level 0.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete ban {ban_id}: {e}")
         flash("An error occurred while removing the ban.", "error")
 
     return redirect(url_for('user_mgmt.manage_bans'))
+
+@user_mgmt_bp.route('/<uuid>/set_level', methods=['POST'])
+@require_admin
+def update_user_level(uuid):
+    """Allows Super Admins to manually adjust a user's level (e.g., Promotions)."""
+    if int(session.get('user_level', 0)) < 250:
+        flash("Only Level 250+ Admins can manually adjust user access levels.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
+    new_level = request.form.get('new_level')
+    
+    try:
+        new_level = int(new_level)
+        set_user_level(uuid, new_level)
+        flash(f"User level successfully updated to {new_level}.", "success")
+    except ValueError:
+        flash("Invalid level provided.", "error")
+    except Exception as e:
+        current_app.logger.error(f"Failed to update level for {uuid}: {e}")
+        flash("A database error occurred.", "error")
+
+    return redirect(url_for('user_mgmt.gatekeeper_lookup'))

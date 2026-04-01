@@ -177,7 +177,7 @@ def process_iar_backups():
                     last_name = account['LastName']
                 robust_conn.close()
 
-                iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR', '/home/opensim/os_pariah_portal/app/static/downloads/iars')
+                iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
                 os.makedirs(iar_output_dir, exist_ok=True)
                 
                 timestamp = int(time.time())
@@ -251,8 +251,8 @@ def process_iar_backups():
 def cleanup_old_iars():
     """Deletes old IAR files, database records, and user notices that exceed the retention policy."""
     conn = get_pariah_db()
-    retention_days = int(get_dynamic_config('iar_retention_days', '7'))
-    iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR', '/home/opensim/os_pariah_portal/app/static/downloads/iars')
+    retention_days = int(get_dynamic_config('iar_retention_days'))
+    iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
 
     try:
         with conn.cursor() as cursor:

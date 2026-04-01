@@ -1,6 +1,8 @@
 import requests
 import urllib.parse
 from flask import current_app
+from app import cache
+from app.utils.db import get_robust_db
 
 def call_robust_api(method, payload):
     """
@@ -55,3 +57,18 @@ def set_user_level(uuid, level):
     if response_text and 'True' in response_text: # Assuming Robust returns True on success
         return True
     return False
+
+@cache.cached(timeout=300, key_prefix='total_regions_count')
+def get_total_regions_count():
+    """Fetches the total number of connected regions from Robust, cached for 5 minutes."""
+    count = 0
+    try:
+        robust_conn = get_robust_db()
+        with robust_conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(uuid) as region_count FROM regions")
+            result = cursor.fetchone()
+            if result and 'region_count' in result:
+                count = result['region_count']
+    except Exception as e:
+        current_app.logger.error(f"Failed to fetch region count: {e}")
+    return count

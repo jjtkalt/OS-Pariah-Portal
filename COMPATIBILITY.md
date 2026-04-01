@@ -8,12 +8,13 @@ While the portal *may* work with standard OpenSimulator Core or other forks, we 
 
 ## 📊 Supported Versions
 
-| OS Pariah Portal | NGC-Tranquility | OpenSimulator Core | Status | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **v0.9.0 (Beta)** | 🟢`v0.9.3.9333`<br />🟢`v0.9.3.9254` | ⚪`0.9.3 (Dev)` | Active | Initial RPM Beta Release. |
-| **v0.x.x** | 🔴Not Supported | 🔴Not Supported | Legacy | Pre-RPM source deployments only. |
+| OS Pariah Portal | NGC-Tranquility | Status | Notes |
+| :--- | :--- | :--- | :--- |
+| **v0.9.2** | 🟢`v0.9.3.9333` | 🟢Active | Current Development Beta Release. |
+| **v0.9.0 - v0.9.1** | 🟡`v0.9.3.9333`<br />⚪`v0.9.3.9254` | 🟡Beta | Initial post-alpha Release. |
+| **v0.x.x** | 🔴Pre-Tranquility | 🔴Legacy | Alpha source - Testing and POC releases. |
 
-Legend: 🟢Supported, 🟡Partially functional, ⚪Untested but should have some functionality or work, 🔴Unsupported
+Legend: 🟢Supported, 🟡Partially functional, ⚪Untested but should be fully to partially functional, 🔴Not Functional
 
 ## 🔍 How Compatibility is Determined
 The OS Pariah Portal relies on specific structures within the `robust` database (EG: the `useraccounts`, `griduser`, or `auth` tables) as well as standard Gatekeeper logging formats. 
@@ -21,8 +22,11 @@ The OS Pariah Portal relies on specific structures within the `robust` database 
 If an upstream OpenSimulator update alters these database schemas or removes required XML-RPC endpoints, compatibility will break. We will update this matrix as we test new upstream releases.
 
 ## 🛠️ Using Unsupported Versions
-If you are running a grid on an unlisted or unsupported version of OpenSimulator (such as an older Core fork), the portal may still install correctly, but you may experience:
+If you are running a grid on an unlisted or unsupported version of OpenSimulator (such as an older Core fork), the portal may still install correctly, but you may experience issues like, but not limited to:
 * 500 Server Errors during login or registration.
+* Missing functions integrated.
+* Incorrect function access.
+* Failed configuration coordination.
 * Failures in the background IAR backup worker.
 * Inaccurate online user counts.
 

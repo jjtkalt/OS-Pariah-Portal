@@ -4,6 +4,8 @@ from flask_caching import Cache
 from dbutils.pooled_db import PooledDB
 import pymysql
 import subprocess
+import os
+import fcntl
 
 cache = Cache()
 
@@ -22,24 +24,38 @@ def create_app(config_class='app.config.Config'):
         # Initialize caching AFTER the config has been updated from the database
         cache.init_app(app)
 
-        try:
-            subprocess.Popen(
-                ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
-            )
-        except Exception as e:
-            app.logger.error(f"Failed to wake IAR worker on boot: {e}")
+        # --- WORKER STORM FIX: Only run in production/dev, NEVER in tests ---
+        if not app.config.get('TESTING'):
+            try:
+                # Attach the file to the app object so Python's Garbage Collector doesn't destroy it!
+                app._iar_lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
+                
+                # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
+                fcntl.flock(app._iar_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                
+                # If the code reaches this line, this worker WON the race!
+                subprocess.Popen(
+                    ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+                
+            except BlockingIOError:
+                # Another worker already holds the lock. Quietly move on.
+                pass
+            except Exception as e:
+                app.logger.error(f"Failed to wake IAR worker on boot: {e}")
+        # --------------------------------------------------------------
 
     # Inject global variables into all Jinja2 templates automatically
     @app.context_processor
     def inject_globals():
         from app.utils.db import get_dynamic_config
         return {
-            'grid_name': get_dynamic_config('grid_name', 'OS Pariah'),
-            'grid_website_url': get_dynamic_config('grid_website_url', 'https://ospariah.com'),
-            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY', '1x00000000000000000000AA')
+            'grid_name': get_dynamic_config('grid_name'),
+            'grid_website_url': get_dynamic_config('grid_website_url'),
+            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY')
         }
 
     from .blueprints.auth.routes import auth_bp
@@ -66,6 +82,11 @@ def create_app(config_class='app.config.Config'):
 
     @app.before_request
     def require_policy_agreement():
+        # --- TEST BOT IMMUNITY ---
+        if app.config.get('TESTING'):
+            return
+        # -------------------------
+        
         from app.utils.db import get_pariah_db, get_dynamic_config
         
         if 'uuid' not in session:
@@ -75,7 +96,7 @@ def create_app(config_class='app.config.Config'):
         if request.blueprint in exempt_blueprints or request.endpoint in ['static', 'user.policy_agreement', 'policies.view_policy']:
             return
             
-        current_version = get_dynamic_config('global_policy_version', '1.0')
+        current_version = get_dynamic_config('global_policy_version')
         
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:

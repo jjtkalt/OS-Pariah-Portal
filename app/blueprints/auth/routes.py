@@ -74,6 +74,13 @@ def login():
                 final_hash = hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
                 if final_hash == auth_data['passwordHash']:
+
+                    # --- THE GATEKEEPER / BOUNCER ---
+                    if account['userLevel'] < 0:
+                        flash('Your account is currently locked, pending approval, or banned.', 'error')
+                        return redirect(url_for('auth.login'))
+                    # --------------------------------
+
                     session['uuid'] = user_uuid
                     session['name'] = f"{first_name} {last_name}"
                     session['user_level'] = account['userLevel']
@@ -127,7 +134,7 @@ def get_private_key():
 def oidc_discovery():
     """Standard OIDC Discovery document."""
     # The issuer domain must match what is configured in your portal settings
-    domain = get_dynamic_config('portal_url', request.host_url.rstrip('/'))
+    domain = get_dynamic_config('portal_url')
 
     return jsonify({
         "issuer": domain,
@@ -234,7 +241,7 @@ def token():
 
     issued_at = int(time.time())
     expires_at = issued_at + 3600 # 1 hour
-    domain = get_dynamic_config('portal_url', request.host_url.rstrip('/'))
+    domain = get_dynamic_config('portal_url')
     
     id_token_payload = {
         "iss": domain,
@@ -351,7 +358,7 @@ def forgot_password():
         flash(generic_success_message, 'info')
         return redirect(url_for('auth.login'))
 
-    site_key = get_dynamic_config('TURNSTILE_SITE_KEY', '3x00000000000000000000FF')
+    site_key = get_dynamic_config('TURNSTILE_SITE_KEY')
     return render_template('auth/forgot.html', site_key=site_key)
 
 @auth_bp.route('/reset/<token>', methods=['GET', 'POST'])

@@ -71,7 +71,17 @@
                             <span class="uuid" style="display: block; margin-bottom: 5px;">{{ u }}</span>
                             <div style="display: flex; justify-content: space-between;">
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" style="font-size: 0.85rem; color: var(--info); font-weight: bold; text-decoration: none;">View Staff Notes &rarr;</a>
-                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u) }}" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; text-decoration: none;">Ban UUID</a>
+                                
+                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; text-decoration: none;">Ban UUID</a>
+                                
+                                {% if session.get('user_level', 0)|int >= 250 %}
+                                <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" style="display: inline-block; margin-left: 15px;">
+                                    <div class="input-group">
+                                        <input type="number" name="new_level" class="form-control" placeholder="Level (e.g. 200)" required style="width: 120px; display: inline-block;">
+                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                    </div>
+                                </form>
+                                {% endif %}
                             </div>
                         </li>
                     {% endfor %}
@@ -84,7 +94,7 @@
                     {% for ip in results.ips %}
                         <li style="margin-bottom: 8px;">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" style="color: var(--text-main);">{{ ip }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip) }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -96,7 +106,7 @@
                     {% for mac in results.macs %}
                         <li style="margin-bottom: 8px;">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" style="color: var(--text-main);">{{ mac }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac) }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -108,7 +118,7 @@
                     {% for hid in results.host_ids %}
                         <li style="margin-bottom: 8px;">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" style="color: var(--text-main);">{{ hid }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid) }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>

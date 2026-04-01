@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {{ grid_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/central.css') }}">
+</head>
+
+<body>
+    <div class="background">
+        <div class="splash-screen">
+            <div class="panel">
+                <h2>Latest Grid News</h2>
+                {% if news %}
+                    {% for item in news %}
+                    <div class="group" style="max-height: none; {% if item.is_alert %}border-left: 4px solid var(--danger); background: var(--danger-bg);{% else %}border-left: 4px solid var(--primary); background: var(--card-bg);{% endif %} padding: 16px;">
+                        <span class="date">{{ item.created_at.strftime('%B %d, %Y') }}</span>
+                        <h3 style="{% if item.is_alert %}color: var(--danger);{% endif %}">
+                            {% if item.is_alert %}🚨 ALERT: {% endif %}{{ item.title }}
+                        </h3>
+                        <p>{{ item.body }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No recent announcements.</p>
+                {% endif %}
+            </div>
+
+            <div class="panel">
+                <h2>Grid Status</h2>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-number">{{ online_count }}</span>
+                        <span class="stat-label">Users Online</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number">{{ region_count }}</span>
+                        <span class="stat-label">Active Regions</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px;">Quick Links</h3>
+                <a href="{{ url_for('index', _external=True) }}" class="btn btn-primary" style="display:block; text-align:center; border: 1px solid var(--text-muted); margin-bottom:10px;" target="_blank">{{grid_name}} User Portal</a>
+                <a href="{{ url_for('register.register', _external=True) }}" class="btn btn-primary" style="display:block; text-align:center; border: 1px solid var(--text-muted); margin-bottom:10px;" target="_blank">Create an Account</a>
+                <a href="{{ url_for('tickets.new_ticket', _external=True) }}" class="btn" style="display:block; text-align:center; border: 1px solid var(--text-muted); margin-bottom:10px;" target="_blank">Support Helpdesk</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
