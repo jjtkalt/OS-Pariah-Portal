@@ -26,6 +26,22 @@ Before installing or upgrading, please check the [Compatibility Matrix](COMPATIB
 
 Install the RPM.  Note: This is only tested on openSUSE 15.6 right now per the OS-Pariah Installation project
 
+To verify the RPM, add this public key to your rpm key ring (save to a file, then rpm --import <file>).  Please note - the is the signing key for the Pariah ecosystem:
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEaczq4RYJKwYBBAHaRw8BAQdAk33PRQWPrSBVPWowoeYunQPP82t8qkBbl+a9
+GWBJF9+0HkpqIEthbHQgPGpqYW5kdGthbHRAZ21haWwuY29tPoiTBBMWCgA7FiEE
+7WH3aBWPsIvqEdDqgoSdDkW0ATQFAmnM6uECGwMFCwkIBwICIgIGFQoJCAsCBBYC
+AwECHgcCF4AACgkQgoSdDkW0ATSAQwEAkr+VpdxRsRq3w5wWWZEj++pjfrAOFknj
+R6ujsCE9lqYBANr43plIvWNh5XOKpThFpJY3VtLd5lR4aD6BpWJeP6cEuDgEaczq
+4RIKKwYBBAGXVQEFAQEHQLvb4DWe6M73W2PN8flODiV8Mq71DKdN7RlLZLmEmKxo
+AwEIB4h4BBgWCgAgFiEE7WH3aBWPsIvqEdDqgoSdDkW0ATQFAmnM6uECGwwACgkQ
+goSdDkW0ATRrsQD/TE5LQlgpUiWRh8i/P7irqMD7JMziH9MakUYteFvmW0UBAP+f
+iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
+=UiGf
+-----END PGP PUBLIC KEY BLOCK-----
+
 ### Manual Installation
 
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.

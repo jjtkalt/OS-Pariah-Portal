@@ -72,8 +72,24 @@ chmod 640 /etc/os_pariah/os-pariah.conf
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
 
-# Setup dummy certs
-openssl req -x509 -out /etc/nginx/dummy.crt -keyout /etc/nginx/dummy.key -newkey rsa:2048 -nodes -sha256 -subj '/CN=pariahhost' -extensions EXT -config <( printf "[dn]\\nCN=pariahhost\\n[req]\\ndistinguished_name = dn\\n[EXT]\\nsubjectAltName=DNS:pariahhost\\nkeyUsage=digitalSignature\\nextendedKeyUsage=serverAuth")
+# Safely generate the dummy SSL certificate using a temporary config file
+cat << 'EOF' > /tmp/pariah-openssl.cnf
+[dn]
+CN=pariahhost
+[req]
+distinguished_name = dn
+[EXT]
+subjectAltName=DNS:pariahhost
+keyUsage=digitalSignature
+extendedKeyUsage=serverAuth
+EOF
+
+openssl req -x509 -out /etc/nginx/dummy.crt -keyout /etc/nginx/dummy.key \
+    -newkey rsa:2048 -nodes -sha256 -subj '/CN=pariahhost' \
+    -extensions EXT -config /tmp/pariah-openssl.cnf
+
+# Clean up the temp file
+rm -f /tmp/pariah-openssl.cnf
 
 echo "========================================================="
 echo "OS Pariah Portal v0.9.0 Installed Successfully!"

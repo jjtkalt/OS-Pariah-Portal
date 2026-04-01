@@ -16,7 +16,7 @@ jobs:
     - name: Install Prerequisites & RPM Tools
       run: |
         zypper refresh
-        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
+        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed rpm
 
     # 2. Checkout the code (now that git is installed)
     - name: Checkout Code
@@ -44,7 +44,27 @@ jobs:
     - name: Compile the RPM
       run: rpmbuild -ba --define "build_number ${{ github.run_number }}" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 5. Attach the finished .rpm file to your GitHub Release
+    # 5. Sign the RPM using our injected GPG Key
+    - name: Sign the RPM
+      env:
+        GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASS: ${{ secrets.GPG_PASSPHRASE }}
+      run: |
+        # Import the key to the container
+        echo "$GPG_KEY" | gpg --import
+        
+        # Get the key ID we just imported
+        KEY_ID=$(gpg --list-keys --with-colons | awk -F: '/^pub:/ { print $5; exit }')
+        
+        # Configure RPM to use this key and a non-interactive passphrase loopback
+        echo "%_signature gpg" > ~/.rpmmacros
+        echo "%_gpg_name $KEY_ID" >> ~/.rpmmacros
+        echo "%__gpg_sign_cmd %{__gpg} gpg --no-tty --pinentry-mode loopback --batch --passphrase $GPG_PASS --sign --detach-sign --armor %{__plaintext_filename}" >> ~/.rpmmacros
+        
+        # Sign the package!
+        rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/*.rpm
+
+    # 6. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
