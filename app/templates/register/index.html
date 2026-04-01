@@ -83,7 +83,7 @@
     </div>
 
     <div id="submitMessage" style="background: #fee2e2; color: #991b1b; padding: 12px 16px; border-radius: 6px; border: 1px solid #f87171; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5; display: block;">
-        <strong>Almost there!</strong> Please fill in the form to enable submission.
+        Please fill in the form to enable submission.
     </div>
 
     <button type="submit" id="submitBtn" style="width: 100%; font-size: 1.1rem; padding: 14px;" disabled>
@@ -207,7 +207,7 @@
         if (missing.length > 0) {
             // If they haven't touched the form at all, show the friendly default message
             if (totalTyping === 0 && words === 0 && !policyCheck.checked && !ageCheck.checked) {
-                msgBox.innerHTML = "<strong>Almost there!</strong> Please complete the form to enable submission.";
+                msgBox.innerHTML = "Please complete the form to enable submission.";
             } else {
                 // Show the live checklist
                 msgBox.innerHTML = "<strong>Please complete the following:</strong><br>&bull; " + missing.join("<br>&bull; ");
