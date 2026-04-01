@@ -16,7 +16,7 @@ jobs:
     - name: Install Prerequisites & RPM Tools
       run: |
         zypper refresh
-        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed rpm
+        zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
 
     # 2. Checkout the code (now that git is installed)
     - name: Checkout Code
