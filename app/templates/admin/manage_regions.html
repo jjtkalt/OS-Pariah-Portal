@@ -6,7 +6,7 @@
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
     <div>
         <h1 style="color: var(--primary); margin: 0;">Region Configurations</h1>
-        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Synchronized data from Robust and Portal Configs.</p>
+        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Regions Configurations and live information from Robust.</p>
     </div>
 
     <div style="display: flex; gap: 10px;">
@@ -38,10 +38,12 @@
                 <td style="font-weight: 600;">
                     {{ region.regionName }}
                     {% if session.get('user_level', 0)|int >= 250 %}
-                    <br>
-                    <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration. Proceed?');" style="margin-top: 5px;">
-                        <button type="submit" class="btn-danger" style="padding: 2px 6px; font-size: 0.7rem;">Delete from DB</button>
-                    </form>
+                        {% if region.is_managed %}
+                            <br>
+                            <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration. Proceed?');" style="margin-top: 5px;">
+                            <button type="submit" class="btn-danger" style="padding: 2px 6px; font-size: 0.7rem;">Delete from DB</button>
+                            </form>
+                        {% endif %}
                     {% endif %}
                 </td>
 
