@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah-portal
-Version:        0.9.0
+Version:        0.9.2
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
@@ -92,7 +92,7 @@ openssl req -x509 -out /etc/nginx/dummy.crt -keyout /etc/nginx/dummy.key \
 rm -f /tmp/pariah-openssl.cnf
 
 echo "========================================================="
-echo "OS Pariah Portal v0.9.0 Installed Successfully!"
+echo "OS Pariah Portal Installed Successfully!"
 echo "1. Edit /etc/os_pariah/os-pariah.conf with your DB credentials."
 echo "2. Run database migrations: sudo su - pariah -s /bin/bash -c 'cd /opt/os_pariah && venv/bin/python migrate.py'"
 echo "3. Start the portal: sudo systemctl enable --now pariah"
