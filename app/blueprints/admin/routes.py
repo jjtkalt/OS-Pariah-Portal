@@ -73,7 +73,7 @@ def approve_user():
             pariah_conn.commit()
 
             # 3. Asynchronous Notifications
-            grid_name = get_dynamic_config('grid_name', 'OS Pariah')
+            grid_name = get_dynamic_config('grid_name')
             send_approval_email(email, grid_name)
 
             send_matrix_discord_webhook(
@@ -99,7 +99,7 @@ def reject_user():
 
     try:
         # We will update this -5 logic in our next sweep to use the dynamic config!
-        rejected_level = int(get_dynamic_config('rejected_user_level', '-5'))
+        rejected_level = int(get_dynamic_config('rejected_user_level'))
 
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:
@@ -129,24 +129,38 @@ def system_settings():
                 for key, value in request.form.items():
                     if key.startswith('cfg_'):
                         actual_key = key.replace('cfg_', '')
+                        # FIX: Using UPSERT so brand-new schema keys are safely inserted
                         cursor.execute("""
-                            UPDATE config 
-                            SET config_value = %s, updated_at = CURRENT_TIMESTAMP
-                            WHERE config_key = %s
-                        """, (value.strip(), actual_key))
+                            INSERT INTO config (config_key, config_value, updated_at)
+                            VALUES (%s, %s, CURRENT_TIMESTAMP)
+                            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = CURRENT_TIMESTAMP
+                        """, (actual_key, value.strip()))
             pariah_conn.commit()
-            flash("System settings updated successfully. Database or Caching changes require a server restart.", "success")
+            flash("System settings updated successfully.", "success")
         except Exception as e:
             current_app.logger.error(f"Failed to update config: {e}")
             flash("Database error while updating settings.", "error")
-        
+
         return redirect(url_for('admin.system_settings'))
 
+    # Fetch existing DB settings
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT config_key, config_value, updated_at FROM config ORDER BY config_key ASC")
-        settings = cursor.fetchall()
+        cursor.execute("SELECT config_key, config_value FROM config")
+        db_rows = cursor.fetchall()
+    
+    # Convert to a flat dictionary for easy lookup
+    db_settings = {row['config_key']: row['config_value'] for row in db_rows}
 
-    return render_template('admin/settings.html', settings=settings)
+    # Identify "Custom" settings that are in the DB but not in our KNOWN_SETTINGS schema
+    known_keys = [k for cat in KNOWN_SETTINGS.values() for k in cat.keys()]
+    custom_settings = {k: v for k, v in db_settings.items() if k not in known_keys}
+
+    return render_template(
+        'admin/settings.html', 
+        schema=KNOWN_SETTINGS, 
+        db_settings=db_settings,
+        custom_settings=custom_settings
+    )
 
 @admin_bp.route('/settings/add', methods=['POST'])
 @require_admin

@@ -164,7 +164,7 @@ def create_ban():
             for uuid in uuids:
                 cursor.execute("INSERT INTO bans_uuid (banid, uuid) VALUES (%s, %s)", (ban_id, uuid))
                 # ACTIVE ENFORCEMENT: Pull from dynamic config!
-                banned_level = int(get_dynamic_config('rejected_user_level', '-5'))
+                banned_level = int(get_dynamic_config('rejected_user_level'))
                 if ban_type in ['account', 'mixed']:
                     set_user_level(uuid, banned_level)
                     current_app.logger.info(f"Actively enforced ban on UUID {uuid} via Robust API.")

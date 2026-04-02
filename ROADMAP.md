@@ -10,7 +10,6 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## 🚧 Short-Term (v0.9.1 - v0.9.x)
 *Focus: Polish, bug fixes, and expanding core administrator tools.*
 
-* **[ ] Webhook UI Configuration:** Update the settings page in the Admin Dashboard. It should include a selectable list of every variable in the portal that isn't already defined so we aren't guessing variable names.  Items that are related, should be set together as a block.
 * **[ ] Verify Bans/warnings:** Do bans actually ban they way they should (update firewalld, set banned MAC in robust, set userlevel to banned).  Need testing and review.
 * **[ ] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[ ] Region.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
@@ -33,7 +32,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 
 * **[ ] Web-Based Setup Wizard:** A graphical first-run installer to securely collect database credentials, generate system secrets, and run initial migrations without requiring terminal access.
 
-## ✅ Recently Completed (v0.9.0)
+## ✅ Recently Completed (v0.9.x)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
 * **[x] Socket Architecture:** Transitioned Gunicorn to high-performance Unix domain sockets.
 * **[x] Automated CI/CD:** Implemented GitHub Actions for testing and release builds.
@@ -42,3 +41,4 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[x] Helpdesk submit ticket:** Only using half the screen instead of stretching out like the other pages (CSS issue).  View ticket height is also limited.
 * **[x] Grid name tag:** Upper left corner tag/logo should take users to home page, not refresh the one we are on.
 * **[x] Home menu:** The Home menu item should take us to the base URL of the portal
+* **[x] Webhook UI Configuration:** Update the settings page in the Admin Dashboard. It should include a selectable list of every variable in the portal that isn't already defined so we aren't guessing variable names.  Items that are related, should be set together as a block.

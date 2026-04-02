@@ -20,6 +20,9 @@ def get_pariah_db():
     return g.pariah_conn
 
 def get_dynamic_config(key, default=None):
+    from app.utils.schema import KNOWN_SETTINGS
+    
+    # 1. Try to get it from the live database first
     conn = get_pariah_db()
     try:
         with conn.cursor() as cursor:
@@ -27,7 +30,17 @@ def get_dynamic_config(key, default=None):
             result = cursor.fetchone()
             if result:
                 return result['config_value']
-            return default
-    except Exception as e:
-        current_app.logger.error(f"Error fetching config '{key}': {e}")
+    finally:
+        conn.close()
+            
+    # 2. If a specific default was hardcoded in the function call, honor it
+    if default is not None:
         return default
+        
+    # 3. SSOT Magic: Look it up in our Master Schema
+    for category, fields in KNOWN_SETTINGS.items():
+        if key in fields:
+            return fields[key]['default']
+            
+    # 4. Completely unknown variable? Fail gracefully.
+    return ""

@@ -10,7 +10,7 @@ regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
 @regions_bp.route('/api/config/<region_uuid>.xml', methods=['GET'])
 def get_region_xml(region_uuid):
     client_ip = request.remote_addr
-    region_hosts_str = get_dynamic_config('region_host_ips', '')
+    region_hosts_str = get_dynamic_config('region_host_ips')
     authorized_ips = [ip.strip() for ip in region_hosts_str.split(',') if ip.strip()]
 
     if client_ip not in authorized_ips:
@@ -45,7 +45,7 @@ def get_region_xml(region_uuid):
         xml_output.append('    <Key Name="AllowAlternatePorts" Value="False" />')
 
         # --- NEW: Inject the Global MaxAgents Setting ---
-        global_max_agents = get_dynamic_config('default_max_agents', '100')
+        global_max_agents = get_dynamic_config('default_max_agents')
         xml_output.append(f'    <Key Name="MaxAgents" Value="{global_max_agents}" />')
 
         for setting in settings:
@@ -216,7 +216,7 @@ def add_region():
             current_app.logger.error(f"Failed to add region: {e}")
             flash("Failed to add region. The UUID might already exist.", "error")
 
-    max_multiplier = int(get_dynamic_config('max_region_size_multiplier', '10'))
+    max_multiplier = int(get_dynamic_config('max_region_size_multiplier'))
     sizes = [i * 256 for i in range(1, max_multiplier + 1)]
     return render_template('admin/add_region.html', sizes=sizes)
 
@@ -281,7 +281,7 @@ def edit_region(region_uuid):
             current_settings = {row['setting_key']: row['setting_value'] for row in cursor.fetchall()}
 
         # Pass the dynamic size options to the template
-        max_multiplier = int(get_dynamic_config('max_region_size_multiplier', '10'))
+        max_multiplier = int(get_dynamic_config('max_region_size_multiplier'))
         sizes = [i * 256 for i in range(1, max_multiplier + 1)]
 
         return render_template('admin/edit_region.html', region=region, settings=current_settings, region_uuid=region_uuid, sizes=sizes)

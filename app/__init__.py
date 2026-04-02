@@ -37,9 +37,9 @@ def create_app(config_class='app.config.Config'):
     def inject_globals():
         from app.utils.db import get_dynamic_config
         return {
-            'grid_name': get_dynamic_config('grid_name', 'OS Pariah'),
-            'grid_website_url': get_dynamic_config('grid_website_url', 'https://ospariah.com'),
-            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY', '1x00000000000000000000AA')
+            'grid_name': get_dynamic_config('grid_name'),
+            'grid_website_url': get_dynamic_config('grid_website_url'),
+            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY')
         }
 
     from .blueprints.auth.routes import auth_bp
@@ -75,7 +75,7 @@ def create_app(config_class='app.config.Config'):
         if request.blueprint in exempt_blueprints or request.endpoint in ['static', 'user.policy_agreement', 'policies.view_policy']:
             return
             
-        current_version = get_dynamic_config('global_policy_version', '1.0')
+        current_version = get_dynamic_config('global_policy_version')
         
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:

@@ -20,7 +20,7 @@ def has_admin_view_access():
     owner_uuid = request.headers.get('X-Secondlife-Owner-Key')
     
     # Fetch configured region host IPs from OS_Pariah config
-    region_hosts_str = get_dynamic_config('region_host_ips', '')
+    region_hosts_str = get_dynamic_config('region_host_ips')
     authorized_ips = [ip.strip() for ip in region_hosts_str.split(',') if ip.strip()]
 
     if client_ip in authorized_ips and owner_uuid:
@@ -104,7 +104,7 @@ def online_lister():
     else:
         # Fetch the list of allowed public regions from OS_Pariah DB
         # Replaces the hardcoded ["Sandbox", "Sea ", "Welcome"] list
-        listable_str = get_dynamic_config('listable_regions', 'Welcome, Sandbox')
+        listable_str = get_dynamic_config('listable_regions')
         listable_regions = [r.strip().lower() for r in listable_str.split(',') if r.strip()]
         
         for user in all_users:
