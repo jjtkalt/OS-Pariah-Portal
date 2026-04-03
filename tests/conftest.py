@@ -1,21 +1,42 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from app import create_app
+import app as main_app
 
 @pytest.fixture
-def app():
-    # We "patch" (mock) the subprocess.Popen call so running tests 
-    # doesn't try to trigger real systemctl commands on the host OS.
+def db_cursor():
+    """A global mock cursor we can use in our tests to assert SQL queries."""
+    return MagicMock()
+
+@pytest.fixture
+def app(db_cursor):
+    # Patch Popen to prevent rogue systemctl restarts
     with patch('app.__init__.subprocess.Popen') as mock_popen:
         
-        # Spin up the app using your factory
+        # Boot the app
         app = create_app()
+
+        # --- THE GLOBAL DATABASE SANDBOX ---
+        # Overwrite the failed DB pools with Mocks
+        mock_pool = MagicMock()
+        mock_conn = MagicMock()
         
+        # Wire the pool to the connection, and the connection to the db_cursor
+        mock_pool.connection.return_value = mock_conn
+        mock_conn.cursor.return_value.__enter__.return_value = db_cursor
+        
+        # Force fetchone() to return None so get_dynamic_config gracefully uses our KNOWN_SETTINGS schema
+        db_cursor.fetchone.return_value = None
+
+        # Inject our mocks globally into the running app
+        main_app.pariah_pool = mock_pool
+        main_app.robust_pool = MagicMock()
+
         # Force the app into testing mode
         app.config.update({
-            "TESTING": True, # Why else do this?
-            "WTF_CSRF_ENABLED": False, # Disables CSRF tokens so our test bot can submit forms
-            "CACHE_TYPE": "SimpleCache" # Define the cache type to avoid the warnings
+            "TESTING": True,
+            "WTF_CSRF_ENABLED": False,
+            "CACHE_TYPE": "SimpleCache"
         })
 
         yield app

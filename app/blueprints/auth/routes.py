@@ -74,6 +74,13 @@ def login():
                 final_hash = hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
                 if final_hash == auth_data['passwordHash']:
+
+                    # --- THE GATEKEEPER / BOUNCER ---
+                    if account['userLevel'] < 0:
+                        flash('Your account is currently locked, pending approval, or banned.', 'error')
+                        return redirect(url_for('auth.login'))
+                    # --------------------------------
+
                     session['uuid'] = user_uuid
                     session['name'] = f"{first_name} {last_name}"
                     session['user_level'] = account['userLevel']
