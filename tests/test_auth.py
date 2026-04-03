@@ -22,7 +22,7 @@ def test_successful_login(client, db_cursor):
         {'passwordHash': expected_hash, 'passwordSalt': salt}
     ]
     
-    response = client.post('/login', data={
+    response = client.post('/auth/login', data={
         'first_name': 'Test',
         'last_name': 'Avatar',
         'password': password
@@ -44,7 +44,7 @@ def test_banned_user_blocked(client, db_cursor):
         {'passwordHash': expected_hash, 'passwordSalt': salt}
     ]
     
-    response = client.post('/login', data={
+    response = client.post('/auth/login', data={
         'first_name': 'Bad',
         'last_name': 'Guy',
         'password': password
@@ -69,7 +69,7 @@ def test_invalid_password(client, db_cursor):
         {'passwordHash': real_hash, 'passwordSalt': salt}
     ]
     
-    response = client.post('/login', data={
+    response = client.post('/auth/login', data={
         'first_name': 'Test',
         'last_name': 'Avatar',
         'password': password
