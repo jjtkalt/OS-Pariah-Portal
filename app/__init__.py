@@ -26,11 +26,11 @@ def create_app(config_class='app.config.Config'):
 
         # --- WORKER STORM FIX: Only one worker triggers the service ---
         try:
-            # Create a hidden lock file in the tmp directory
-            lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
+            # Attach the file to the app object so Python's Garbage Collector doesn't destroy it!
+            app._iar_lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
             
             # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
-            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(app._iar_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
             
             # If the code reaches this line, this worker WON the race!
             subprocess.Popen(
@@ -39,8 +39,6 @@ def create_app(config_class='app.config.Config'):
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
-            # We purposely do NOT close the lock_file here. 
-            # The winning worker holds the lock for its entire lifespan.
             
         except BlockingIOError:
             # Another worker already holds the lock. Quietly move on.
