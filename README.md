@@ -47,6 +47,8 @@ iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.
 - Install and activate the Systemd services and the Nginx vhost configuration
 - Edit .env_example with your DB credentials and save it as .env
+- Create the virtual environment: python3.12 -m venv venv
 - Activate the Virtual environment in your shell: 'source venv/bin/activate'
+- Install requirements into the virtual environment: 'venv/bin/pip -r requirements.txt'
 - Run database migrations: 'venv/bin/python migrate.py'
 - Start the portal: 'sudo systemctl enable --now pariah'
