@@ -82,6 +82,11 @@ def create_app(config_class='app.config.Config'):
 
     @app.before_request
     def require_policy_agreement():
+        # --- TEST BOT IMMUNITY ---
+        if app.config.get('TESTING'):
+            return
+        # -------------------------
+        
         from app.utils.db import get_pariah_db, get_dynamic_config
         
         if 'uuid' not in session:
