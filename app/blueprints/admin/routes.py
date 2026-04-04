@@ -3,6 +3,7 @@ from app.utils.auth_helpers import require_admin
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.robust_api import set_user_level
 from app.utils.notifications import send_matrix_discord_webhook, send_approval_email
+from app.utils.schema import KNOWN_SETTINGS
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
