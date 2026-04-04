@@ -24,14 +24,11 @@ def get_dynamic_config(key, default=None):
     
     # 1. Try to get it from the live database first
     conn = get_pariah_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
-            result = cursor.fetchone()
-            if result:
-                return result['config_value']
-    finally:
-        conn.close()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
+        result = cursor.fetchone()
+        if result:
+            return result['config_value']
             
     # 2. If a specific default was hardcoded in the function call, honor it
     if default is not None:
