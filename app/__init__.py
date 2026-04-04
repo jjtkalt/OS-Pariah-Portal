@@ -24,27 +24,29 @@ def create_app(config_class='app.config.Config'):
         # Initialize caching AFTER the config has been updated from the database
         cache.init_app(app)
 
-        # --- WORKER STORM FIX: Only one worker triggers the service ---
-        try:
-            # Attach the file to the app object so Python's Garbage Collector doesn't destroy it!
-            app._iar_lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
-            
-            # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
-            fcntl.flock(app._iar_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            
-            # If the code reaches this line, this worker WON the race!
-            subprocess.Popen(
-                ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
-            )
-            
-        except BlockingIOError:
-            # Another worker already holds the lock. Quietly move on.
-            pass
-        except Exception as e:
-            app.logger.error(f"Failed to wake IAR worker on boot: {e}")
+        # --- WORKER STORM FIX: Only run in production/dev, NEVER in tests ---
+        if not app.config.get('TESTING'):
+            try:
+                # Attach the file to the app object so Python's Garbage Collector doesn't destroy it!
+                app._iar_lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
+                
+                # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
+                fcntl.flock(app._iar_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                
+                # If the code reaches this line, this worker WON the race!
+                subprocess.Popen(
+                    ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True
+                )
+                
+            except BlockingIOError:
+                # Another worker already holds the lock. Quietly move on.
+                pass
+            except Exception as e:
+                app.logger.error(f"Failed to wake IAR worker on boot: {e}")
+        # --------------------------------------------------------------
 
     # Inject global variables into all Jinja2 templates automatically
     @app.context_processor
