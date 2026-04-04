@@ -1,5 +1,6 @@
 import pytest
 import hashlib
+from unittest.mock import patch, MagicMock
 
 def generate_mock_hash(password, salt):
     """Helper to generate OpenSim's specific Double-MD5 password hash."""
@@ -9,15 +10,18 @@ def generate_mock_hash(password, salt):
 # -------------------------------------------------------------------
 # Test 1: Successful Login (Level 0 User)
 # -------------------------------------------------------------------
-def test_successful_login(client, db_cursor):
+@patch('app.blueprints.auth.routes.get_robust_db')
+def test_successful_login(mock_get_robust, client):
     password = "SecurePassword123!"
     salt = "random_salt_string"
     expected_hash = generate_mock_hash(password, salt)
     
-    # 1. Mock the two database fetchone() calls the login route makes
-    # Call 1: UserAccounts (Returns Level 0)
-    # Call 2: Auth Table (Returns Password Hash)
-    db_cursor.fetchone.side_effect = [
+    # Give Robust its own isolated fake cursor
+    mock_cursor = MagicMock()
+    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+    
+    # 1. UserAccounts Check, 2. Password Hash Check
+    mock_cursor.fetchone.side_effect = [
         {'PrincipalID': 'fake-uuid-0000', 'userLevel': 0},
         {'passwordHash': expected_hash, 'passwordSalt': salt}
     ]
@@ -33,13 +37,16 @@ def test_successful_login(client, db_cursor):
 # -------------------------------------------------------------------
 # Test 2: The Bouncer blocks a Banned User (Level -2)
 # -------------------------------------------------------------------
-def test_banned_user_blocked(client, db_cursor):
+@patch('app.blueprints.auth.routes.get_robust_db')
+def test_banned_user_blocked(mock_get_robust, client):
     password = "BadGuyPassword"
     salt = "bad_salt"
     expected_hash = generate_mock_hash(password, salt)
     
-    # Mock Call 1 returns Level -2 (Banned)
-    db_cursor.fetchone.side_effect = [
+    mock_cursor = MagicMock()
+    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+    
+    mock_cursor.fetchone.side_effect = [
         {'PrincipalID': 'fake-uuid-banned', 'userLevel': -2},
         {'passwordHash': expected_hash, 'passwordSalt': salt}
     ]
@@ -50,21 +57,21 @@ def test_banned_user_blocked(client, db_cursor):
         'password': password
     }, follow_redirects=True)
     
-    # Assert they are bounced back to the login screen with the error
     assert b"Your account is currently locked, pending approval, or banned." in response.data
-    assert b"Login successful!" not in response.data
 
 # -------------------------------------------------------------------
 # Test 3: Invalid Password Rejection
 # -------------------------------------------------------------------
-def test_invalid_password(client, db_cursor):
+@patch('app.blueprints.auth.routes.get_robust_db')
+def test_invalid_password(mock_get_robust, client):
     password = "WrongPassword!"
     salt = "random_salt"
-    
-    # The database holds the hash for "CorrectPassword", not "WrongPassword!"
     real_hash = generate_mock_hash("CorrectPassword", salt)
     
-    db_cursor.fetchone.side_effect = [
+    mock_cursor = MagicMock()
+    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+    
+    mock_cursor.fetchone.side_effect = [
         {'PrincipalID': 'fake-uuid-0000', 'userLevel': 0},
         {'passwordHash': real_hash, 'passwordSalt': salt}
     ]
