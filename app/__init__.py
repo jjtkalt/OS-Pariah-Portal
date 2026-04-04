@@ -4,6 +4,8 @@ from flask_caching import Cache
 from dbutils.pooled_db import PooledDB
 import pymysql
 import subprocess
+import os
+import fcntl
 
 cache = Cache()
 
@@ -22,13 +24,27 @@ def create_app(config_class='app.config.Config'):
         # Initialize caching AFTER the config has been updated from the database
         cache.init_app(app)
 
+        # --- WORKER STORM FIX: Only one worker triggers the service ---
         try:
+            # Create a hidden lock file in the tmp directory
+            lock_file = open('/tmp/.pariah_iar_worker.lock', 'w')
+            
+            # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            
+            # If the code reaches this line, this worker WON the race!
             subprocess.Popen(
                 ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True
             )
+            # We purposely do NOT close the lock_file here. 
+            # The winning worker holds the lock for its entire lifespan.
+            
+        except BlockingIOError:
+            # Another worker already holds the lock. Quietly move on.
+            pass
         except Exception as e:
             app.logger.error(f"Failed to wake IAR worker on boot: {e}")
 
