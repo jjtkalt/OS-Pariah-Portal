@@ -3,9 +3,12 @@ name: Automated Tests
 # Tell GitHub WHEN to run this script
 on:
   push:
-    branches: [ "Main", "dev" ]
+    branches: 
+      - 'main'
+      - 'develop'
+      
   pull_request:
-    branches: [ "Main" ]
+    branches: [ "main" ]
 
 jobs:
   test:
