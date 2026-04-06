@@ -10,7 +10,6 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
-* **[ ] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[i] Region.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
 * **[ ] Region Configurations:** A region should be disabled to save the configuration.  A disabled region should be able to be reactivated at a later point.  Only a disabled region should be able to be completely deleted from the database.
 * **[ ] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
@@ -33,6 +32,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 
 ## ✅ Recently Completed (v0.9.2 - v0.9.x)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
+* **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 
 ## ✅ Recently Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
