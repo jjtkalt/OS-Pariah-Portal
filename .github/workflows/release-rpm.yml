@@ -20,7 +20,7 @@ jobs:
 
     # 2. Checkout the code (now that git is installed)
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     # 3. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
