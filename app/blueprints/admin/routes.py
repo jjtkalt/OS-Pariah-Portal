@@ -1,4 +1,9 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, session, flash, redirect, url_for
+import os
+import gzip
+import re
+import cv2
+import numpy as np
+from flask import Blueprint, render_template, request, jsonify, current_app, session, flash, redirect, url_for, send_from_directory, abort
 from app.utils.auth_helpers import require_admin
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.robust_api import set_user_level
@@ -193,3 +198,100 @@ def add_setting():
         flash("Both Key and Value are required.", "error")
 
     return redirect(url_for('admin.settings'))
+
+# --- SMART TEXTURE PROXY ---
+@admin_bp.route('/texture/<hash_val>')
+@require_admin
+def serve_texture(hash_val):
+    """Fetches a texture from FSAssets, decodes JP2 to JPG via OpenCV, caches it, and serves it."""
+    # Security: Ensure hash is strictly alphanumeric hex to prevent Path Traversal attacks
+    if not re.match(r'^[a-fA-F0-9]+$', hash_val):
+        abort(400)
+
+    # Setup Cache Directory
+    cache_dir = os.path.join(current_app.root_path, 'static', 'cache', 'textures')
+    os.makedirs(cache_dir, exist_ok=True)
+    cached_file = os.path.join(cache_dir, f"{hash_val}.jpg")
+
+    # If we already converted this texture in the past, serve it instantly! (Deduplication)
+    if os.path.exists(cached_file):
+        return send_from_directory(cache_dir, f"{hash_val}.jpg")
+
+    # If not cached, we must find the raw GZ blob in FSAssets
+    fsassets_root = get_dynamic_config('fsassets_path') or "/home/opensim/FSAssets/data"
+    
+    # FSAssets format: hash[0:2] / hash[2:4] / hash[4:6] / hash[6:10] / hash.gz
+    if len(hash_val) < 10:
+        abort(404)
+        
+    rel_path = os.path.join(hash_val[0:2], hash_val[2:4], hash_val[4:6], hash_val[6:10], f"{hash_val}.gz")
+    full_path = os.path.join(fsassets_root, rel_path)
+
+    if not os.path.exists(full_path):
+        abort(404)
+
+    try:
+        # Unzip in memory -> Decode JP2 -> Save as JPG
+        with gzip.open(full_path, 'rb') as f:
+            uncompressed_bytes = f.read()
+            
+        file_bytes = np.asarray(bytearray(uncompressed_bytes), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if img is None:
+            abort(500)
+
+        cv2.imwrite(cached_file, img)
+        return send_from_directory(cache_dir, f"{hash_val}.jpg")
+        
+    except Exception as e:
+        current_app.logger.error(f"Failed to decode texture {hash_val}: {e}")
+        abort(500)
+
+# --- GALLERY UI ROUTE ---
+@admin_bp.route('/gallery')
+@require_admin
+def texture_gallery():
+    """Renders a paginated gallery of grid textures. Supports Global and User-Targeted views."""
+    
+    page = int(request.args.get('page', 1))
+    per_page = 48  # Nice grid size
+    offset = (page - 1) * per_page
+    target_uuid = request.args.get('uuid', '').strip()
+    
+    textures = []
+    robust_conn = get_robust_db()
+    
+    try:
+        with robust_conn.cursor() as cursor:
+            if target_uuid:
+                # Option A: User-Targeted Inventory Search
+                # We group by hash so we don't show the same image 5 times if they copied it in their inventory
+                cursor.execute("""
+                    SELECT f.hash, MAX(i.inventoryName) as name, MAX(f.create_time) as create_time 
+                    FROM fsassets f 
+                    JOIN inventoryitems i ON f.id = i.assetID 
+                    WHERE i.avatarID = %s AND i.assetType = 0 
+                    GROUP BY f.hash 
+                    ORDER BY MAX(f.create_time) DESC 
+                    LIMIT %s OFFSET %s
+                """, (target_uuid, per_page, offset))
+            else:
+                # Option B: Global Recent Feed (Type 0 = Textures)
+                cursor.execute("""
+                    SELECT hash, name, create_time 
+                    FROM fsassets 
+                    WHERE type = 0 
+                    ORDER BY create_time DESC 
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+                
+            textures = cursor.fetchall()
+    except Exception as e:
+        current_app.logger.error(f"Gallery Query Failed: {e}")
+        flash("Failed to load textures from the database.", "error")
+
+    return render_template('admin/gallery.html', 
+                           textures=textures, 
+                           page=page, 
+                           target_uuid=target_uuid)
