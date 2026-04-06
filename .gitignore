@@ -21,3 +21,13 @@ __pycache__/
 # User Uploads / IAR Backups (So we don't commit gigabytes of user data!)
 app/static/uploads/
 app/static/downloads/
+
+# Ignore all files in .vscode directory
+.vscode/
+
+# Ignore built VS Code extensions
+*.vsix
+
+# Ignore workspace-specific files
+*.code-workspace
+.history/

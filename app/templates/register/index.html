@@ -1,92 +1,92 @@
 {% extends 'base.html' %}
 
-{% block title %}Register - OS Pariah Portal{% endblock %}
+{% block title %}Register - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center">
-    <h1>Join the Grid</h1>
-    <p style="color: var(--text-muted); margin-bottom: 24px;">Create your OpenSimulator avatar below.</p>
+<div class="text-center">
+    <h1 class="text-primary m-0">Join the Grid</h1>
+    <p class="text-muted mt-10 mb-20">Create your OpenSimulator avatar below.</p>
 </div>
 
 <form id="regForm" method="POST" action="{{ url_for('register.register') }}" onsubmit="showLoading()">
-    
-    <fieldset>
+
+    <fieldset class="group m-0 mb-20">
         <legend>Avatar Identity</legend>
-        <div style="display: flex; gap: 12px;">
-            <div style="flex: 1;">
+        <div class="d-flex gap-10">
+            <div class="w-100">
                 <label>First Name</label>
                 <input type="text" id="firstNameField" name="first_name" placeholder="John" required>
             </div>
-            <div style="flex: 1;">
+            <div class="w-100">
                 <label>Last Name</label>
                 <input type="text" id="lastNameField" name="last_name" placeholder="Resident" required>
             </div>
         </div>
-        
+
         <label>Email Address</label>
         <input type="email" id="emailField" name="email" placeholder="you@example.com" required>
-        
+
         <label>Password</label>
         <input type="password" id="passField" name="password" required>
-        <small id="strengthText" style="color: var(--danger); font-weight: bold; display: block; margin-top: -10px; margin-bottom: 15px;">Strength: Too Short</small>
+        <small id="strengthText" class="text-danger fw-bold d-block mb-10" style="margin-top: -10px;">Strength: Too Short</small>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="group m-0 mb-20">
         <legend>Community</legend>
         <label>Invited By (Avatar Name)</label>
         <input type="text" id="inviterField" name="inviter" required>
-        
-	<div style="display: flex; gap: 12px; margin-bottom: 10px;">
-            <div style="flex: 1;">
+
+        <div class="d-flex gap-10 mb-10">
+            <div class="w-100">
                 <label>Discord Handle (Optional)</label>
-                <input type="text" name="discord_handle" placeholder="User#0000" style="margin-bottom: 0;">
+                <input type="text" name="discord_handle" placeholder="User#0000" class="mb-0">
             </div>
-            <div style="flex: 1;">
+            <div class="w-100">
                 <label>Matrix Username (Optional)</label>
-                <input type="text" name="matrix_handle" placeholder="@username:matrix.org" style="margin-bottom: 0;">
+                <input type="text" name="matrix_handle" placeholder="@username:matrix.org" class="mb-0">
             </div>
         </div>
 
         {% if require_invite_code %}
-            <label>Invitation Code <span style="color: var(--danger);">*</span></label>
+            <label>Invitation Code <span class="text-danger">*</span></label>
             <input type="text" id="inviteCodeField" name="invite_code" placeholder="XXXX-XXXX-XXXX" required>
         {% endif %}
 
         {% if require_other_info %}
-            <label>Other Information <span style="color: var(--danger);">*</span></label>
+            <label>Other Information <span class="text-danger">*</span></label>
             <textarea id="infoField" name="other_info" rows="4" placeholder="How did you hear about us? Why do you want to join?" required></textarea>
-            <div id="wordCount" style="font-size: 0.8rem; text-align: right; color: var(--danger);">0 / 30 words</div>
+            <div id="wordCount" class="text-right text-danger text-sm mt-0">0 / 30 words</div>
         {% endif %}
     </fieldset>
 
-    <div style="background: var(--info-bg); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-        <p style="margin-top: 0; font-weight: bold; color: var(--info);">Required Reading:</p>
-        <ul style="margin-top: 0; padding-left: 20px; line-height: 1.6; margin-bottom: 15px;">
+    <div class="group m-0 mb-20" style="background: var(--info-bg);">
+        <p class="mt-0 fw-bold text-info">Required Reading:</p>
+        <ul class="m-0 mb-10" style="padding-left: 20px; line-height: 1.6;">
             {% for p in policies %}
-                <li><a href="{{ url_for('policies.view_policy', slug=p.slug) }}" target="_blank" style="color: var(--primary); font-weight: bold;">{{ p.title }}</a></li>
+                <li><a href="{{ url_for('policies.view_policy', slug=p.slug) }}" target="_blank" class="text-primary fw-bold">{{ p.title }}</a></li>
             {% endfor %}
         </ul>
 
-        <label class="radio" style="display: block; margin-bottom: 10px;">
+        <label class="radio d-block mb-10 mt-10">
             <input type="checkbox" id="policyCheck" name="policy_check" required>
             I have read and agree to comply with all of the policies listed above.
         </label>
 
-        <label class="radio" style="display: block;">
+        <label class="radio d-block m-0">
             <input type="checkbox" id="ageCheck" name="age_check" required>
             I attest that I am at least 18 years of age.
         </label>
     </div>
 
-    <div id="cfTurnstyle" style="display: flex; justify-content: center; margin-bottom: 20px;">
+    <div id="cfTurnstyle" class="flex-center mb-20">
         <div class="cf-turnstile" data-sitekey="{{ site_key }}" data-callback="captchaSolved" data-expired-callback="captchaExpired"></div>
     </div>
 
-    <div id="submitMessage" style="background: #fee2e2; color: #991b1b; padding: 12px 16px; border-radius: 6px; border: 1px solid #f87171; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5; display: block;">
+    <div id="submitMessage" class="alert error d-block">
         Please fill in the form to enable submission.
     </div>
 
-    <button type="submit" id="submitBtn" style="width: 100%; font-size: 1.1rem; padding: 14px;" disabled>
+    <button type="submit" id="submitBtn" class="w-100 text-lg p-0" style="padding: 14px;" disabled>
         <span id="btnText">Submit Application</span>
         <div id="btnSpinner" class="spinner" style="display: none;"></div>
     </button>
@@ -108,23 +108,23 @@
     const submitBtn = document.getElementById('submitBtn');
     const policyCheck = document.getElementById('policyCheck');
     const ageCheck = document.getElementById('ageCheck');
-    const msgBox = document.getElementById('submitMessage'); 
+    const msgBox = document.getElementById('submitMessage');
     const cfTurnstyle = document.getElementById('cfTurnstyle');
-    
+
     let isCaptchaSolved = false;
     let requiresInfo = {{ 'true' if require_other_info else 'false' }};
     let requiresInvite = {{ 'true' if require_invite_code else 'false' }};
 
-    function captchaSolved() { 
+    function captchaSolved() {
         console.log("Turnstile solved!");
-        isCaptchaSolved = true; 
-        validateForm(); 
+        isCaptchaSolved = true;
+        validateForm();
     }
-    
-    function captchaExpired() { 
+
+    function captchaExpired() {
         console.log("Turnstile expired.");
-        isCaptchaSolved = false; 
-        validateForm(); 
+        isCaptchaSolved = false;
+        validateForm();
     }
 
     function checkStrength(p) {
@@ -142,7 +142,7 @@
         // 1. Basic Info
         if (firstNameField && firstNameField.value.trim() === '') missing.push("Enter your First Name");
         if (lastNameField && lastNameField.value.trim() === '') missing.push("Enter your Last Name");
-        
+
         if (emailField) {
             if (emailField.value.trim() === '') {
                 missing.push("Enter your Email Address");
@@ -172,7 +172,7 @@
                 missing.push("Make password stronger (Need 3 of: 8+ chars, uppercase, number, symbol)");
             } else if (pStrength === 3) {
                 strengthText.textContent = 'Strength: Fair';
-                strengthText.style.color = '#f59e0b';
+                strengthText.style.color = 'var(--warning)';
             } else {
                 strengthText.textContent = 'Strength: Strong';
                 strengthText.style.color = 'var(--success)';
@@ -244,13 +244,13 @@
     if (infoField) infoField.addEventListener('input', validateForm);
     if (policyCheck) policyCheck.addEventListener('change', validateForm);
     if (ageCheck) ageCheck.addEventListener('change', validateForm);
-    
+
     function showLoading() {
         document.getElementById('btnText').textContent = "Processing...";
         document.getElementById('btnSpinner').style.display = "inline-block";
         submitBtn.style.opacity = "0.8";
     }
-    
+
     // Run once on load to set initial state
     validateForm();
     console.log("Registration script successfully loaded and wired.");

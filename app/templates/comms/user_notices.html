@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
 
-{% block title %}My Notices - OS Pariah Portal{% endblock %}
+{% block title %}My Notices - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>My Notices</h2>
+<div class="nav-bar" style="border-bottom: none;">
+    <h2 class="m-0">My Notices</h2>
 </div>
 
-<p style="color: var(--text-muted); margin-bottom: 24px;">
+<p class="text-muted mb-20 mt-0">
     System notifications, ticket updates, and backup alerts.
 </p>
 
 {% if notices %}
-    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
-        <table style="margin: 0; width: 100%;">
+    <div class="card p-0" style="overflow: hidden;">
+        <table class="m-0 w-100">
             <tbody>
                 {% for notice in notices %}
                 <tr style="{% if not notice.is_read %}background: var(--info-bg); font-weight: 600;{% endif %} border-bottom: 1px solid var(--border-color);">
-                    <td style="width: 150px; color: var(--text-muted); font-size: 0.85rem; vertical-align: top; padding-top: 16px;">
+                    <td class="text-muted text-sm" style="width: 150px; vertical-align: top; padding-top: 16px;">
                         {{ notice.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </td>
-                    <td style="padding: 16px; line-height: 1.4; color: var(--text-main);">
+                    <td style="padding: 16px; line-height: 1.4;">
                         {{ notice.message }}
                     </td>
                 </tr>
@@ -29,9 +29,9 @@
         </table>
     </div>
 {% else %}
-    <div class="center group" style="padding: 40px;">
-        <h3 style="color: var(--text-muted);">You're all caught up!</h3>
-        <p style="color: var(--text-muted);">You have no system notices.</p>
+    <div class="text-center group p-0" style="padding: 40px;">
+        <h3 class="text-muted m-0">You're all caught up!</h3>
+        <p class="text-muted m-0 mt-10">You have no system notices.</p>
     </div>
 {% endif %}
 {% endblock %}

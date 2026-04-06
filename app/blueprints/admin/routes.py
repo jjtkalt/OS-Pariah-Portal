@@ -1,4 +1,10 @@
-from flask import Blueprint, render_template, request, jsonify, current_app, session, flash, redirect, url_for
+import os
+import gzip
+import re
+import io
+import cv2
+import numpy as np
+from flask import Blueprint, render_template, request, jsonify, current_app, session, flash, redirect, url_for, send_from_directory, send_file, abort
 from app.utils.auth_helpers import require_admin
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.robust_api import set_user_level
@@ -169,8 +175,7 @@ def add_setting():
     """Injects a new custom override key into the configuration table."""
     if int(session.get('user_level', 0)) < 250:
         flash("Unauthorized.", "error")
-        # Adjust 'admin.settings' if your route is named differently (e.g., 'admin.system_settings')
-        return redirect(url_for('admin.settings'))
+        return redirect(url_for('admin.system_settings'))
 
     new_key = request.form.get('new_key', '').strip()
     new_value = request.form.get('new_value', '').strip()
@@ -192,4 +197,159 @@ def add_setting():
     else:
         flash("Both Key and Value are required.", "error")
 
-    return redirect(url_for('admin.settings'))
+    return redirect(url_for('admin.system_settings'))
+
+@admin_bp.route('/settings/delete', methods=['POST'])
+@require_admin
+def delete_setting():
+    """Removes a configuration key from the database, reverting it to default."""
+    if int(session.get('user_level', 0)) < 250:
+        flash("Unauthorized.", "error")
+        return redirect(url_for('admin.system_settings'))
+
+    target_key = request.form.get('target_key', '').strip()
+
+    if target_key:
+        try:
+            conn = get_pariah_db()
+            with conn.cursor() as cursor:
+                # We do not prevent deleting KNOWN_SETTINGS because deleting them
+                # simply causes the get_dynamic_config() function to fall back
+                # to the safe defaults defined in schema.py.
+                cursor.execute("DELETE FROM config WHERE config_key = %s", (target_key,))
+            conn.commit()
+            flash(f"Setting '{target_key}' deleted and reverted to system default.", "success")
+        except Exception as e:
+            current_app.logger.error(f"Failed to delete setting {target_key}: {e}")
+            flash("Database error while deleting setting.", "error")
+    else:
+        flash("No target key specified.", "error")
+
+    return redirect(url_for('admin.system_settings'))
+
+# --- SMART TEXTURE PROXY ---
+@admin_bp.route('/texture/<hash_val>')
+@require_admin
+def serve_texture(hash_val):
+    """Fetches a texture from FSAssets, decodes JP2 to JPG via OpenCV, caches it, and serves it."""
+    if not re.match(r'^[a-fA-F0-9]+$', hash_val):
+        abort(400)
+
+    # 1. Check Configurable Cache Path
+    cache_dir = get_dynamic_config('texture_cache_path')
+    cached_file = os.path.join(cache_dir, f"{hash_val}.jpg")
+    can_cache = False
+
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        if os.access(cache_dir, os.W_OK):
+            can_cache = True
+    except Exception:
+        pass # We will fallback to memory-only conversion
+
+    # 2. Serve from Cache if available
+    if can_cache and os.path.exists(cached_file):
+        return send_from_directory(cache_dir, f"{hash_val}.jpg")
+
+    # 3. Locate Raw Blob
+    fsassets_root = get_dynamic_config('fsassets_path')
+    if len(hash_val) < 10:
+        abort(404)
+        
+    rel_path = os.path.join(hash_val[0:2], hash_val[2:4], hash_val[4:6], hash_val[6:10], f"{hash_val}.gz")
+    full_path = os.path.join(fsassets_root, rel_path)
+
+    if not os.path.exists(full_path):
+        abort(404)
+
+    try:
+        # Unzip -> Decode
+        with gzip.open(full_path, 'rb') as f:
+            uncompressed_bytes = f.read()
+            
+        file_bytes = np.asarray(bytearray(uncompressed_bytes), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if img is None:
+            abort(500)
+
+        # 4. Save to Disk OR Serve from RAM
+        if can_cache:
+            cv2.imwrite(cached_file, img)
+            return send_from_directory(cache_dir, f"{hash_val}.jpg")
+        else:
+            # Fallback: Encode to JPG in memory and send directly
+            is_success, buffer = cv2.imencode(".jpg", img)
+            if is_success:
+                return send_file(io.BytesIO(buffer), mimetype='image/jpeg')
+            abort(500)
+            
+    except Exception as e:
+        current_app.logger.error(f"Failed to decode texture {hash_val}: {e}")
+        abort(500)
+
+# --- GALLERY UI ROUTE ---
+@admin_bp.route('/gallery')
+@require_admin
+def texture_gallery():
+    """Renders a paginated gallery of grid textures."""
+    
+    # Check permissions and warn Admin (RESTORED)
+    cache_dir = get_dynamic_config('texture_cache_path')
+    try:
+        if not os.path.exists(cache_dir) or not os.access(cache_dir, os.W_OK):
+            flash(f"Warning: Texture cache dir ({cache_dir}) is missing or not writable by the 'pariah' user. Images are decoding in RAM (High CPU overhead).", "warning")
+    except Exception:
+        flash(f"Warning: Unable to verify cache directory permissions at {cache_dir}.", "warning")
+
+    page = int(request.args.get('page', 1))
+    per_page = 48 
+    offset = (page - 1) * per_page
+    target_uuid = request.args.get('uuid', '').strip()
+    
+    textures = []
+    robust_conn = get_robust_db()
+    
+    try:
+        with robust_conn.cursor() as cursor:
+            # Base query joining inventoryitems (i), fsassets (f), and useraccounts (u)
+            base_query = """
+                SELECT f.id, f.hash, MAX(i.inventoryName) as name, MAX(f.create_time) as create_time,
+                       MAX(i.avatarID) as owner_uuid, MAX(CONCAT(u.FirstName, ' ', u.LastName)) as owner_name
+                FROM inventoryitems i
+                JOIN fsassets f ON i.assetID = f.id
+                LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
+                WHERE i.assetType = 0 
+                  AND i.inventoryName NOT LIKE '%Baked%' 
+                  AND i.inventoryName NOT LIKE '%Mesh%'
+            """
+
+            if target_uuid:
+                cursor.execute(base_query + """
+                  AND i.avatarID = %s 
+                  GROUP BY f.hash 
+                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
+                """, (target_uuid, per_page, offset))
+            else:
+                cursor.execute(base_query + """
+                  GROUP BY f.hash 
+                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            raw_textures = cursor.fetchall()
+            
+            # Map unresolved names for Hypergrid or orphaned system items
+            for t in raw_textures:
+                if not t['owner_name']:
+                    t['owner_name'] = "System / Orphaned / HG"
+            
+            textures = raw_textures
+
+    except Exception as e:
+        current_app.logger.error(f"Gallery Query Failed: {e}")
+        flash("Failed to load textures from the database.", "error")
+
+    return render_template('admin/gallery.html', 
+                           textures=textures, 
+                           page=page, 
+                           target_uuid=target_uuid)

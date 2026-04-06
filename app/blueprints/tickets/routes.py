@@ -17,22 +17,33 @@ def allowed_file(filename):
 def index():
     user_uuid = session.get('uuid')
     is_admin = session.get('is_admin', False)
+    # Default to showing only "Actionable" tickets so the dashboard isn't flooded with closed ones
     status_filter = request.args.get('status', 'All Open')
     tickets = []
+
+    # Define what "Open" means for our system
+    open_statuses = ('Open', 'In Progress', 'On Hold', 'Waiting on User', 'Waiting on Staff')
 
     if user_uuid:
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:
             if is_admin:
+                # ADMIN LOGIC
                 if status_filter == 'All Open':
-                    open_statuses = ('Open', 'In Progress', 'On Hold', 'Waiting on User', 'Waiting on Staff')
                     cursor.execute("SELECT * FROM tickets WHERE status IN %s ORDER BY updated_at DESC", (open_statuses,))
                 elif status_filter == 'All Tickets':
                     cursor.execute("SELECT * FROM tickets ORDER BY updated_at DESC")
-                elif status_filter:
+                else:
                     cursor.execute("SELECT * FROM tickets WHERE status = %s ORDER BY updated_at DESC", (status_filter,))
             else:
-                cursor.execute("SELECT * FROM tickets WHERE user_uuid = %s ORDER BY updated_at DESC", (user_uuid,))
+                # USER LOGIC
+                if status_filter == 'All Open':
+                    cursor.execute("SELECT * FROM tickets WHERE user_uuid = %s AND status IN %s ORDER BY updated_at DESC", (user_uuid, open_statuses))
+                elif status_filter == 'All Tickets':
+                    cursor.execute("SELECT * FROM tickets WHERE user_uuid = %s ORDER BY updated_at DESC", (user_uuid,))
+                else:
+                    cursor.execute("SELECT * FROM tickets WHERE user_uuid = %s AND status = %s ORDER BY updated_at DESC", (user_uuid, status_filter))
+            
             tickets = cursor.fetchall()
 
     return render_template('tickets/index.html', tickets=tickets, current_filter=status_filter)

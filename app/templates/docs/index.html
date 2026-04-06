@@ -2,23 +2,23 @@
 {% block title %}Knowledge Base - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center" style="margin-bottom: 30px;">
-    <h1 style="color: var(--primary); margin-bottom: 10px;">{{ grid_name }} Knowledge Base</h1>
-    <p style="color: var(--text-muted); margin-top: 0;">An ever growing collection of what you need to connect, play, and create on the grid.</p>
+<div class="text-center mb-20">
+    <h1 class="text-primary m-0">{{ grid_name }} Knowledge Base</h1>
+    <p class="text-muted mt-10">An ever growing collection of what you need to connect, play, and create on the grid.</p>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-    
-    <div class="group" style="max-height: none;">
-        <h2>Viewer Setup & Connection</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">How to configure viewers and other technical information.</p>
-        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+<div class="grid-cards">
+
+    <div class="group m-0" style="max-height: none;">
+        <h2 class="m-0 text-primary">Viewer Setup & Connection</h2>
+        <p class="text-muted text-sm m-0 mt-5">How to configure viewers and other technical information.</p>
+        <ul class="m-0 mt-10" style="line-height: 1.6; padding-left: 20px;">
             {% if guides %}
                 {% for g in guides %}
                     {% if not g.requires_login or session.get('uuid') %}
                     <li>
-                        <a href="{{ url_for('policies.view_policy', slug=g.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
-                            {{ g.title }} {% if g.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        <a href="{{ url_for('policies.view_policy', slug=g.slug) }}" class="text-primary fw-bold" style="text-decoration: none;">
+                            {{ g.title }} {% if g.requires_login %}<span title="Requires Login" class="text-sm">🔒</span>{% endif %}
                         </a>
                     </li>
                     {% endif %}
@@ -27,16 +27,16 @@
         </ul>
     </div>
 
-    <div class="group" style="max-height: none;">
-        <h2>Grid Rules & Policies</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Community guidelines, content policies, and user expectations.</p>
-        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+    <div class="group m-0" style="max-height: none;">
+        <h2 class="m-0 text-primary">Grid Rules & Policies</h2>
+        <p class="text-muted text-sm m-0 mt-5">Community guidelines, content policies, and user expectations.</p>
+        <ul class="m-0 mt-10" style="line-height: 1.6; padding-left: 20px;">
             {% if policies %}
                 {% for p in policies %}
                     {% if not p.requires_login or session.get('uuid') %}
                     <li>
-                        <a href="{{ url_for('policies.view_policy', slug=p.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
-                            {{ p.title }} {% if p.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        <a href="{{ url_for('policies.view_policy', slug=p.slug) }}" class="text-primary fw-bold" style="text-decoration: none;">
+                            {{ p.title }} {% if p.requires_login %}<span title="Requires Login" class="text-sm">🔒</span>{% endif %}
                         </a>
                     </li>
                     {% endif %}
@@ -45,16 +45,16 @@
         </ul>
     </div>
 
-    <div class="group" style="max-height: none;">
-        <h2>Member Resources</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Files, scripts, building resources, and helpful guides.</p>
-        <ul style="color: var(--text-main); line-height: 1.6; padding-left: 20px;">
+    <div class="group m-0" style="max-height: none;">
+        <h2 class="m-0 text-primary">Member Resources</h2>
+        <p class="text-muted text-sm m-0 mt-5">Files, scripts, building resources, and helpful guides.</p>
+        <ul class="m-0 mt-10" style="line-height: 1.6; padding-left: 20px;">
             {% if resources %}
                 {% for r in resources %}
                     {% if not r.requires_login or session.get('uuid') %}
                     <li>
-                        <a href="{{ url_for('policies.view_policy', slug=r.slug) }}" style="color: var(--primary); text-decoration: none; font-weight: 600;">
-                            {{ r.title }} {% if r.requires_login %}<span title="Requires Login" style="font-size: 0.8rem;">🔒</span>{% endif %}
+                        <a href="{{ url_for('policies.view_policy', slug=r.slug) }}" class="text-primary fw-bold" style="text-decoration: none;">
+                            {{ r.title }} {% if r.requires_login %}<span title="Requires Login" class="text-sm">🔒</span>{% endif %}
                         </a>
                     </li>
                     {% endif %}
@@ -65,8 +65,8 @@
 
 </div>
 
-<div class="center" style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 30px;">
-    <p style="color: var(--text-muted); margin-bottom: 15px;">Can't find what you're looking for?</p>
+<div class="text-center mt-20 pt-20" style="border-top: 1px solid var(--border-color);">
+    <p class="text-muted mt-0 mb-10">Can't find what you're looking for?</p>
     <a href="{{ url_for('tickets.new_ticket') }}" class="btn">Open a Support Ticket</a>
 </div>
 {% endblock %}

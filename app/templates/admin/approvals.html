@@ -1,63 +1,63 @@
 {% extends 'base.html' %}
 
-{% block title %}Pending Approvals - OS Pariah Portal{% endblock %}
+{% block title %}Pending Approvals - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>Pending Registrations</h2>
+<div class="nav-bar mb-10" style="border-bottom: none;">
+    <h2 class="m-0">Pending Registrations</h2>
 </div>
 
-<p style="color: var(--text-muted); margin-bottom: 24px;">
+<p class="text-muted mb-20 mt-0">
     These users have verified their emails but are awaiting approval. Approving them grants access. Rejecting them locks them permanently.
 </p>
 
 {% if users %}
-    <div class="group" style="max-height: 70vh; padding: 0;">
-        <table style="margin: 0;">
+    <div class="group p-0 m-0" style="max-height: 70vh;">
+        <table class="m-0 w-100">
             <thead>
                 <tr>
                     <th>Avatar Name / UUID</th>
                     <th>Contact Info</th>
                     <th>Invited By</th>
                     <th>Application Details</th>
-                    <th style="text-align: center;">Action</th>
+                    <th class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for user in users %}
                 <tr id="row_{{ user.user_uuid }}" style="transition: opacity 0.5s ease;">
                     <td>
-                        <strong>{{ user.first_name }} {{ user.last_name }}</strong><br>
+                        <strong class="d-block mb-5">{{ user.first_name }} {{ user.last_name }}</strong>
                         <span class="uuid">{{ user.user_uuid }}</span>
                     </td>
                     <td>
-                        <a href="mailto:{{ user.email }}" style="color: var(--primary); text-decoration: none;">{{ user.email }}</a><br>
+                        <a href="mailto:{{ user.email }}" class="text-primary fw-bold" style="text-decoration: none;">{{ user.email }}</a><br>
                         {% if user.discord %}
-                            <span style="font-size: 0.85rem; color: #6366f1;">Discord: {{ user.discord }}</span>
+                            <span class="text-sm" style="color: #6366f1;">Discord: {{ user.discord }}</span><br>
                         {% endif %}
-			{% if user.matrix %}
-                            <span style="font-size: 0.85rem; color: #059669;">Matrix: {{ user.matrix }}</span>
+                        {% if user.matrix %}
+                            <span class="text-sm" style="color: #059669;">Matrix: {{ user.matrix }}</span>
                         {% endif %}
                     </td>
                     <td>{{ user.inviter }}</td>
                     <td>
-                        <div style="font-size: 0.85rem; max-width: 250px; overflow-wrap: break-word;">
+                        <div class="text-sm" style="max-width: 250px; overflow-wrap: break-word;">
                             {{ user.other_info }}
                         </div>
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">Applied: {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <span class="text-sm text-muted mt-5 d-block">Applied: {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                     </td>
-                    <td style="text-align: center; vertical-align: middle;">
-                        <div style="display: flex; gap: 8px; justify-content: center;">
-                            <button class="btn btn-approve" style="background-color: var(--success); padding: 6px 12px; font-size: 0.9rem;" 
+                    <td class="text-center" style="vertical-align: middle;">
+                        <div class="flex-center gap-10">
+                            <button class="btn-success btn-approve flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
                                     onclick="processUser('approve', '{{ user.user_uuid }}', '{{ user.email }}', 'row_{{ user.user_uuid }}')">
                                 <span class="btn-text">Approve</span>
-                                <div class="spinner" style="display: none; width: 12px; height: 12px; margin-left: 5px;"></div>
+                                <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
-                            
-                            <button class="btn btn-reject" style="background-color: var(--danger); padding: 6px 12px; font-size: 0.9rem;" 
+
+                            <button class="btn-danger btn-reject flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
                                     onclick="processUser('reject', '{{ user.user_uuid }}', '{{ user.email }}', 'row_{{ user.user_uuid }}')">
                                 <span class="btn-text">Reject</span>
-                                <div class="spinner" style="display: none; width: 12px; height: 12px; margin-left: 5px;"></div>
+                                <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
                         </div>
                     </td>
@@ -67,9 +67,9 @@
         </table>
     </div>
 {% else %}
-    <div class="center group" style="padding: 40px;">
-        <h3 style="color: var(--success);">All caught up!</h3>
-        <p style="color: var(--text-muted);">There are currently no users awaiting approval.</p>
+    <div class="text-center group p-0" style="padding: 40px;">
+        <h3 class="text-success m-0">All caught up!</h3>
+        <p class="text-muted m-0 mt-10">There are currently no users awaiting approval.</p>
     </div>
 {% endif %}
 
@@ -77,32 +77,26 @@
     function processUser(action, uuid, email, rowId) {
         const isApprove = (action === 'approve');
         const actionText = isApprove ? 'approve' : 'reject';
-        
+
         if (!confirm(`Are you sure you want to ${actionText} this user?`)) return;
 
         const row = document.getElementById(rowId);
         const btnApprove = row.querySelector('.btn-approve');
         const btnReject = row.querySelector('.btn-reject');
-        
-        // Target the specific button being clicked
         const activeBtn = isApprove ? btnApprove : btnReject;
         const activeText = activeBtn.querySelector('.btn-text');
         const activeSpinner = activeBtn.querySelector('.spinner');
 
-        // UI Loading State
         btnApprove.disabled = true;
         btnReject.disabled = true;
         activeText.style.display = 'none';
         activeSpinner.style.display = 'inline-block';
 
-        // Prepare AJAX Payload
         const formData = new URLSearchParams();
         formData.append('uuid', uuid);
         if (isApprove) formData.append('email', email);
 
         const endpoint = isApprove ? '{{ url_for("admin.approve_user") }}' : '{{ url_for("admin.reject_user") }}';
-
-        console.log(`Sending ${actionText} request for ${uuid}...`);
 
         fetch(endpoint, {
             method: 'POST',
@@ -111,16 +105,14 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log("Server response:", data);
             if (data.status === 'success') {
-                // Fade out and remove the row
                 row.style.opacity = '0';
                 setTimeout(() => {
                     row.remove();
                     if (document.querySelectorAll('tbody tr').length === 0) {
-                        location.reload(); 
+                        location.reload();
                     }
-                }, 500); 
+                }, 500);
             } else {
                 alert(data.message || `${actionText} failed due to server error.`);
                 btnApprove.disabled = false;
@@ -131,7 +123,6 @@
         })
         .catch(err => {
             alert("Network error occurred. Check browser console.");
-            console.error("Fetch error:", err);
             btnApprove.disabled = false;
             btnReject.disabled = false;
             activeText.style.display = 'inline-block';

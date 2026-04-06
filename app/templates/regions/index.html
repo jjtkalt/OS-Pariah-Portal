@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Grid Regions - OS Pariah Portal{% endblock %}
+{% block title %}Grid Regions - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+<div class="flex-between mb-20">
     <div>
-        <h1 style="color: var(--primary); margin: 0;">Grid Regions</h1>
-        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Active regions currently registered to the database.</p>
+        <h1 class="text-primary m-0">Grid Regions</h1>
+        <p class="text-muted m-0 mt-10">Active regions currently registered to the database.</p>
     </div>
 </div>
 
@@ -23,16 +23,18 @@
         {% if regions %}
             {% for region in regions %}
             <tr>
-                <td style="font-weight: 600;">{{ region.regionName }}</td>
-                <td style="font-family: monospace;">{{ region.locX }}, {{ region.locY }}</td>
-                <td style="color: var(--text-muted);">{{ region.serverIP }}</td>
-                <td style="color: var(--text-muted);">{{ region.serverPort }}</td>
+                <td class="fw-bold">{{ region.regionName }}</td>
+                <td><code>{{ region.locX }}, {{ region.locY }}</code></td>
+                <td class="text-muted">{{ region.serverIP }}</td>
+                <td class="text-muted">{{ region.serverPort }}</td>
             </tr>
             {% endfor %}
         {% else %}
             <tr>
-                <td colspan="4" class="center" style="padding: 40px; color: var(--text-muted);">
-                    No regions found in the database. Is the grid offline?
+                <td colspan="4" class="text-center text-muted">
+                    <div class="mt-20 mb-20">
+                        No regions found in the database. Is the grid offline?
+                    </div>
                 </td>
             </tr>
         {% endif %}

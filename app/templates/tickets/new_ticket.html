@@ -1,24 +1,24 @@
 {% extends 'base.html' %}
 
-{% block title %}Submit Ticket - OS Pariah Portal{% endblock %}
+{% block title %}Submit Ticket - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="width: 100%;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+<div class="w-100">
+    <div class="flex-between mb-20" style="align-items: flex-end;">
         <div>
-            <h1 style="color: var(--primary); margin: 0;">Submit a New Ticket</h1>
-            <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Our staff will review your request as soon as possible.</p>
+            <h1 class="text-primary m-0">Submit a New Ticket</h1>
+            <p class="text-muted mt-10 m-0">Our staff will review your request as soon as possible.</p>
         </div>
-        <a href="{{ url_for('tickets.index') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back</a>
+        <a href="{{ url_for('tickets.index') }}" class="text-muted fw-bold" style="text-decoration: none;">&larr; Back</a>
     </div>
 
-    <form method="POST" action="{{ url_for('tickets.new_ticket') }}" enctype="multipart/form-data" class="group" style="max-height: none !important; height: auto !important; overflow: visible !important;">
-        
+    <form method="POST" action="{{ url_for('tickets.new_ticket') }}" enctype="multipart/form-data" class="group m-0" style="max-height: none !important;">
+
         <label for="subject">Subject</label>
         <input type="text" id="subject" name="subject" required placeholder="Brief description of the issue...">
 
         <label for="category">Category</label>
-        <select id="category" name="category">
+        <select id="category" name="category" class="mb-20">
             <option value="General Support">General Support</option>
             <option value="Viewer / Connection">Viewer / Connection Issue</option>
             <option value="Griefing / Abuse">Report Griefing / Abuse</option>
@@ -26,12 +26,12 @@
         </select>
 
         {% if not session.get('uuid') %}
-        <div style="background: var(--info-bg); padding: 15px; border-radius: 6px; margin: 15px 0;">
-            <h4 style="margin-top: 0; color: var(--info);">Guest Submission</h4>
+        <div class="alert info mb-20 mt-20">
+            <h4 class="mt-0 text-info">Guest Submission</h4>
             <label for="email">Contact Email Address (Required)</label>
             <input type="email" id="email" name="email" required placeholder="you@example.com">
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">We need your email to send you staff replies, as you cannot view this ticket online without an account.</p>
-            
+            <p class="text-sm text-muted mb-10">We need your email to send you staff replies, as you cannot view this ticket online without an account.</p>
+
             <div class="cf-turnstile" data-sitekey="{{ site_key }}" data-callback="captchaSolved"></div>
         </div>
         {% endif %}
@@ -40,9 +40,9 @@
         <textarea id="message" name="message" required rows="8" placeholder="Please provide as much detail as possible..."></textarea>
 
         <label for="attachment">Attach Screenshot (Optional, Max 5MB)</label>
-        <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.txt,.pdf,.log" style="margin-bottom: 24px; display: block;">
+        <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.txt,.pdf,.log" class="mb-20 d-block">
 
-        <div style="text-align: right; margin-top: 10px;">
+        <div class="text-right mt-10">
             <button type="submit" id="submitBtn" {% if not session.get('uuid') %}disabled{% endif %}>Submit Ticket</button>
         </div>
     </form>
@@ -51,7 +51,6 @@
 
 {% block scripts %}
 <script>
-    // Only lock the button if they are a guest (Turnstile is present)
     const isGuest = {{ 'true' if not session.get('uuid') else 'false' }};
     const submitBtn = document.getElementById('submitBtn');
 

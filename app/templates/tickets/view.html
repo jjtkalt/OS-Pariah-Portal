@@ -1,37 +1,37 @@
 {% extends 'base.html' %}
 
-{% block title %}View Ticket #{{ ticket.id }} - OS Pariah Portal{% endblock %}
+{% block title %}View Ticket #{{ ticket.id }} - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="width: 100%;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+<div class="w-100">
+    <div class="flex-between mb-20" style="align-items: flex-end;">
         <div>
-            <h1 style="color: var(--primary); margin: 0;">{{ ticket.subject }}</h1>
-            <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">
+            <h1 class="text-primary m-0">{{ ticket.subject }}</h1>
+            <p class="text-muted mt-10 m-0">
                 Ticket #{{ ticket.id }} &bull; Status: <strong>{{ ticket.status }}</strong>
             </p>
         </div>
-        <a href="{{ url_for('tickets.index') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back to Helpdesk</a>
+        <a href="{{ url_for('tickets.index') }}" class="text-muted fw-bold" style="text-decoration: none;">&larr; Back to Helpdesk</a>
     </div>
 
-    <div class="group" style="max-height: none !important; height: auto !important; overflow: visible !important;">
-        <p style="color: var(--text-muted); font-size: 0.9rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-top: 0;">
+    <div class="group m-0" style="max-height: none !important;">
+        <p class="text-muted text-sm mt-0 pb-10" style="border-bottom: 1px solid var(--border-color);">
             {% if session.get('is_admin') %}
                 <strong>Assigned to:</strong> {{ ticket.assigned_to_name or 'Unassigned' }} <br>
             {% endif %}
             <strong>Posted by:</strong> {{ ticket.user_name }} {% if not ticket.user_uuid %}(Guest){% endif %} on {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
         </p>
-        <div style="white-space: pre-wrap; margin-top: 15px; line-height: 1.5;">{{ ticket.body }}</div>
+        <div class="mt-10" style="white-space: pre-wrap; line-height: 1.5;">{{ ticket.body }}</div>
 
         {% set main_atts = [] %}
         {% for att in attachments %}{% if not att.reply_id %}{% set _ = main_atts.append(att) %}{% endif %}{% endfor %}
-        
+
         {% if main_atts %}
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border-color);">
-                <strong style="color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">Attachments</strong>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+            <div class="mt-20 pt-10" style="border-top: 1px dashed var(--border-color);">
+                <strong class="text-muted text-sm" style="text-transform: uppercase;">Attachments</strong>
+                <div class="d-flex flex-wrap gap-10 mt-10">
                 {% for att in main_atts %}
-                    <a href="{{ url_for('tickets.view_attachment', ticket_id=ticket.id, filename=att.file_path) }}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--info-bg); color: var(--info); border: 1px solid #bae6fd; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold;">
+                    <a href="{{ url_for('tickets.view_attachment', ticket_id=ticket.id, filename=att.file_path) }}" target="_blank" class="btn-outline text-info fw-bold text-sm flex-center gap-5" style="border-color: #bae6fd; background: var(--info-bg); padding: 6px 12px; text-decoration: none;">
                         &#128206; {{ att.filename }}
                     </a>
                 {% endfor %}
@@ -41,24 +41,24 @@
     </div>
 
     {% if replies %}
-        <h3 style="color: var(--text-muted); margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 5px;">Conversation</h3>
+        <h3 class="text-muted mt-20 pb-5" style="border-bottom: 2px solid var(--border-color);">Conversation</h3>
         {% for reply in replies %}
-        <div class="group" style="max-height: none !important; height: auto !important; overflow: visible !important; {% if reply.replier_uuid != ticket.user_uuid %} border-left: 4px solid var(--info); {% endif %}">
-            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0; margin-bottom: 10px;">
-                <strong>{{ reply.replier_email }}</strong> 
-                {% if reply.replier_uuid != ticket.user_uuid %}<span style="background: var(--info-bg); color: var(--info); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-left: 5px;">Staff</span>{% endif %}
+        <div class="group m-0 mb-20" style="max-height: none !important; {% if reply.replier_uuid != ticket.user_uuid %} border-left: 4px solid var(--info); {% endif %}">
+            <p class="text-muted text-sm mt-0 mb-10">
+                <strong>{{ reply.replier_email }}</strong>
+                {% if reply.replier_uuid != ticket.user_uuid %}<span class="text-info fw-bold text-sm" style="background: var(--info-bg); padding: 2px 6px; border-radius: 4px; margin-left: 5px;">Staff</span>{% endif %}
                 replied on {{ reply.created_at.strftime('%Y-%m-%d %H:%M') }}
             </p>
             <div style="white-space: pre-wrap; line-height: 1.5;">{{ reply.body }}</div>
-            
+
             {% set reply_atts = [] %}
             {% for att in attachments %}{% if att.reply_id == reply.id %}{% set _ = reply_atts.append(att) %}{% endif %}{% endfor %}
-            
+
             {% if reply_atts %}
-                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed var(--border-color);">
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <div class="mt-10 pt-10" style="border-top: 1px dashed var(--border-color);">
+                    <div class="d-flex flex-wrap gap-10">
                     {% for att in reply_atts %}
-                        <a href="{{ url_for('tickets.view_attachment', ticket_id=ticket.id, filename=att.file_path) }}" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: #f8fafc; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: bold;">
+                        <a href="{{ url_for('tickets.view_attachment', ticket_id=ticket.id, filename=att.file_path) }}" target="_blank" class="btn-outline text-muted fw-bold text-sm flex-center gap-5" style="padding: 4px 10px; background: var(--bg-hover); text-decoration: none;">
                             &#128206; {{ att.filename }}
                         </a>
                     {% endfor %}
@@ -70,22 +70,22 @@
     {% endif %}
 
     {% if ticket.status != 'Completed' and ticket.status != 'Withdrawn' %}
-    <div style="margin-top: 30px;">
-        <form action="{{ url_for('tickets.reply_ticket', ticket_id=ticket.id) }}" method="POST" enctype="multipart/form-data" class="group" style="background: #fff; padding: 20px; max-height: none !important; height: auto !important; overflow: visible !important;">
-            <h3 style="margin-top: 0;">Update Ticket</h3>
-            
+    <div class="mt-20">
+        <form action="{{ url_for('tickets.reply_ticket', ticket_id=ticket.id) }}" method="POST" enctype="multipart/form-data" class="group m-0" style="max-height: none !important;">
+            <h3 class="mt-0">Update Ticket</h3>
+
             <label for="body">Post a Reply</label>
             <textarea id="body" name="body" rows="4" placeholder="Type your reply here..."></textarea>
-            
-            <div style="display: flex; gap: 20px; align-items: flex-end; margin-top: 15px; flex-wrap: wrap;">
+
+            <div class="d-flex flex-wrap gap-20 mt-10" style="align-items: flex-end;">
                 <div style="flex: 1;">
                     <label for="attachment">Attach File (Optional)</label>
-                    <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.txt,.pdf,.log" style="padding: 8px; border: 1px dashed var(--border-color); background: var(--bg-color);">
+                    <input type="file" id="attachment" name="attachment" accept=".png,.jpg,.jpeg,.gif,.txt,.pdf,.log" class="p-0" style="border: 1px dashed var(--border-color); background: var(--bg-color); padding: 8px;">
                 </div>
-                
+
                 <div style="flex: 1;">
                     <label for="status">Change Status</label>
-                    <select id="status" name="status" style="margin-bottom: 0;">
+                    <select id="status" name="status" class="mb-0">
                         {% if session.get('is_admin') %}
                             <option value="Waiting on User" selected>Waiting on User (Default)</option>
                             <option value="Completed">Completed</option>
@@ -99,14 +99,14 @@
                     </select>
                 </div>
             </div>
-            
-            <div style="text-align: right; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-                <button type="submit" style="background: var(--success); font-size: 1.1rem; padding: 10px 20px;">Save Update</button>
+
+            <div class="text-right mt-20 pt-10" style="border-top: 1px solid var(--border-color);">
+                <button type="submit" class="btn-success text-lg">Save Update</button>
             </div>
         </form>
     </div>
     {% else %}
-        <div class="alert info" style="margin-top: 20px;">This ticket is closed. You must re-open it to reply.</div>
+        <div class="alert info mt-20">This ticket is closed. You must re-open it to reply.</div>
         <form action="{{ url_for('tickets.reply_ticket', ticket_id=ticket.id) }}" method="POST">
             <input type="hidden" name="status" value="Open">
             <button type="submit" class="btn">Re-Open Ticket</button>
@@ -114,7 +114,7 @@
     {% endif %}
 
     {% if allow_delete %}
-    <div style="text-align: right; margin-top: 40px;">
+    <div class="text-right mt-20">
         <form action="{{ url_for('tickets.delete_ticket', ticket_id=ticket.id) }}" method="POST" onsubmit="return confirm('WARNING: This will permanently delete this ticket. Are you sure?');">
             <button type="submit" class="btn-danger">Delete Ticket</button>
         </form>

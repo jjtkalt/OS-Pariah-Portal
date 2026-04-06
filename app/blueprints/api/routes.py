@@ -114,7 +114,7 @@ def online_lister():
     # 4. Format Output exactly as the HUD expects (for now):
     # Total Online Users: X<br>
     # User Name,Region<br>
-    output_lines = [f"Total Online Users: {len(filtered_users)}<br>"]
+    output_lines = [f"Total Online Users: {len(all_users)}<br>"]
     for user in filtered_users:
         output_lines.append(f"{user['name']},{user['region']}<br>")
 

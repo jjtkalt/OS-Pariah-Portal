@@ -1,33 +1,33 @@
 {% extends 'base.html' %}
 
-{% block title %}Post News - OS Pariah Portal{% endblock %}
+{% block title %}Post News - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>
-        <a href="{{ url_for('comms.news_feed') }}" style="text-decoration: none; color: var(--text-muted); font-size: 1rem;">&larr; Back to News</a><br>
+<div class="nav-bar" style="border-bottom: none;">
+    <h2 class="m-0">
+        <a href="{{ url_for('comms.news_feed') }}" class="text-muted text-sm" style="text-decoration: none;">&larr; Back to News</a><br>
         Post Grid Announcement
     </h2>
 </div>
 
 <form method="POST" action="{{ url_for('comms.post_news') }}" onsubmit="showLoading('newsSpinner', 'newsBtn')">
-    <fieldset>
+    <fieldset class="group m-0">
         <legend>Announcement Details</legend>
-        
+
         <label>Headline / Title</label>
         <input type="text" name="title" placeholder="e.g., Scheduled Maintenance for Sunday" required>
-        
+
         <label>Message Body</label>
         <textarea name="body" rows="6" placeholder="Type your announcement here..." required></textarea>
-        
-        <div style="background: var(--danger-bg); border: 1px solid var(--danger); padding: 12px; border-radius: 6px; margin-top: 10px;">
-            <label class="radio" style="margin: 0; color: var(--danger); font-weight: bold;">
+
+        <div class="mt-10" style="background: var(--danger-bg); border: 1px solid var(--danger); padding: 12px; border-radius: 6px;">
+            <label class="radio m-0 text-danger fw-bold">
                 <input type="checkbox" name="is_alert">
                 Mark as Critical Alert (Highlights in Red)
             </label>
         </div>
-        
-        <button type="submit" id="newsBtn" style="margin-top: 16px; width: 100%;">
+
+        <button type="submit" id="newsBtn" class="w-100 mt-20">
             <span>Publish Announcement</span>
             <div id="newsSpinner" class="spinner" style="display: none;"></div>
         </button>

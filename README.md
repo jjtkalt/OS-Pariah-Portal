@@ -11,9 +11,9 @@ The following basic assumptions are in place:
 - Users should be respected and not treated like a lesser group because they are not part of the grid staff
 - Security, privacy, respect, and functionality should be core values of any Grid and or community.
 - Python 3.12 is available (the code MIGHT be compatible with later versions, but it is untested)
-- The web browser is Nginx.  Apache or other webserver packages could well work, but you are on your own with them
+- The web server is Nginx.  Apache or other webserver packages could well work, but you are on your own with them
 
-While this application is almost entirely platform agnostic, as of right now, it is only supported in a unix environment and still has a few dependencies on the OS-Pariah Installation project.  A midterm goal is to roll those dependencies into the code to allow it to be truly standalone.  This MOSTLY affects the region controls at this time.  YMMV
+OS Pariah is an enterprise-grade portal built for scale and stability. Because it heavily integrates with native OS-level process management (like systemd, firewalld, and screen), the portal backend requires a Linux environment (Currently only OpenSUSE is officially supported for reliability reasons - Technically, there is no known reason why a Ubuntu, CentOS, or other Linux variant wouldn't work assuming a manual install, but your milage may vary.). Windows Server is not supported for the portal installation.
 
 ## Functionality
 
@@ -24,7 +24,7 @@ Pariah was built to be enterprise-grade, capable of handling high-traffic OpenSi
 * **Policy, Rules, and Documentation:** Pariah tracks user's acceptance of system policies, keeping everyone up to date while allowing administrators to easily edit and publish documentation.
 * **Dynamic Helpdesk System:** Guests and members alike have a central location to get the help they need.  Administrators can get updates on Discord or Matrix.  Abuse is limited by Cloudflare&copy;'s Turnstyle&trade; CAPTCHA system.
 * **System and Region Configuration:** All of the various parts of running a grid are accessible to users and administrators in Pariah's centralized system.
-* **Viewer Welcome/Splash page:** a dynamic page for users of the grid when they are logging in.
+* **Viewer Welcome/Splash page:** a dynamic page for users of the grid when they are logging in. (Set the Welcome page in Robust.ini to point to https://portal.example.com/comms/splash)
 
 ## Philosophical Reasoning
 For all the various reasons that one thing or another was chosen, or to learn more about the industry best practices that were intended to be followed, refer to [Philosophy](PHILOSOPHY.md).
@@ -55,14 +55,26 @@ iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 
 ### Manual Installation (Not recommended or supported.  But it should work!)
 
+In our testing, the following commands were run as the opensim user from Pariah Installation.  This allowed us to use Git to update to the latest develop release for testing.  YMMV
+
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.
 - Create the SUDO rules required for Pariah.  Something like:
-  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" > /etc/sudoers.d/pariah_worker```
-  - ```chmod 0440 /etc/sudoers.d/pariah_worker```
-- Install and activate the Systemd services and the Nginx vhost configuration
-- Edit ```.env_example``` with your DB credentials and save it as ```.env```
+  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py, /bin/systemctl start opensim@*.service, /bin/systemctl stop opensim@*.service, /bin/systemctl restart opensim@*.service, /bin/systemctl enable opensim@*.service, /bin/systemctl disable opensim@*.service" | sudo tee /etc/sudoers.d/pariah_worker```
+  - ```echo "pariah ALL=(opensim) NOPASSWD: /usr/bin/screen -p 0 -S OpenSim-* -X stuff *" | sudo tee -a /etc/sudoers.d/pariah_worker```
+  - ```sudo chmod 0440 /etc/sudoers.d/pariah_worker```
+- Create the Pariah Gallery Cache directory for image review: ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
+  - IMPORTANT: If your FSAssets path is different than the default, or you aren't using the default fsassets table in the robust database, you must update this to where it will be located and update the default value in the Admin - Settings menu of the Portal UI.
+- Clone the GitHub repository into /opt/os_pariah
+- Edit ```.env_example``` with your DB credentials and save it as either ```.env``` or the standard /etc/os_pariah/os-pariah.conf
 - Create the virtual environment inside /opt/os_pariah: ```cd /opt/os_pariah; python3.12 -m venv venv```
-- Activate the Virtual environment in your shell: ```source venv/bin/activate```
-- Install requirements into the virtual environment: ```venv/bin/pip -r requirements.txt```
-- Run database migrations: ```venv/bin/python migrate.py```
-- Start the portal: ```sudo systemctl enable --now pariah```
+- Activate the Virtual environment in your shell: ```source /opt/os_pariah/venv/bin/activate```
+- Install requirements into the virtual environment: ```/opt/os_pariah/venv/bin/pip -r requirements.txt```
+- Run database migrations: ```/opt/os_pariah/venv/bin/python migrate.py```
+- Install and activate the Systemd services and the Nginx vhost configuration from the /opt/os_pariah/packaging directory
+  - ```sudo cp /opt/os_pariah/packaging/OS-Pariah.conf /etc/nginx/vhosts.d/```
+  - ```sudo cp /opt/os_pariah/packaging/*.service /opt/os_pariah/packaging/*.timer /etc/systemd/system/```
+  - ```sudo systemctl daemon-reload```
+- Test and restart the Nginx Web Service
+  - ```sudo nginx -t```
+  - ```sudo systemctl restart nginx.service```
+- Enable and start the portal: ```sudo systemctl enable --now pariah```

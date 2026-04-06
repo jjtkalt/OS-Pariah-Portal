@@ -10,11 +10,11 @@ user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 @require_admin
 def gatekeeper_lookup():
     """Cross-references IP, MAC, HostID, and Inbound From to find alt accounts."""
-    search_type = request.args.get('type', 'username') # Default to partial username
+    search_type = request.args.get('type', 'username')
     query_raw = request.args.get('q', '').strip()
 
     if not query_raw:
-        return render_template('admin/lookup.html', results=None)
+        return render_template('admin/lookup.html', results=None, search_type=search_type, query="")
 
     pariah_conn = get_pariah_db()
     uuids = set()
@@ -26,13 +26,23 @@ def gatekeeper_lookup():
         'from': ('gatekeeper_from', 'inbound_from')
     }
 
+    # Helper to safely format datetime objects for the template
+    def format_dt(dt):
+        if hasattr(dt, 'strftime'):
+            return dt.strftime('%Y-%m-%d %H:%M')
+        return str(dt) if dt else 'Unknown'
+
     try:
         with pariah_conn.cursor() as cursor:
             if search_type == 'username':
-                # PARTIAL NAME SEARCH RESTORED
                 like_query = f"%{query_raw}%"
                 for table in ['gatekeeper_ip', 'gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
                     cursor.execute(f"SELECT DISTINCT user_uuid FROM {table} WHERE user_name LIKE %s", (like_query,))
+                    uuids.update([row['user_uuid'] for row in cursor.fetchall()])
+            
+            elif search_type == 'exact_username':
+                for table in ['gatekeeper_ip', 'gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
+                    cursor.execute(f"SELECT DISTINCT user_uuid FROM {table} WHERE user_name = %s", (query_raw,))
                     uuids.update([row['user_uuid'] for row in cursor.fetchall()])
 
             elif search_type in table_map:
@@ -43,30 +53,50 @@ def gatekeeper_lookup():
             elif search_type == 'uuid':
                 uuids.add(query_raw)
 
-            results = {'usernames': set(), 'ips': set(), 'macs': set(), 'host_ids': set()}
+            # Changed sets to dictionaries to hold the timestamps
+            results = {'usernames': set(), 'ips': {}, 'macs': {}, 'host_ids': {}}
+            uuid_info = {}
             
             if uuids:
                 format_strings = ','.join(['%s'] * len(uuids))
                 uuid_tuple = tuple(uuids)
 
-                # Fetch all known names so admins can see exactly who the alts are!
                 cursor.execute(f"SELECT DISTINCT user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
                 results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
 
-                cursor.execute(f"SELECT DISTINCT user_ip FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                results['ips'].update([r['user_ip'] for r in cursor.fetchall() if r['user_ip']])
+                # Fetch IPs, group by IP, get most recent date, and sort!
+                cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
+                results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
 
-                cursor.execute(f"SELECT DISTINCT user_mac FROM gatekeeper_mac WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                results['macs'].update([r['user_mac'] for r in cursor.fetchall() if r['user_mac']])
+                # Fetch MACs
+                cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
+                results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
 
-                cursor.execute(f"SELECT DISTINCT user_host_id FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                results['host_ids'].update([r['user_host_id'] for r in cursor.fetchall() if r['user_host_id']])
+                # Fetch Host IDs
+                cursor.execute(f"SELECT user_host_id, MAX(date_time) as last_seen FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings}) GROUP BY user_host_id ORDER BY last_seen DESC", uuid_tuple)
+                results['host_ids'] = {r['user_host_id']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_host_id']}
+
+                # Fetch Hypergrid Origin Information & Timestamp
+                cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
+                grid_data = {row['user_uuid']: {'from': row['grid_from'], 'last_seen': format_dt(row['last_seen'])} for row in cursor.fetchall()}
+                
+                for u in uuids:
+                    g_data = grid_data.get(u, {})
+                    origin = g_data.get('from')
+                    last_seen = g_data.get('last_seen', 'Unknown')
+                    is_local = not origin or "127.0.0.1" in origin or origin == ""
+                    
+                    uuid_info[u] = {
+                        'grid_from': "Local Grid" if is_local else origin,
+                        'is_local': is_local,
+                        'last_seen': last_seen
+                    }
 
     except Exception as e:
         current_app.logger.error(f"Gatekeeper lookup error: {e}")
         flash('Database query failed.', 'error')
 
-    return render_template('admin/lookup.html', query=query_raw, search_type=search_type, results=results, uuids=list(uuids))
+    return render_template('admin/lookup.html', query=query_raw, search_type=search_type, results=results, uuid_info=uuid_info)
 
 @user_mgmt_bp.route('/<uuid>/notes', methods=['GET', 'POST'])
 @require_admin

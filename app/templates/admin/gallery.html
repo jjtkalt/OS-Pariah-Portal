@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Asset Review - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="flex-between flex-wrap gap-10 mb-20">
+    <div>
+        <h1 class="text-primary m-0">Texture Gallery</h1>
+        <p class="text-muted mt-5 m-0">
+            {% if target_uuid %}
+                Viewing inventory for UUID: <strong>{{ target_uuid }}</strong>
+            {% else %}
+                Viewing Global Recent Uploads
+            {% endif %}
+        </p>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin.texture_gallery') }}" class="d-flex gap-10 m-0">
+        <input type="text" name="uuid" placeholder="Enter User UUID..." value="{{ target_uuid }}" class="m-0" style="min-width: 300px;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if target_uuid %}
+            <a href="{{ url_for('admin.texture_gallery') }}" class="btn m-0">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="grid-cards mb-20" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+    {% for tex in textures %}
+        <div class="card p-0 flex-column" style="overflow: hidden; margin-bottom: 0;">
+
+            <a href="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" target="_blank" class="flex-center w-100" style="height: 200px; background: #000; overflow: hidden; text-decoration: none;">
+                <img src="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" alt="{{ tex.name }}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" loading="lazy">
+            </a>
+
+            <div style="padding: 10px; font-size: 0.85rem;">
+                <strong class="d-block mb-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ tex.name }}">
+                    <a href="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" target="_blank" class="text-primary" style="text-decoration: none;">{{ tex.name or 'Untitled Texture' }}</a>
+                </strong>
+
+                <span class="text-muted d-block text-sm" style="font-family: monospace; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Click to Copy: {{ tex.hash }}" onclick="navigator.clipboard.writeText('{{ tex.hash }}'); alert('Hash copied to clipboard!');">
+                    Hash: {{ tex.hash }}
+                </span>
+
+                <span class="text-main d-block text-sm mt-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="UUID: {{ tex.owner_uuid }}">
+                    Owner: <a href="{{ url_for('admin.texture_gallery', uuid=tex.owner_uuid) }}" style="color: inherit;">{{ tex.owner_name }}</a>
+                </span>
+
+                <span class="text-info d-block mt-5 text-sm">
+                    Uploaded: <script>document.write(new Date({{ tex.create_time }} * 1000).toLocaleDateString());</script>
+                </span>
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center text-muted card w-100 p-0" style="grid-column: 1 / -1; padding: 40px;">
+            No textures found.
+        </div>
+    {% endfor %}
+</div>
+
+<div class="flex-between">
+    {% if page > 1 %}
+        <a href="{{ url_for('admin.texture_gallery', page=page-1, uuid=target_uuid) }}" class="btn">&larr; Previous Page</a>
+    {% else %}
+        <div></div> 
+    {% endif %}
+
+    <span class="text-muted">Page {{ page }}</span>
+
+    {% if textures|length == 48 %}
+        <a href="{{ url_for('admin.texture_gallery', page=page+1, uuid=target_uuid) }}" class="btn">Next Page &rarr;</a>
+    {% else %}
+        <div></div> 
+    {% endif %}
+</div>
+{% endblock %}

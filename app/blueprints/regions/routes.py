@@ -7,6 +7,21 @@ from app.utils.auth_helpers import require_admin
 
 regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
 
+def format_uptime(seconds):
+    """Converts raw seconds into a clean human-readable string like '2d 4h' or '45m'."""
+    if not seconds or seconds <= 0:
+        return "Just Started"
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    
+    if days > 0:
+        return f"{int(days)}d {int(hours)}h"
+    elif hours > 0:
+        return f"{int(hours)}h {int(minutes)}m"
+    else:
+        return f"{int(minutes)}m"
+
 @regions_bp.route('/api/config/<region_uuid>.xml', methods=['GET'])
 def get_region_xml(region_uuid):
     client_ip = request.remote_addr
@@ -20,18 +35,24 @@ def get_region_xml(region_uuid):
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
-            cursor.execute("SELECT region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            # UPDATED: Fetch the is_active flag
+            cursor.execute("SELECT region_name, is_active FROM region_configs WHERE region_uuid = %s", (region_uuid,))
             region_info = cursor.fetchone()
 
             if not region_info:
                 return Response("<error>Region Not Found</error>", status=404, mimetype='application/xml')
+            
+            # UPDATED: Reject the request if the region is disabled
+            if region_info['is_active'] == 0:
+                current_app.logger.info(f"Rejected WebXML request for DISABLED region: {region_info['region_name']}")
+                return Response("<error>Region Disabled By Administrator</error>", status=403, mimetype='application/xml')
 
             cursor.execute("SELECT setting_key, setting_value FROM region_settings WHERE region_uuid = %s", (region_uuid,))
             settings = cursor.fetchall()
 
             cursor.execute("SELECT external_hostname FROM region_hosts WHERE host_ip = %s", (client_ip,))
             host_mapping = cursor.fetchone()
-            
+
             if host_mapping and host_mapping.get('external_hostname'):
                 external_host_name = host_mapping['external_hostname']
             else:
@@ -44,12 +65,10 @@ def get_region_xml(region_uuid):
         xml_output.append('    <Key Name="ResolveAddress" Value="False" />')
         xml_output.append('    <Key Name="AllowAlternatePorts" Value="False" />')
 
-        # --- NEW: Inject the Global MaxAgents Setting ---
         global_max_agents = get_dynamic_config('default_max_agents')
         xml_output.append(f'    <Key Name="MaxAgents" Value="{global_max_agents}" />')
 
         for setting in settings:
-            # Prevent DB-stored MaxAgents from overriding the global one
             if setting['setting_key'] != 'MaxAgents':
                 xml_output.append(f'    <Key Name="{setting["setting_key"]}" Value="{setting["setting_value"]}" />')
 
@@ -66,52 +85,105 @@ def manage_regions():
     combined_regions = {}
 
     try:
-        # 1. Fetch our master list of MANAGED regions from the Portal DB (even if offline)
         conn_pariah = get_pariah_db()
         with conn_pariah.cursor() as cursor:
             cursor.execute("""
-                SELECT c.region_uuid as uuid, c.region_name as regionName,
+                SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active,
                        MAX(IF(s.setting_key = 'InternalPort', s.setting_value, NULL)) AS serverPort
                 FROM region_configs c
                 LEFT JOIN region_settings s ON c.region_uuid = s.region_uuid
-                GROUP BY c.region_uuid, c.region_name
+                GROUP BY c.region_uuid, c.region_name, c.is_active
             """)
             for r in cursor.fetchall():
                 combined_regions[r['uuid']] = {
                     'uuid': r['uuid'],
                     'regionName': r['regionName'],
-                    'serverIP': 'Managed (See DNS Mapping)', 
+                    'serverIP': 'Managed (See DNS Mapping)',
                     'serverPort': r['serverPort'] or 'Unknown',
                     'is_managed': True,
-                    'is_online': False # Assume offline until Robust confirms otherwise
+                    'is_active': bool(r['is_active']),
+                    'is_online': False,
+                    'uptime': 'N/A'
                 }
 
-        # 2. Fetch the active/online regions from the Robust DB
         conn_robust = get_robust_db()
         with conn_robust.cursor() as cursor:
             cursor.execute("SELECT uuid, regionName, serverIP, serverPort FROM regions")
             for r in cursor.fetchall():
                 if r['uuid'] in combined_regions:
-                    # Update existing managed region with live data
                     combined_regions[r['uuid']]['is_online'] = True
                     combined_regions[r['uuid']]['serverIP'] = r['serverIP']
                     combined_regions[r['uuid']]['serverPort'] = r['serverPort']
                 else:
-                    # An external/unmanaged region was started manually!
                     combined_regions[r['uuid']] = {
                         'uuid': r['uuid'],
                         'regionName': r['regionName'],
                         'serverIP': r['serverIP'],
                         'serverPort': r['serverPort'],
                         'is_managed': False,
-                        'is_online': True
+                        'is_active': True,
+                        'is_online': True,
+                        'uptime': 'External' # We can't fetch uptime for remote/unmanaged regions
                     }
+
+        # --- SYSTEMD UPTIME FETCHING ---
+        managed_safe_names = [r['regionName'].replace(" ", "_") for r in combined_regions.values() if r['is_managed']]
+        uptimes = {}
+        
+        if managed_safe_names:
+            try:
+                # Ask systemd for all region statuses in one single, fast command
+                services = [f"opensim@{name}.service" for name in managed_safe_names]
+                cmd = ["/usr/bin/systemctl", "show"] + services + ["-p", "Id,ActiveState,ExecMainStartTimestampMonotonic"]
+                output = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.DEVNULL)
+                
+                # Systemd tracks time against the system Monotonic clock (in microseconds)
+                current_mono_usec = time.clock_gettime(time.CLOCK_MONOTONIC) * 1_000_000
+                
+                current_id, active_state, start_mono = None, None, 0
+                
+                # Parse the raw systemctl output blocks
+                for line in output.split('\n'):
+                    line = line.strip()
+                    if line.startswith('Id='):
+                        current_id = line.split('=', 1)[1]
+                    elif line.startswith('ActiveState='):
+                        active_state = line.split('=', 1)[1]
+                    elif line.startswith('ExecMainStartTimestampMonotonic='):
+                        try:
+                            start_mono = int(line.split('=', 1)[1])
+                        except ValueError:
+                            start_mono = 0
+                    elif not line:
+                        # Blank line = end of block for one service
+                        if current_id and current_id.startswith('opensim@') and current_id.endswith('.service'):
+                            r_name_safe = current_id[8:-8]
+                            if active_state == 'active' and start_mono > 0:
+                                uptime_sec = (current_mono_usec - start_mono) / 1_000_000
+                                uptimes[r_name_safe] = format_uptime(uptime_sec)
+                        current_id, active_state, start_mono = None, None, 0
+                        
+                # Process the final block just in case the output doesn't end with a trailing newline
+                if current_id and current_id.startswith('opensim@') and current_id.endswith('.service'):
+                    r_name_safe = current_id[8:-8]
+                    if active_state == 'active' and start_mono > 0:
+                        uptime_sec = (current_mono_usec - start_mono) / 1_000_000
+                        uptimes[r_name_safe] = format_uptime(uptime_sec)
+
+            except Exception as e:
+                # If they are running on a dev env without systemd, just ignore gracefully
+                current_app.logger.warning(f"Unable to fetch systemd uptimes: {e}")
+
+        # Map the calculated uptimes back to the main region dictionary
+        for r in combined_regions.values():
+            if r['is_managed'] and r['is_online']:
+                safe_name = r['regionName'].replace(" ", "_")
+                r['uptime'] = uptimes.get(safe_name, "Starting...")
 
     except Exception as e:
         current_app.logger.error(f"Region Management Sync Error: {e}")
         flash(f"Database sync failed: {e}", "error")
 
-    # Sort alphabetically for the template
     final_list = sorted(combined_regions.values(), key=lambda x: x['regionName'])
     return render_template('admin/manage_regions.html', regions=final_list)
 
@@ -137,30 +209,27 @@ def control_region(action, region_uuid):
 
     region_name = region['region_name']
     safe_region_name = region_name.replace(" ", "_")
-    grid_tools_dir = "/home/opensim/GridTools"
     
     env = os.environ.copy()
-    env['HOME'] = '/home/opensim'
-    env['PATH'] = '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:/home/opensim/GridTools'
     
     try:
-        # Popen fires the command in the background (fire-and-forget) so the web UI never hangs
-        # start_new_session=True fully detaches it from the Gunicorn worker thread
+        # --- NEW SYSTEMD INTEGRATION ---
         if action == 'start':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/startregion", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "start", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Start signal sent for '{region_name}'. It may take a moment to appear online.", "info")
+            flash(f"Start signal sent to systemd for '{region_name}'.", "info")
             
         elif action == 'stop':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/stopregion", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "stop", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Stop signal sent for '{region_name}'. It will go offline shortly.", "info")
+            flash(f"Stop signal sent to systemd for '{region_name}'.", "info")
             
         elif action == 'restart':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/softrestart", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "restart", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Restart initiated for '{region_name}'. The 60-second in-world warning has begun.", "info")
+            flash(f"Restart initiated via systemd for '{region_name}'.", "info")
             
+        # --- OAR BACKUPS (Still requires screen injection) ---
         elif action == 'oar':
             backup_dir = os.path.join(current_app.root_path, 'static', 'downloads', 'oars')
             os.makedirs(backup_dir, exist_ok=True)
@@ -170,13 +239,14 @@ def control_region(action, region_uuid):
             
             screen_name = f"OpenSim-{safe_region_name}"
             stuff_cmd = f"save oar {filename}\r"
-            cmd = ["/usr/bin/screen", "-p", "0", "-S", screen_name, "-X", "stuff", stuff_cmd]
+            # Note: We use sudo here assuming the screen session is owned by the 'opensim' user
+            cmd = ["/usr/bin/sudo", "-u", "opensim", "/usr/bin/screen", "-p", "0", "-S", screen_name, "-X", "stuff", stuff_cmd]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             flash(f"OAR backup requested for '{region_name}'.", "info")
 
     except Exception as e:
-        current_app.logger.error(f"Subprocess execution failed: {e}")
-        flash(f"Fatal error executing script.", "error")
+        current_app.logger.error(f"Subprocess execution failed for action {action} on {region_name}: {e}")
+        flash(f"Fatal error executing control script. Check server logs.", "error")
 
     return redirect(url_for('regions.manage_regions'))
 
@@ -220,6 +290,43 @@ def add_region():
     sizes = [i * 256 for i in range(1, max_multiplier + 1)]
     return render_template('admin/add_region.html', sizes=sizes)
 
+@regions_bp.route('/toggle_state/<region_uuid>', methods=['POST'])
+@require_admin
+def toggle_state(region_uuid):
+    """Flips a managed region between Enabled (1) and Disabled (0)."""
+    if int(session.get('user_level', 0)) < 200:
+        flash("Unauthorized.", "error")
+        return redirect(url_for('regions.manage_regions'))
+
+    pariah_conn = get_pariah_db()
+    try:
+        with pariah_conn.cursor() as cursor:
+            # Fetch current state
+            cursor.execute("SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            region = cursor.fetchone()
+            
+            if not region:
+                flash("Region not found in the Portal Database.", "error")
+                return redirect(url_for('regions.manage_regions'))
+
+            # Flip it!
+            new_state = 0 if region['is_active'] == 1 else 1
+            cursor.execute("UPDATE region_configs SET is_active = %s WHERE region_uuid = %s", (new_state, region_uuid))
+            pariah_conn.commit()
+            
+            status_word = "Enabled" if new_state == 1 else "Disabled"
+            flash(f"Region '{region['region_name']}' is now {status_word}.", "success")
+            
+            # Warn them if they disabled a region that is currently running
+            if new_state == 0:
+                flash("Note: If this region is currently online, you still need to send a 'Stop' or 'Restart' signal for the simulator to drop it.", "info")
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to toggle region state: {e}")
+        flash("A database error occurred.", "error")
+
+    return redirect(url_for('regions.manage_regions'))
+
 @regions_bp.route('/delete/<region_uuid>', methods=['POST'])
 @require_admin
 def delete_region(region_uuid):
@@ -230,10 +337,17 @@ def delete_region(region_uuid):
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
-            # Foreign key cascading will automatically delete the associated region_settings
+            # UPDATED: Enforce the Guardrail!
+            cursor.execute("SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            region = cursor.fetchone()
+            
+            if region and region['is_active'] == 1:
+                flash(f"SAFETY LOCK: You must Disable '{region['region_name']}' before you can delete it.", "error")
+                return redirect(url_for('regions.manage_regions'))
+
             cursor.execute("DELETE FROM region_configs WHERE region_uuid = %s", (region_uuid,))
         pariah_conn.commit()
-        flash("Region deleted successfully.", "success")
+        flash("Region configuration deleted successfully.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete region: {e}")
         flash("An error occurred while deleting the region.", "error")

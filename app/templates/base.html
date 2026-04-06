@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}OS Pariah Portal{% endblock %}</title>
+    <title>{% block title %}{{ grid_name }} Portal{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/central.css') }}">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -12,19 +12,19 @@
         <div class="main">
             
             <nav class="nav-bar">
-                <a href="{{ grid_website_url }}" style="font-size: 1.5rem; font-weight: bold; color: var(--primary); text-decoration: none;">
+                <a href="{{ grid_website_url }}" class="text-primary fw-bold" style="font-size: 1.5rem; text-decoration: none;">
                     {{ grid_name }}
                 </a>
 
                 <div class="nav-links">
-                    <a href="{{ url_for('index') }}">Home</a>
-                    <a href="{{ url_for('docs') }}">Docs</a>
-                    <a href="{{ url_for('tickets.index') }}">Helpdesk</a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline">Home</a>
+                    <a href="{{ url_for('docs') }}" class="btn btn-muted" Title="Documents and Policies">&#128221;</a>
+                    <a href="{{ url_for('tickets.index') }}" class="btn btn-warning" Title="Helpdesk">&#10067;</a>
 
                     {% if session.get('uuid') %}
                         {% if session.get('is_admin') %}
                             <div class="admin-dropdown">
-                                <span>Admin Tools &#9662;</span>
+                                <span class="admin-menu">Admin Tools &#9662;</span>
                                 <div class="dropdown-content">
                                     <a href="{{ url_for('admin.pending_approvals') }}">Registration Approvals</a>
                                     <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}">User Management</a>
@@ -34,10 +34,10 @@
                                 </div>
                             </div>
                         {% endif %}
-                        <a href="{{ url_for('user.profile') }}">My Profile</a>
-                        <a href="{{ url_for('auth.logout') }}" style="color: var(--danger);">Logout</a>
+                        <a href="{{ url_for('user.profile') }}" class="btn" Title="My Profile">&#128100;</a>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
                     {% else %}
-                        <a href="{{ url_for('auth.login') }}">Login</a>
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-success">Login</a>
                         <a href="{{ url_for('register.register') }}" class="btn">Register</a>
                     {% endif %}
                 </div>

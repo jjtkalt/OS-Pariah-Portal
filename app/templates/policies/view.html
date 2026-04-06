@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ policy.title }} - OS Pariah Portal{% endblock %}
+{% block title %}{{ policy.title }} - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="background: white; padding: 40px; border-radius: 8px; border: 1px solid var(--border-color);">
-    <div style="border-bottom: 2px solid var(--primary); margin-bottom: 20px; padding-bottom: 10px;">
-        <h1 style="margin: 0; color: var(--primary);">{{ policy.title }}</h1>
-        <p style="margin: 5px 0 0 0; color: var(--text-muted); font-size: 0.9rem; font-family: monospace;">
+<div class="card p-0" style="padding: 40px;">
+    <div class="mb-20 pb-10" style="border-bottom: 2px solid var(--primary);">
+        <h1 class="m-0 text-primary">{{ policy.title }}</h1>
+        <p class="text-muted text-sm mt-10 m-0" style="font-family: monospace;">
             <strong>Policy Version:</strong> {{ version }} <br>
             <strong>Last Updated:</strong> {{ policy.updated_at.strftime('%B %d, %Y at %H:%M UTC') }}
         </p>
     </div>
-    
+
     <div style="line-height: 1.6; white-space: pre-wrap; color: var(--text-main);">
         {{ policy.body }}
     </div>

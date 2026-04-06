@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}Edit Document - OS Pariah Portal{% endblock %}
+{% block title %}Edit Document - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>Edit: {{ policy.title }}</h2>
-    <a href="{{ url_for('policies.manage_policies') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Back</a>
+<div class="nav-bar" style="border-bottom: none;">
+    <h2 class="m-0">Edit: {{ policy.title }}</h2>
+    <a href="{{ url_for('policies.manage_policies') }}" class="text-muted" style="text-decoration: none;">&larr; Back</a>
 </div>
 
 <form method="POST" action="{{ url_for('policies.edit_policy', slug=policy.slug) }}">
-    <fieldset>
+    <fieldset class="group m-0 mb-20">
         <legend>Document Content</legend>
-        
-        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+
+        <div class="d-flex gap-10 mb-10">
             <div style="flex: 1;">
                 <label>Category</label>
                 <select name="category" id="catSelector" required>
@@ -22,41 +22,41 @@
             </div>
             <div style="flex: 2;">
                 <label>Document Title</label>
-                <input type="text" name="title" value="{{ policy.title }}" required style="margin-bottom: 0;">
+                <input type="text" name="title" value="{{ policy.title }}" class="mb-0" required>
             </div>
         </div>
 
-        <div style="margin-bottom: 15px;">
-            <label class="radio" style="margin: 0; font-weight: bold; color: var(--danger);">
+        <div class="mb-10">
+            <label class="radio m-0 fw-bold text-danger">
                 <input type="checkbox" name="requires_login" {% if policy.requires_login %}checked{% endif %}> Require User Login to View (Private)
             </label>
         </div>
-        
+
         <label>Document Body</label>
         <textarea name="body" rows="15" style="font-family: monospace;" required>{{ policy.body }}</textarea>
     </fieldset>
 
-    <fieldset id="versionBlock" style="background: var(--info-bg); {% if policy.category != 'Policy' %}display: none;{% endif %}">
+    <fieldset id="versionBlock" class="group m-0 mb-20" style="background: var(--info-bg); {% if policy.category != 'Policy' %}display: none;{% endif %}">
         <legend style="background: transparent;">Versioning & Enforcement</legend>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+        <p class="text-sm text-muted mt-0">
             Changing the version number will immediately force all logged-in users to re-agree to the grid policies before they can access the portal.
         </p>
-        
-        <label class="radio" style="display: block; margin-bottom: 10px;">
+
+        <label class="radio d-block mb-10">
             <input type="radio" name="version_action" value="none" checked>
             <strong>No change</strong> (Typo fixes, minor formatting. Users will not be interrupted.)
         </label>
-        <label class="radio" style="display: block; margin-bottom: 10px;">
+        <label class="radio d-block mb-10">
             <input type="radio" name="version_action" value="minor">
             <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
         </label>
-        <label class="radio" style="display: block; margin-bottom: 10px;">
+        <label class="radio d-block mb-10">
             <input type="radio" name="version_action" value="major">
-            <strong style="color: var(--danger);">Major Update</strong> (e.g., bumps 1.0 to 2.0)
+            <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
         </label>
     </fieldset>
 
-    <button type="submit" style="width: 100%;">Save Document</button>
+    <button type="submit" class="w-100">Save Document</button>
 </form>
 {% endblock %}
 
@@ -64,7 +64,7 @@
 <script>
     const catSelector = document.getElementById('catSelector');
     const versionBlock = document.getElementById('versionBlock');
-    
+
     catSelector.addEventListener('change', function() {
         if (this.value === 'Policy') {
             versionBlock.style.display = 'block';

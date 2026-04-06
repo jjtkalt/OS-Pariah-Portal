@@ -1,5 +1,7 @@
 import os
 
+# Avoid editing this file directly.  Edit the /etc/os_pariah/os-pariah.conf and keep it secure.
+
 class Config:
     # Flask Security
     SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'super_secret_pariah_session_key')
