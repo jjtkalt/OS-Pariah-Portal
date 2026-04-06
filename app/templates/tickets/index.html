@@ -8,9 +8,24 @@
         <h1 style="margin: 0; color: var(--primary);">Helpdesk Tickets</h1>
         <p style="color: var(--text-muted); margin-top: 5px;">View or open support requests.</p>
     </div>
-    
+
     <a href="{{ url_for('tickets.new_ticket') }}" class="btn">
         + Submit New Ticket
+    </a>
+</div>
+
+<div style="background-color: var(--bg-color); padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+    <a href="{{ url_for('tickets.index', status='All Open') }}" class="btn {% if current_filter == 'All Open' %}btn-primary{% endif %}" style="padding: 5px 15px; font-size: 0.9rem; {% if current_filter != 'All Open' %}background: transparent; color: var(--text-main); border: 1px solid var(--border-color);{% endif %}">
+        Action Required
+    </a>
+    <a href="{{ url_for('tickets.index', status='Completed') }}" class="btn {% if current_filter == 'Completed' %}btn-primary{% endif %}" style="padding: 5px 15px; font-size: 0.9rem; {% if current_filter != 'Completed' %}background: transparent; color: var(--text-main); border: 1px solid var(--border-color);{% endif %}">
+        Closed / Completed
+    </a>
+    <a href="{{ url_for('tickets.index', status='Withdrawn') }}" class="btn {% if current_filter == 'Withdrawn' %}btn-primary{% endif %}" style="padding: 5px 15px; font-size: 0.9rem; {% if current_filter != 'Withdrawn' %}background: transparent; color: var(--text-main); border: 1px solid var(--border-color);{% endif %}">
+        Withdrawn
+    </a>
+    <a href="{{ url_for('tickets.index', status='All Tickets') }}" class="btn {% if current_filter == 'All Tickets' %}btn-primary{% endif %}" style="padding: 5px 15px; font-size: 0.9rem; {% if current_filter != 'All Tickets' %}background: transparent; color: var(--text-main); border: 1px solid var(--border-color);{% endif %}">
+        View All
     </a>
 </div>
 
