@@ -268,7 +268,7 @@ def texture_gallery():
     """Renders a paginated gallery of grid textures."""
     
     # Check permissions and warn Admin
-    cache_dir = get_dynamic_config('texture_cache_path') or "/home/opensim/FSAssets/pariahcache"
+    cache_dir = get_dynamic_config('texture_cache_path')
     try:
         if not os.path.exists(cache_dir) or not os.access(cache_dir, os.W_OK):
             flash(f"Warning: Texture cache dir ({cache_dir}) is missing or not writable by the 'pariah' user. Images are decoding in RAM (High CPU overhead).", "warning")

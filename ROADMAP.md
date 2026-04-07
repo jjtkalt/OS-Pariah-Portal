@@ -12,21 +12,22 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
-* **[i] Region.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
+* **[i] Regions.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
 * **[ ] Region Configurations:** A region should be disabled to save the configuration.  A disabled region should be able to be reactivated at a later point.  Only a disabled region should be able to be completely deleted from the database.
 * **[ ] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
-* **[ ] Texture/Photo viewer:** Admins of a certain userlevel should be able to review a users texture and photo inventory for safety and grid security.
+
 
 ## 🚀 Mid-Term (Next Major version release)
 *Focus: Major feature additions of compatibility changes.*
 
-* **[ ] Robust.ini Information:** Should we configure the Robust instance(s) via the portal? Pro: centralized. Con: no real way to parse the needed parts.
 * **[ ] Settings drive functions** Some variables, if not set, should deactivate the functionality in the portal. (Example: If there is no discord webhook URL, the app should skip the attempt to post to discord.  Or, if there is no smtp server defined, do not use email based options. (Of course, smtp might not be something we want to run without, so, this might need reconsideration))
 
 ## 🔮 Future / Under Consideration
 *Focus: Big ideas, complex integrations, and "nice-to-have" features that require significant architectural planning.*
 
 * **[ ] Web-Based Setup Wizard:** A graphical first-run installer to securely collect database credentials, generate system secrets, and run initial migrations without requiring terminal access.
+* **[ ] OpenSim.ini Guided Configuration:** Let's seed a simple opensim@.service that uses the service instance name to query the portal to get the entire configuration to run.  This will involve importing all of the relevant .ini files from the current OpenSim version and presenting them to a high admin with the ability set all of the settings, with explanation of each setting, to make a set of defaults.  Each region instance will override the defaults with instance specific settings (overrides - eg: opensim@Admin1 sets the chat distance to 2M instead of the default for the grid).  The results will be pulled in via http call from an -include line in the very basic common opensim.ini file.
+* **[ ] Robust.ini Guided Configuration:** Let's seed a simple robust@.service that uses the service instance name to query the portal to get the entire configuration to run.  This will involve importing all of the relevant .ini files from the current Robust version and presenting them to a high admin with the ability set all of the settings, with explanation of each setting, to make a set of defaults.  Each robust instance will override the defaults with instance specific settings (overrides - eg: robust@Asset1 only starts the asset service and the HD asset services).  The selection of specialized service configuration should be via checkbox that includes all related services to this instance.  All of the asset service info not used on this instance should be pared out.  The results will be pulled in via http call from an -include line in the very basic common robust.ini file.  At time of request, it is understood that Asset and Inventory services can run separate from the main Robust instance.  It is likely that auth services (specifically user authentication) could be handled via separate process as well.  All three of these, in theory could be off loaded to third party processes and that option might need to be supported as well.  If a phased implementation of this is needed to be followed, as a first step, we will support the ability to move asset services to separate robust using configuration understandings already in place and tested.  Note, a chicken and the egg situation should happen here if the web-based setup wizard isn't active, notably, if robust isn't running, a user cannot (currently) login to the portal.
 * **[ ] Gloebit support:** Configure and deploy centralized Gloebit money handling support
 * **[ ] PoDex support:** Configure and deploy centralized PoDex money handling support
 * **[ ] Private Money support:** Configure and deploy centralized private money support
@@ -36,6 +37,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
 * **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
+* **[x] Texture/Photo viewer:** Admins of a certain userlevel should be able to review a users texture and photo inventory for safety and grid security.
 
 ## ✅ Recently Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
