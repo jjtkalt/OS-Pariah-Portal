@@ -20,18 +20,24 @@ def get_region_xml(region_uuid):
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
-            cursor.execute("SELECT region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            # UPDATED: Fetch the is_active flag
+            cursor.execute("SELECT region_name, is_active FROM region_configs WHERE region_uuid = %s", (region_uuid,))
             region_info = cursor.fetchone()
 
             if not region_info:
                 return Response("<error>Region Not Found</error>", status=404, mimetype='application/xml')
+            
+            # UPDATED: Reject the request if the region is disabled
+            if region_info['is_active'] == 0:
+                current_app.logger.info(f"Rejected WebXML request for DISABLED region: {region_info['region_name']}")
+                return Response("<error>Region Disabled By Administrator</error>", status=403, mimetype='application/xml')
 
             cursor.execute("SELECT setting_key, setting_value FROM region_settings WHERE region_uuid = %s", (region_uuid,))
             settings = cursor.fetchall()
 
             cursor.execute("SELECT external_hostname FROM region_hosts WHERE host_ip = %s", (client_ip,))
             host_mapping = cursor.fetchone()
-            
+
             if host_mapping and host_mapping.get('external_hostname'):
                 external_host_name = host_mapping['external_hostname']
             else:
@@ -44,12 +50,10 @@ def get_region_xml(region_uuid):
         xml_output.append('    <Key Name="ResolveAddress" Value="False" />')
         xml_output.append('    <Key Name="AllowAlternatePorts" Value="False" />')
 
-        # --- NEW: Inject the Global MaxAgents Setting ---
         global_max_agents = get_dynamic_config('default_max_agents')
         xml_output.append(f'    <Key Name="MaxAgents" Value="{global_max_agents}" />')
 
         for setting in settings:
-            # Prevent DB-stored MaxAgents from overriding the global one
             if setting['setting_key'] != 'MaxAgents':
                 xml_output.append(f'    <Key Name="{setting["setting_key"]}" Value="{setting["setting_value"]}" />')
 
@@ -66,44 +70,43 @@ def manage_regions():
     combined_regions = {}
 
     try:
-        # 1. Fetch our master list of MANAGED regions from the Portal DB (even if offline)
         conn_pariah = get_pariah_db()
         with conn_pariah.cursor() as cursor:
+            # UPDATED: Added c.is_active to the SELECT and GROUP BY clauses
             cursor.execute("""
-                SELECT c.region_uuid as uuid, c.region_name as regionName,
+                SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active,
                        MAX(IF(s.setting_key = 'InternalPort', s.setting_value, NULL)) AS serverPort
                 FROM region_configs c
                 LEFT JOIN region_settings s ON c.region_uuid = s.region_uuid
-                GROUP BY c.region_uuid, c.region_name
+                GROUP BY c.region_uuid, c.region_name, c.is_active
             """)
             for r in cursor.fetchall():
                 combined_regions[r['uuid']] = {
                     'uuid': r['uuid'],
                     'regionName': r['regionName'],
-                    'serverIP': 'Managed (See DNS Mapping)', 
+                    'serverIP': 'Managed (See DNS Mapping)',
                     'serverPort': r['serverPort'] or 'Unknown',
                     'is_managed': True,
-                    'is_online': False # Assume offline until Robust confirms otherwise
+                    'is_active': bool(r['is_active']),  # Pass state to the template
+                    'is_online': False 
                 }
 
-        # 2. Fetch the active/online regions from the Robust DB
         conn_robust = get_robust_db()
         with conn_robust.cursor() as cursor:
             cursor.execute("SELECT uuid, regionName, serverIP, serverPort FROM regions")
             for r in cursor.fetchall():
                 if r['uuid'] in combined_regions:
-                    # Update existing managed region with live data
                     combined_regions[r['uuid']]['is_online'] = True
                     combined_regions[r['uuid']]['serverIP'] = r['serverIP']
                     combined_regions[r['uuid']]['serverPort'] = r['serverPort']
                 else:
-                    # An external/unmanaged region was started manually!
                     combined_regions[r['uuid']] = {
                         'uuid': r['uuid'],
                         'regionName': r['regionName'],
                         'serverIP': r['serverIP'],
                         'serverPort': r['serverPort'],
                         'is_managed': False,
+                        'is_active': True, # Unmanaged regions are inherently active if they are in Robust
                         'is_online': True
                     }
 
@@ -111,7 +114,6 @@ def manage_regions():
         current_app.logger.error(f"Region Management Sync Error: {e}")
         flash(f"Database sync failed: {e}", "error")
 
-    # Sort alphabetically for the template
     final_list = sorted(combined_regions.values(), key=lambda x: x['regionName'])
     return render_template('admin/manage_regions.html', regions=final_list)
 
@@ -220,6 +222,43 @@ def add_region():
     sizes = [i * 256 for i in range(1, max_multiplier + 1)]
     return render_template('admin/add_region.html', sizes=sizes)
 
+@regions_bp.route('/toggle_state/<region_uuid>', methods=['POST'])
+@require_admin
+def toggle_state(region_uuid):
+    """Flips a managed region between Enabled (1) and Disabled (0)."""
+    if int(session.get('user_level', 0)) < 200:
+        flash("Unauthorized.", "error")
+        return redirect(url_for('regions.manage_regions'))
+
+    pariah_conn = get_pariah_db()
+    try:
+        with pariah_conn.cursor() as cursor:
+            # Fetch current state
+            cursor.execute("SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            region = cursor.fetchone()
+            
+            if not region:
+                flash("Region not found in the Portal Database.", "error")
+                return redirect(url_for('regions.manage_regions'))
+
+            # Flip it!
+            new_state = 0 if region['is_active'] == 1 else 1
+            cursor.execute("UPDATE region_configs SET is_active = %s WHERE region_uuid = %s", (new_state, region_uuid))
+            pariah_conn.commit()
+            
+            status_word = "Enabled" if new_state == 1 else "Disabled"
+            flash(f"Region '{region['region_name']}' is now {status_word}.", "success")
+            
+            # Warn them if they disabled a region that is currently running
+            if new_state == 0:
+                flash("Note: If this region is currently online, you still need to send a 'Stop' or 'Restart' signal for the simulator to drop it.", "info")
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to toggle region state: {e}")
+        flash("A database error occurred.", "error")
+
+    return redirect(url_for('regions.manage_regions'))
+
 @regions_bp.route('/delete/<region_uuid>', methods=['POST'])
 @require_admin
 def delete_region(region_uuid):
@@ -230,10 +269,17 @@ def delete_region(region_uuid):
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
-            # Foreign key cascading will automatically delete the associated region_settings
+            # UPDATED: Enforce the Guardrail!
+            cursor.execute("SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s", (region_uuid,))
+            region = cursor.fetchone()
+            
+            if region and region['is_active'] == 1:
+                flash(f"SAFETY LOCK: You must Disable '{region['region_name']}' before you can delete it.", "error")
+                return redirect(url_for('regions.manage_regions'))
+
             cursor.execute("DELETE FROM region_configs WHERE region_uuid = %s", (region_uuid,))
         pariah_conn.commit()
-        flash("Region deleted successfully.", "success")
+        flash("Region configuration deleted successfully.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete region: {e}")
         flash("An error occurred while deleting the region.", "error")

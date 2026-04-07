@@ -34,22 +34,18 @@
     <tbody>
         {% if regions %}
             {% for region in regions %}
-            <tr>
+            <tr {% if not region.is_active and region.is_managed or not region.is_managed %}style="opacity: 0.50;"{% endif %}>
+                
                 <td style="font-weight: 600;">
                     {{ region.regionName }}
-                    {% if session.get('user_level', 0)|int >= 250 %}
-                        {% if region.is_managed %}
-                            <br>
-                            <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration. Proceed?');" style="margin-top: 5px;">
-                            <button type="submit" class="btn-danger" style="padding: 2px 6px; font-size: 0.7rem;">Delete from DB</button>
-                            </form>
-                        {% endif %}
-                    {% endif %}
                 </td>
 
                 <td>
                     {% if region.is_managed %}
                         <span style="color: var(--success); font-weight: bold; font-size: 0.85rem;">● Managed (WebXML)</span>
+                        {% if not region.is_active %}
+                            <span style="background: var(--warning); color: #000; padding: 2px 5px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; margin-left: 5px; vertical-align: top;">DISABLED</span>
+                        {% endif %}
                     {% else %}
                         <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">External / Manual</span>
                     {% endif %}
@@ -71,7 +67,7 @@
                     {% else %}
                         {% if region.is_online %}
                         <form action="{{ url_for('regions.import_region', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
-                            <button type="submit" class="btn" style="background: var(--success); color: #fff; padding: 6px 10px; font-size: 0.85rem;">Import to Portal</button>
+                            <button type="submit" class="btn" style="background: var(--success); color: #fff; padding: 6px 10px; font-size: 0.85rem; border: none; cursor: pointer;">Import to Portal</button>
                         </form>
                         {% endif %}
                     {% endif %}
@@ -79,25 +75,51 @@
 
                 <td style="text-align: center; vertical-align: middle;">
                     {% if region.is_managed %}
-                    <div style="display: flex; gap: 4px; justify-content: center;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: center;">
+                        
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            {% if not region.is_online %}
+                                {% if region.is_active %}
+                                    <form action="{{ url_for('regions.control_region', action='start', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
+                                        <button type="submit" style="background: var(--success); padding: 4px 8px; font-size: 0.75rem; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Start Region">&#9654; Start</button>
+                                    </form>
+                                {% else %}
+                                    <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 4px 0;">Enable to Start</span>
+                                {% endif %}
+                            {% else %}
+                                <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
+                                    <button type="submit" style="background: var(--danger); padding: 4px 8px; font-size: 0.75rem; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Stop Region">&#9209; Stop</button>
+                                </form>
 
-                        {% if not region.is_online %}
-                            <form action="{{ url_for('regions.control_region', action='start', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
-                                <button type="submit" style="background: var(--success); padding: 4px 8px; font-size: 0.75rem;" title="Start Region">&#9654; Start</button>
-                            </form>
-                        {% else %}
-                            <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
-                                <button type="submit" style="background: var(--danger); padding: 4px 8px; font-size: 0.75rem;" title="Stop Region">&#9209; Stop</button>
-                            </form>
+                                <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
+                                    <button type="submit" style="background: var(--info); padding: 4px 8px; font-size: 0.75rem; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Restart Region">&#10227; Restart</button>
+                                </form>
 
-                            <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
-                                <button type="submit" style="background: var(--info); padding: 4px 8px; font-size: 0.75rem;" title="Restart Region">&#10227; Restart</button>
-                            </form>
+                                <form action="{{ url_for('regions.control_region', action='oar', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
+                                    <button type="submit" style="background: #8b5cf6; padding: 4px 8px; font-size: 0.75rem; border: none; color: white; border-radius: 4px; cursor: pointer;" title="Save OAR Backup">&#128190; OAR</button>
+                                </form>
+                            {% endif %}
+                        </div>
 
-                            <form action="{{ url_for('regions.control_region', action='oar', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
-                                <button type="submit" style="background: #8b5cf6; padding: 4px 8px; font-size: 0.75rem;" title="Save OAR Backup">&#128190; OAR</button>
-                            </form>
-                        {% endif %}
+                        <div style="display: flex; gap: 4px; justify-content: center; border-top: 1px dashed var(--border-color); padding-top: 6px; width: 100%;">
+                            
+                            {% if session.get('user_level', 0)|int >= 200 %}
+                                <form action="{{ url_for('regions.toggle_state', region_uuid=region.uuid) }}" method="POST" style="margin: 0;">
+                                    {% if region.is_active %}
+                                        <button type="submit" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: var(--warning); color: #000; border: none; border-radius: 4px; cursor: pointer;" title="Take config offline">&#8856; Disable Config</button>
+                                    {% else %}
+                                        <button type="submit" class="btn" style="padding: 2px 6px; font-size: 0.7rem; background: var(--success); color: #fff; border: none; border-radius: 4px; cursor: pointer;" title="Bring config online">&#8858; Enable Config</button>
+                                    {% endif %}
+                                </form>
+                            {% endif %}
+
+                            {% if not region.is_active and session.get('user_level', 0)|int >= 250 %}
+                                <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration permanently. Proceed?');" style="margin: 0;">
+                                    <button type="submit" class="btn-danger" style="padding: 2px 6px; font-size: 0.7rem; border: none; border-radius: 4px; cursor: pointer;">&#8855; Delete from DB</button>
+                                </form>
+                            {% endif %}
+                            
+                        </div>
 
                     </div>
                     {% else %}
@@ -108,7 +130,7 @@
             {% endfor %}
         {% else %}
             <tr>
-                <td colspan="5" class="center" style="padding: 40px; color: var(--text-muted);">
+                <td colspan="5" class="center" style="padding: 40px; color: var(--text-muted); text-align: center;">
                     No regions found.
                 </td>
             </tr>

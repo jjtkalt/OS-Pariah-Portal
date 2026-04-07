@@ -24,14 +24,23 @@ def get_pariah_db():
     )
 
 def check_connection():
+    conn = None
     try:
         conn = get_pariah_db()
-        print("MariaDB connection successful")
-        conn.close()
+        # Force an actual query to ensure the engine is fully initialized
+        with conn.cursor() as cursor:
+            cursor.execute("SHOW DATABASES;")
+            cursor.fetchall()
+            
+        print("MariaDB connection and query successful. Database is fully ready.")
         return True
     except pymysql.Error as e:
         print(f"Waiting for MariaDB... ({e})")
         return False
+    finally:
+        # Ensure the connection is closed regardless of success or failure
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
     # Simple retry logic as MariaDB might take a moment to fully initialize
