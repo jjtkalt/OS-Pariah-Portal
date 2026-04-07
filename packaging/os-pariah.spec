@@ -74,6 +74,11 @@ echo "Configuring FSAssets Texture Cache..."
 mkdir -p /home/opensim/FSAssets/pariahcache
 chown pariah:pariah /home/opensim/FSAssets/pariahcache
 
+# Configure the downloads Directory
+echo "Configuring the IAR Downloads directory..."
+mkdir -p /home/opensim/Backups/downloads/iars
+chown -R opensim:opensim /home/opensim/Backups/downloads
+
 # Initialize Firewalld Ban Hammer IPSet (If firewalld is running)
 echo "Configuring firewalld rules for Pariah Ban Hammer..."
 if systemctl is-active --quiet firewalld; then
@@ -110,7 +115,7 @@ rm -f /tmp/pariah-openssl.cnf
 echo "========================================================="
 echo "OS Pariah Portal Installed Successfully!"
 echo "1. Edit /etc/os_pariah/os-pariah.conf with your DB credentials."
-echo "2. Run database migrations: sudo su - pariah -s /bin/bash -c 'cd /opt/os_pariah && venv/bin/python migrate.py'"
+echo "2. Run database migrations: sudo su - pariah -s /bin/bash -c '/opt/os_pariah/venv/bin/python migrate.py'"
 echo "3. Start the portal: sudo systemctl enable --now pariah"
 echo "4. IMPORTANT: If your FSAssets path differs from the default,"
 echo "   update the cache path in the Portal UI (System & Backend)."

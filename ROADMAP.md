@@ -6,6 +6,8 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
+* **[ ] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
+* **[ ] Region Controls:** Whe trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
 
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*

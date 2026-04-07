@@ -225,10 +225,8 @@ def process_iar_backups():
                     os.remove(script_path)
 
                 with conn.cursor() as cursor:
-                    relative_path = f"iars/{filename}"
                     cursor.execute("UPDATE iar_backups SET status = 'completed', file_path = %s, completed_at = CURRENT_TIMESTAMP WHERE id = %s",
-                                   (relative_path, backup_id))
-
+                                   (filename, backup_id))
                     success_msg = f"Your Inventory Archive (IAR) backup has completed successfully and is ready for download."
                     cursor.execute("INSERT INTO user_notices (user_uuid, message) VALUES (%s, %s)", (user_uuid, success_msg))
 
