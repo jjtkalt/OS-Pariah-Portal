@@ -8,6 +8,7 @@
         <h2 style="margin: 0; color: var(--primary);">Gatekeeper Cross-Reference Search</h2>
         <p style="color: var(--text-muted); margin-top: 5px;">Identify alt accounts by crossing IP addresses, MAC addresses, or Host IDs.</p>
     </div>
+    <a href="{{ url_for('admin.texture_gallery') }}" class="btn">View Asset Gallery</a>
     <a href="{{ url_for('user_mgmt.manage_bans') }}" class="btn btn-danger">Manage Bans</a>
 </div>
 
@@ -71,7 +72,7 @@
                             <span class="uuid" style="display: block; margin-bottom: 5px;">{{ u }}</span>
                             <div style="display: flex; justify-content: space-between;">
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" style="font-size: 0.85rem; color: var(--info); font-weight: bold; text-decoration: none;">View Staff Notes &rarr;</a>
-                                
+                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; margin: 0; padding: 2px;">View User Textures</a>
                                 <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; text-decoration: none;">Ban UUID</a>
                                 
                                 {% if session.get('user_level', 0)|int >= 250 %}

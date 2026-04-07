@@ -55,14 +55,25 @@ iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 
 ### Manual Installation (Not recommended or supported.  But it should work!)
 
+In our testing, the following commands were run as the opensim user from Pariah Installation.  This allowed us to use Git to update to the latest develop release for testing.  YMMV
+
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.
 - Create the SUDO rules required for Pariah.  Something like:
-  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" > /etc/sudoers.d/pariah_worker```
-  - ```chmod 0440 /etc/sudoers.d/pariah_worker```
-- Install and activate the Systemd services and the Nginx vhost configuration
-- Edit ```.env_example``` with your DB credentials and save it as ```.env```
+  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" | sudo tee /etc/sudoers.d/pariah_worker```
+  - ```sudo chmod 0440 /etc/sudoers.d/pariah_worker```
+- Create the Pariah Gallery Cache directory for image review: ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
+  - IMPORTANT: If your FSAssets path is different than the default, or you aren't using the default fsassets table in the robust database, you must update this to where it will be located and update the default value in the Admin - Settings menu of the Portal UI.
+- Clone the GitHub repository into /opt/os_pariah
+- Edit ```.env_example``` with your DB credentials and save it as either ```.env``` or the standard /etc/os_pariah/os-pariah.conf
 - Create the virtual environment inside /opt/os_pariah: ```cd /opt/os_pariah; python3.12 -m venv venv```
-- Activate the Virtual environment in your shell: ```source venv/bin/activate```
-- Install requirements into the virtual environment: ```venv/bin/pip -r requirements.txt```
-- Run database migrations: ```venv/bin/python migrate.py```
-- Start the portal: ```sudo systemctl enable --now pariah```
+- Activate the Virtual environment in your shell: ```source /opt/os_pariah/venv/bin/activate```
+- Install requirements into the virtual environment: ```/opt/os_pariah/venv/bin/pip -r requirements.txt```
+- Run database migrations: ```/opt/os_pariah/venv/bin/python migrate.py```
+- Install and activate the Systemd services and the Nginx vhost configuration from the /opt/os_pariah/packaging directory
+  - ```sudo cp /opt/os_pariah/packaging/OS-Pariah.conf /etc/nginx/vhosts.d/```
+  - ```sudo cp /opt/os_pariah/packaging/*.service /opt/os_pariah/packaging/*.timer /etc/systemd/system/```
+  - ```sudo systemctl daemon-reload```
+- Test and restart the Nginx Web Service
+  - ```sudo nginx -t```
+  - ```sudo systemctl restart nginx.service```
+- Enable and start the portal: ```sudo systemctl enable --now pariah```

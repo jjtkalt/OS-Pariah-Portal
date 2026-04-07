@@ -45,11 +45,14 @@ KNOWN_SETTINGS = {
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
+        "IAR_REGION_SCREEN": {"label": "Region Screen For IAR Generation", "type": "text", "default": "OpenSim-Admin2"},
         "iar_retention_days": {"label": "IAR Retention (Days)", "type": "number", "default": "7"},
     },
     "System & Backend (Requires Restart)": {
         "CACHE_TYPE": {"label": "Cache Type", "type": "text", "default": "SimpleCache"},
         "CACHE_DEFAULT_TIMEOUT": {"label": "Cache Default Timeout (Seconds)", "type": "number", "default": "30"},
         "PERMANENT_SESSION_LIFETIME": {"label": "Session Lifetime (Seconds)", "type": "number", "default": "28800"},
+        "fsassets_path": {"label": "FSAssets Directory Location", "type": "text", "default": "/home/opensim/FSAssets/data"},
+        "texture_cache_path": {"label": "Cache Directory Location", "type": "text", "default": "/home/opensim/FSAssets/pariahcache"},
     }
 }
