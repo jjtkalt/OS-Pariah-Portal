@@ -72,7 +72,7 @@
                             <span class="uuid" style="display: block; margin-bottom: 5px;">{{ u }}</span>
                             <div style="display: flex; justify-content: space-between;">
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" style="font-size: 0.85rem; color: var(--info); font-weight: bold; text-decoration: none;">View Staff Notes &rarr;</a>
-                                <a href="{{ url_for('admin.texture_gallery', uuid=user_uuid) }}" class="btn">View User Textures</a>
+                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; margin: 0; padding: 2px;">View User Textures</a>
                                 <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; text-decoration: none;">Ban UUID</a>
                                 
                                 {% if session.get('user_level', 0)|int >= 250 %}

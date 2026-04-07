@@ -19,7 +19,7 @@
         <input type="text" name="uuid" placeholder="Enter User UUID..." value="{{ target_uuid }}" style="margin: 0; min-width: 300px;">
         <button type="submit" class="btn btn-primary">Filter</button>
         {% if target_uuid %}
-            <a href="{{ url_for('admin.texture_gallery') }}" class="btn" style="background: transparent; border: 1px solid var(--text-muted);">Clear</a>
+            <a href="{{ url_for('admin.texture_gallery') }}" class="btn">Clear</a>
         {% endif %}
     </form>
 </div>
@@ -28,15 +28,22 @@
     {% for tex in textures %}
         <div style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
             
-            <div style="height: 200px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                <img src="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" alt="{{ tex.name }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" loading="lazy">
-            </div>
+            <a href="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" target="_blank" style="height: 200px; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; text-decoration: none;">
+                <img src="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" alt="{{ tex.name }}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" loading="lazy">
+            </a>
             
             <div style="padding: 10px; font-size: 0.85rem;">
                 <strong style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px;" title="{{ tex.name }}">
-                    {{ tex.name or 'Untitled Texture' }}
+                    <a href="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" target="_blank" style="color: var(--primary); text-decoration: none;">{{ tex.name or 'Untitled Texture' }}</a>
                 </strong>
-                <span style="color: var(--text-muted); font-family: monospace; display: block; font-size: 0.75rem;">Hash: {{ tex.hash[:8] }}...</span>
+                
+                <span style="color: var(--text-muted); font-family: monospace; display: block; font-size: 0.75rem; cursor: help;" title="{{ tex.hash }}">
+                    Hash: {{ tex.hash[:8] }}...
+                </span>
+                
+                <span style="color: var(--text-main); display: block; font-size: 0.75rem; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ tex.owner }}">
+                    Owner: <a href="{{ url_for('admin.texture_gallery', uuid=tex.owner) }}" style="color: inherit;">{{ tex.owner }}</a>
+                </span>
                 
                 <span style="color: var(--info); display: block; margin-top: 5px; font-size: 0.75rem;">
                     Uploaded: <script>document.write(new Date({{ tex.create_time }} * 1000).toLocaleDateString());</script>
