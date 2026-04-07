@@ -45,6 +45,7 @@ KNOWN_SETTINGS = {
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
+        "IAR_REGION_SCREEN": {"label": "Region Screen For IAR Generation", "type": "text", "default": "OpenSim-Admin2"},
         "iar_retention_days": {"label": "IAR Retention (Days)", "type": "number", "default": "7"},
     },
     "System & Backend (Requires Restart)": {

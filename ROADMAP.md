@@ -6,8 +6,8 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
-* **[ ] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
-* **[ ] Region Controls:** Whe trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
+* **[ ] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
+* **[ ] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
 
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
@@ -35,6 +35,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## ✅ Recently Completed (v0.9.2 - v0.9.x)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
 * **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
+* **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
 
 ## ✅ Recently Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.

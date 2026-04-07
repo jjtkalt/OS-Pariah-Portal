@@ -74,11 +74,6 @@ echo "Configuring FSAssets Texture Cache..."
 mkdir -p /home/opensim/FSAssets/pariahcache
 chown pariah:pariah /home/opensim/FSAssets/pariahcache
 
-# Configure the downloads Directory
-echo "Configuring the IAR Downloads directory..."
-mkdir -p /home/opensim/Backups/downloads/iars
-chown -R opensim:opensim /home/opensim/Backups/downloads
-
 # Initialize Firewalld Ban Hammer IPSet (If firewalld is running)
 echo "Configuring firewalld rules for Pariah Ban Hammer..."
 if systemctl is-active --quiet firewalld; then

@@ -185,16 +185,10 @@ def process_iar_backups():
                 filename = f"backup_{clean_name}_{timestamp}.iar"
                 full_path = os.path.join(iar_output_dir, filename)
 
-                script_path = f"/tmp/loadscript-{uuid.uuid4().hex}"
-                with open(script_path, "w") as f:
-                    f.write(f"save iar --skipbadassets {first_name} {last_name} / {full_path}\n")
+                iar_region_screen = get_dynamic_config('IAR_REGION_SCREEN')
 
-                env = os.environ.copy()
-                env['PATH'] = '/usr/local/bin:/usr/bin:/bin'
-                IAR_REGION_SCREEN = os.environ.get('IAR_REGION_SCREEN', 'OpenSim-Admin2')
-
-                cmd = ["/usr/bin/screen", "-p", "0", "-S", IAR_REGION_SCREEN, "-X", "stuff", f"command-script {script_path}\r"]
-                print(f"Injecting command into screen session: {IAR_REGION_SCREEN}")
+                cmd = ["/usr/bin/screen", "-p", "0", "-S", iar_region_screen, "-X", "stuff", f"save iar --skipbadassets {first_name} {last_name} / {full_path}\n\r"]
+                print(f"Injecting command into screen session: {iar_region_screen}")
                 subprocess.run(cmd, env=env, check=True)
 
                 print(f"Command injected. Waiting for {filename} to appear...")
@@ -206,7 +200,7 @@ def process_iar_backups():
                     time.sleep(1)
 
                 if not file_appeared:
-                    raise Exception(f"OpenSim never started writing the IAR. Check {IAR_REGION_SCREEN} console.")
+                    raise Exception(f"OpenSim never started writing the IAR. Check {iar_region_screen} console.")
 
                 print(f"File detected. Waiting for write to finish...")
                 stable_count = 0
@@ -220,9 +214,6 @@ def process_iar_backups():
                         else:
                             stable_count = 0
                             last_size = current_size
-
-                if os.path.exists(script_path):
-                    os.remove(script_path)
 
                 with conn.cursor() as cursor:
                     cursor.execute("UPDATE iar_backups SET status = 'completed', file_path = %s, completed_at = CURRENT_TIMESTAMP WHERE id = %s",
