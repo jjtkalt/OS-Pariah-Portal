@@ -30,8 +30,8 @@ LOG_DIR = '/home/opensim/Log'
 
 def get_pariah_db():
     return pymysql.connect(
-        host=PARIAH_DB_HOST, user=PARIAH_DB_USER, 
-        password=PARIAH_DB_PASS, database=PARIAH_DB_NAME, 
+        host=PARIAH_DB_HOST, user=PARIAH_DB_USER,
+        password=PARIAH_DB_PASS, database=PARIAH_DB_NAME,
         cursorclass=pymysql.cursors.DictCursor
     )
 
@@ -49,19 +49,19 @@ def get_dynamic_config(key, default=None):
 
 def get_robust_db():
     return pymysql.connect(
-        host=ROBUST_DB_HOST, 
-        user=ROBUST_DB_USER, 
-        password=ROBUST_DB_PASS, 
-        database=ROBUST_DB_NAME, 
+        host=ROBUST_DB_HOST,
+        user=ROBUST_DB_USER,
+        password=ROBUST_DB_PASS,
+        database=ROBUST_DB_NAME,
         cursorclass=pymysql.cursors.DictCursor
     )
 
 def parse_gatekeeper_logs():
     """Parses rotated Gatekeeper logs for the Admin Lookup tool."""
-    
+
     # STRICTLY ONLY process rotated logs ending in a date/number
     rotated_logs = glob.glob(os.path.join(LOG_DIR, 'Robust-main.log.*'))
-    
+
     # Prevent picking up logs we have already renamed to "Processed-..."
     rotated_logs = [f for f in rotated_logs if not os.path.basename(f).startswith('Processed-')]
     rotated_logs.sort(key=os.path.getmtime)
@@ -95,27 +95,27 @@ def parse_gatekeeper_logs():
                                 ip_match = re.search(r', IP[:\s=]+([^\s,]+)', line, re.IGNORECASE)
                                 mac_match = re.search(r', Mac[:\s=]+([^\s,]+)', line, re.IGNORECASE)
                                 hostid_match = re.search(r', Id0[:\s=]+([^\s,]+)', line, re.IGNORECASE)
-                                
+
                                 date_time = line[:19]
                                 any_inserted = False
 
                                 if from_match:
-                                    cursor.execute("REPLACE INTO gatekeeper_from (user_uuid, date_time, user_name, inbound_from) VALUES (%s, %s, %s, %s)", 
+                                    cursor.execute("REPLACE INTO gatekeeper_from (user_uuid, date_time, user_name, inbound_from) VALUES (%s, %s, %s, %s)",
                                                    (user_uuid, date_time, user_name, from_match.group(1)))
                                     any_inserted = True
                                 if ip_match:
-                                    cursor.execute("REPLACE INTO gatekeeper_ip (user_uuid, date_time, user_name, user_ip) VALUES (%s, %s, %s, %s)", 
+                                    cursor.execute("REPLACE INTO gatekeeper_ip (user_uuid, date_time, user_name, user_ip) VALUES (%s, %s, %s, %s)",
                                                    (user_uuid, date_time, user_name, ip_match.group(1)))
                                     any_inserted = True
                                 if mac_match:
-                                    cursor.execute("REPLACE INTO gatekeeper_mac (user_uuid, date_time, user_name, user_mac) VALUES (%s, %s, %s, %s)", 
+                                    cursor.execute("REPLACE INTO gatekeeper_mac (user_uuid, date_time, user_name, user_mac) VALUES (%s, %s, %s, %s)",
                                                    (user_uuid, date_time, user_name, mac_match.group(1)))
                                     any_inserted = True
                                 if hostid_match:
-                                    cursor.execute("REPLACE INTO gatekeeper_host_id (user_uuid, date_time, user_name, user_host_id) VALUES (%s, %s, %s, %s)", 
+                                    cursor.execute("REPLACE INTO gatekeeper_host_id (user_uuid, date_time, user_name, user_host_id) VALUES (%s, %s, %s, %s)",
                                                    (user_uuid, date_time, user_name, hostid_match.group(1)))
                                     any_inserted = True
-                                                   
+
                                 # Prevent false positives in logging
                                 if any_inserted:
                                     inserted_count += 1
@@ -127,12 +127,12 @@ def parse_gatekeeper_logs():
                                 continue
 
                 conn.commit()
-            
+
             # The Sysadmin Win: Rename the file instead of tracking state!
             new_filename = f"Processed-{filename}"
             new_log_path = os.path.join(directory, new_filename)
             os.rename(log_path, new_log_path)
-                
+
             print(f"Finished processing. Renamed to {new_filename}. Extracted {inserted_count} login records.")
 
         except Exception as e:
@@ -152,18 +152,18 @@ def process_iar_backups():
             with conn.cursor() as cursor:
                 cursor.execute("SELECT id, user_uuid FROM iar_backups WHERE status = 'pending' LIMIT 1")
                 backup = cursor.fetchone()
-                
+
             if not backup:
                 print("IAR queue is empty. No pending backups.")
                 break
 
             backup_id = backup['id']
             user_uuid = backup['user_uuid']
-            
+
             with conn.cursor() as cursor:
                 cursor.execute("UPDATE iar_backups SET status = 'processing' WHERE id = %s", (backup_id,))
             conn.commit()
-            
+
             print(f"Processing IAR for User UUID: {user_uuid}")
 
             try:
@@ -179,22 +179,16 @@ def process_iar_backups():
 
                 iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
                 os.makedirs(iar_output_dir, exist_ok=True)
-                
+
                 timestamp = int(time.time())
                 clean_name = f"{first_name}_{last_name}".replace(" ", "_")
                 filename = f"backup_{clean_name}_{timestamp}.iar"
                 full_path = os.path.join(iar_output_dir, filename)
 
-                script_path = f"/tmp/loadscript-{uuid.uuid4().hex}"
-                with open(script_path, "w") as f:
-                    f.write(f"save iar --skipbadassets {first_name} {last_name} / {full_path}\n")
+                iar_region_screen = get_dynamic_config('IAR_REGION_SCREEN')
 
-                env = os.environ.copy()
-                env['PATH'] = '/usr/local/bin:/usr/bin:/bin'
-                IAR_REGION_SCREEN = os.environ.get('IAR_REGION_SCREEN', 'OpenSim-Admin2')
-                
-                cmd = ["/usr/bin/screen", "-p", "0", "-S", IAR_REGION_SCREEN, "-X", "stuff", f"command-script {script_path}\r"]
-                print(f"Injecting command into screen session: {IAR_REGION_SCREEN}")
+                cmd = ["/usr/bin/screen", "-p", "0", "-S", iar_region_screen, "-X", "stuff", f"save iar --skipbadassets {first_name} {last_name} / {full_path}\n\r"]
+                print(f"Injecting command into screen session: {iar_region_screen}")
                 subprocess.run(cmd, env=env, check=True)
 
                 print(f"Command injected. Waiting for {filename} to appear...")
@@ -206,7 +200,7 @@ def process_iar_backups():
                     time.sleep(1)
 
                 if not file_appeared:
-                    raise Exception(f"OpenSim never started writing the IAR. Check {IAR_REGION_SCREEN} console.")
+                    raise Exception(f"OpenSim never started writing the IAR. Check {iar_region_screen} console.")
 
                 print(f"File detected. Waiting for write to finish...")
                 stable_count = 0
@@ -221,19 +215,14 @@ def process_iar_backups():
                             stable_count = 0
                             last_size = current_size
 
-                if os.path.exists(script_path):
-                    os.remove(script_path)
-
                 with conn.cursor() as cursor:
-                    relative_path = f"iars/{filename}"
-                    cursor.execute("UPDATE iar_backups SET status = 'completed', file_path = %s, completed_at = CURRENT_TIMESTAMP WHERE id = %s", 
-                                   (relative_path, backup_id))
-                                   
+                    cursor.execute("UPDATE iar_backups SET status = 'completed', file_path = %s, completed_at = CURRENT_TIMESTAMP WHERE id = %s",
+                                   (filename, backup_id))
                     success_msg = f"Your Inventory Archive (IAR) backup has completed successfully and is ready for download."
                     cursor.execute("INSERT INTO user_notices (user_uuid, message) VALUES (%s, %s)", (user_uuid, success_msg))
-                    
+
                 print(f"IAR backup completed successfully for {first_name} {last_name}.")
-                    
+
             except Exception as iar_error:
                 print(f"IAR generation failed: {iar_error}")
                 with conn.cursor() as cursor:
@@ -242,7 +231,7 @@ def process_iar_backups():
                     cursor.execute("INSERT INTO user_notices (user_uuid, message) VALUES (%s, %s)", (user_uuid, fail_msg))
 
             conn.commit()
-            
+
     except Exception as e:
         print(f"IAR processor encountered a critical error: {e}")
     finally:
@@ -251,13 +240,12 @@ def process_iar_backups():
 def cleanup_old_iars():
     """Deletes old IAR files, database records, and user notices that exceed the retention policy."""
     conn = get_pariah_db()
-    retention_days = int(get_dynamic_config('iar_retention_days'))
+    retention_days = int(get_dynamic_config('iar_retention_days', 30))
     iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
 
     try:
         with conn.cursor() as cursor:
             # 1. Grab all completed or failed backups older than X days
-            # Using 'requested_at' since it is guaranteed to exist for every record
             cursor.execute("""
                 SELECT id, file_path
                 FROM iar_backups
@@ -288,7 +276,6 @@ def cleanup_old_iars():
                 print("No old IARs to clean up.")
 
             # 2. Wipe old system messages/notices to reduce database clutter
-            # Using 'created_at' to match the user_notices schema
             cursor.execute("DELETE FROM user_notices WHERE created_at < DATE_SUB(NOW(), INTERVAL %s DAY)", (retention_days,))
             notices_deleted = cursor.rowcount
             if notices_deleted > 0:
@@ -301,13 +288,48 @@ def cleanup_old_iars():
     finally:
         conn.close()
 
+def clean_texture_cache():
+    """Scans the texture cache directory and deletes JPGs older than 30 days."""
+    cache_dir = get_dynamic_config('texture_cache_path', '/home/opensim/FSAssets/pariahcache')
+    days_old = 30 
+    
+    if not cache_dir or not os.path.exists(cache_dir):
+        print(f"Texture Cache Cleanup: Directory {cache_dir} not found. Skipping.")
+        return
+
+    current_time = time.time()
+    max_age_seconds = days_old * 86400
+    deleted_count = 0
+
+    try:
+        for filename in os.listdir(cache_dir):
+            if filename.endswith('.jpg'):
+                filepath = os.path.join(cache_dir, filename)
+                file_age = current_time - os.path.getmtime(filepath)
+                
+                if file_age > max_age_seconds:
+                    try:
+                        os.remove(filepath)
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f"Failed to delete {filepath}: {e}")
+                        
+        if deleted_count > 0:
+            print(f"Texture Cache Cleanup: Removed {deleted_count} old images.")
+        else:
+            print("Texture Cache Cleanup: No old images found to remove.")
+            
+    except Exception as e:
+        print(f"Failed during texture cache cleanup: {e}")
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "logs":
             parse_gatekeeper_logs()
+            clean_texture_cache()  # <--- Integrated Here
         elif sys.argv[1] == "iar":
             process_iar_backups()
-            cleanup_old_iars()  # <--- NEW: Runs immediately after queue!
+            cleanup_old_iars() 
         else:
             print("Unknown argument. Use 'logs' or 'iar'.")
     else:

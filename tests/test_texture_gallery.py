@@ -46,7 +46,6 @@ def test_texture_gallery_access(mock_get_db, client):
     mock_cursor = MagicMock()
     mock_get_db.return_value = mock_conn
     mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-
     mock_cursor.fetchall.return_value = [
         {'id': '123', 'hash': 'abcdef', 'name': 'Test Texture', 'create_time': 1600000000, 'owner': 'user-uuid'}
     ]
@@ -57,7 +56,6 @@ def test_texture_gallery_access(mock_get_db, client):
         sess['user_level'] = 200
 
     response = client.get('/admin/gallery')
-
     assert response.status_code == 200
     assert b'Texture Gallery' in response.data
     assert b'Test Texture' in response.data
@@ -112,7 +110,6 @@ def test_serve_texture_unzipped_and_converted(mock_send_dir, mock_get_config, mo
         if key == 'fsassets_path': return '/fake/fsassets'
         return None
     mock_get_config.side_effect = fake_config
-
     # The cache dir exists, the cached file does NOT exist, the raw FSAsset GZ file DOES exist
     def fake_exists(path):
         if 'cache' in path and path.endswith('.jpg'): return False

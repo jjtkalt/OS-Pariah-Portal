@@ -140,10 +140,16 @@ def download_iar(filename):
             flash("Access denied. You do not have permission to download this file.", "error")
             return redirect(url_for('user.profile'))
 
-    downloads_dir = os.path.join(current_app.root_path, 'static', 'downloads')
+    # PROPER FIX: Use dynamic config, no string stripping hacks needed
+    downloads_dir = get_dynamic_config('IAR_OUTPUT_DIR')
+    
+    if not downloads_dir:
+        flash("System error: IAR output directory is not configured.", "error")
+        return redirect(url_for('user.profile'))
+
     full_path = os.path.join(downloads_dir, filename)
 
-    # Gracefully handle missing files (like the broken one from the previous test!)
+    # Gracefully handle missing files
     if not os.path.exists(full_path):
         flash("The requested backup file could not be found on the server. Please generate a new one.", "error")
         return redirect(url_for('user.profile'))
