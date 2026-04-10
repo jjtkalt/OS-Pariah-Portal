@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}OS Pariah Portal{% endblock %}</title>
+    <title>{% block title %}{{ grid_name }} Portal{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/central.css') }}">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -12,7 +12,7 @@
         <div class="main">
             
             <nav class="nav-bar">
-                <a href="{{ grid_website_url }}" style="font-size: 1.5rem; font-weight: bold; color: var(--primary); text-decoration: none;">
+                <a href="{{ grid_website_url }}" class="text-primary fw-bold" style="font-size: 1.5rem; text-decoration: none;">
                     {{ grid_name }}
                 </a>
 
@@ -35,7 +35,7 @@
                             </div>
                         {% endif %}
                         <a href="{{ url_for('user.profile') }}">My Profile</a>
-                        <a href="{{ url_for('auth.logout') }}" style="color: var(--danger);">Logout</a>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}">Login</a>
                         <a href="{{ url_for('register.register') }}" class="btn">Register</a>

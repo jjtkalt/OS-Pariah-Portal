@@ -2,30 +2,38 @@
 {% block title %}System Settings - {{ grid_name }} Portal{% endblock %}
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
-    <h1 style="color: var(--primary); margin-bottom: 5px;">System Configuration</h1>
-    <p style="color: var(--text-muted); margin-bottom: 24px;">Manage global setting.</p>
+    <h1 class="text-primary m-0 mb-5">System Configuration</h1>
+    <p class="text-muted mb-20 mt-0">Manage global setting.</p>
 
-    <form action="{{ url_for('admin.system_settings') }}" method="POST">
-        
+    <form action="{{ url_for('admin.system_settings') }}" method="POST" class="m-0">
+
         {% for category, fields in schema.items() %}
-        <fieldset style="background: #fff; margin-bottom: 20px;">
+        <fieldset class="card p-0 mb-20">
             <legend>{{ category }}</legend>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
                 {% for key, meta in fields.items() %}
                     {% set current_val = db_settings.get(key, meta.default) %}
-                    <div style="margin-bottom: 10px;">
-                        <label for="cfg_{{ key }}" style="font-weight: 600; margin-bottom: 5px; display: block;">
-                            {{ meta.label }} <br>
-                            <small style="color: var(--text-muted); font-weight: normal; font-family: monospace;">{{ key }}</small>
-                        </label>
-                        
+                    <div class="mb-10 relative" style="position: relative;">
+                        <div class="flex-between mb-5">
+                            <label for="cfg_{{ key }}" class="fw-bold m-0">
+                                {{ meta.label }} <br>
+                                <small class="text-muted" style="font-family: monospace; font-weight: normal;">{{ key }}</small>
+                            </label>
+                            
+                            {% if key in db_settings %}
+                                <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Revert to Default" onclick="deleteSetting('{{ key }}')">Reset</button>
+                            {% else %}
+                                <button type="button" class="btn-disabled text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Already Set to Default" disabled>Already default</button>
+                            {% endif %}
+                        </div>
+
                         {% if meta.type == 'boolean' %}
-                            <select id="cfg_{{ key }}" name="cfg_{{ key }}" style="width: 100%;">
+                            <select id="cfg_{{ key }}" name="cfg_{{ key }}" class="w-100 mb-0">
                                 <option value="true" {% if current_val == 'true' %}selected{% endif %}>Yes / Enabled</option>
                                 <option value="false" {% if current_val == 'false' %}selected{% endif %}>No / Disabled</option>
                             </select>
                         {% else %}
-                            <input type="{{ meta.type }}" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ current_val }}" style="width: 100%;">
+                            <input type="{{ meta.type }}" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ current_val }}" class="w-100 mb-0">
                         {% endif %}
                     </div>
                 {% endfor %}
@@ -34,40 +42,59 @@
         {% endfor %}
 
         {% if custom_settings %}
-        <fieldset style="background: #fff; margin-bottom: 20px; border-color: #cbd5e1;">
-            <legend style="color: #475569;">Custom Variables</legend>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <fieldset class="card p-0 mb-20" style="border-color: var(--text-muted);">
+            <legend class="text-muted">Custom Variables</legend>
+            <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
                 {% for key, val in custom_settings.items() %}
-                <div style="margin-bottom: 10px;">
-                    <label for="cfg_{{ key }}" style="font-weight: 600; margin-bottom: 5px; display: block; font-family: monospace;">{{ key }}</label>
-                    <input type="text" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ val }}" style="width: 100%;">
+                <div class="mb-10">
+                    <div class="flex-between mb-5">
+                        <label for="cfg_{{ key }}" class="fw-bold m-0" style="font-family: monospace;">{{ key }}</label>
+                        <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Delete Variable" onclick="deleteSetting('{{ key }}')">Delete</button>
+                    </div>
+                    <input type="text" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ val }}" class="w-100 mb-0">
                 </div>
                 {% endfor %}
             </div>
         </fieldset>
         {% endif %}
 
-        <div style="text-align: right; margin-top: 20px;">
-            <button type="submit" style="background: var(--success); font-size: 1.1rem; padding: 10px 30px;">Save All Configurations</button>
+        <div class="text-right mt-20">
+            <button type="submit" class="btn-success text-lg" style="padding: 10px 30px;">Save All Configurations</button>
         </div>
     </form>
-    <fieldset style="margin-top: 40px; background: #f0fdf4; border-color: #86efac;">
-        <legend style="background: transparent; color: #166534; font-weight: bold;">Advanced: Add Custom Setting</legend>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+    
+    <fieldset class="mt-20" style="background: var(--success-bg); border-color: var(--success);">
+        <legend class="fw-bold text-success" >Advanced: Add Custom Setting</legend>
+        <p class="text-sm text-muted mt-0">
             Use this tool to safely inject custom variables (like <code>Greeting</code>).
         </p>
 
-        <form action="{{ url_for('admin.add_setting') }}" method="POST" style="display: flex; gap: 15px; align-items: flex-end; margin: 0; padding: 0; box-shadow: none; background: transparent;">
-            <div style="flex: 1;">
+        <form action="{{ url_for('admin.add_setting') }}" method="POST" class="d-flex gap-10 m-0 p-0" style="align-items: flex-end; box-shadow: none; background: transparent;">
+            <div class="w-100">
                 <label>Configuration Key</label>
-                <input type="text" name="new_key" placeholder="e.g., iar_retention_days" required style="margin-bottom: 0;">
+                <input type="text" name="new_key" placeholder="e.g., iar_retention_days" required class="mb-0">
             </div>
-            <div style="flex: 1;">
+            <div class="w-100">
                 <label>Configuration Value</label>
-                <input type="text" name="new_value" placeholder="e.g., 7" required style="margin-bottom: 0;">
+                <input type="text" name="new_value" placeholder="e.g., 7" required class="mb-0">
             </div>
-            <button type="submit" style="background: #16a34a; white-space: nowrap;">+ Add Variable</button>
+            <button type="submit" class="btn-success" style="white-space: nowrap;">+ Add Variable</button>
         </form>
     </fieldset>
 </div>
+
+<form id="deleteForm" action="{{ url_for('admin.delete_setting') }}" method="POST" style="display: none;">
+    <input type="hidden" name="target_key" id="deleteTargetKey">
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function deleteSetting(key) {
+        if(confirm(`Are you sure you want to remove the database override for '${key}'?`)) {
+            document.getElementById('deleteTargetKey').value = key;
+            document.getElementById('deleteForm').submit();
+        }
+    }
+</script>
 {% endblock %}

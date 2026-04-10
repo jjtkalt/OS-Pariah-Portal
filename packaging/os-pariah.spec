@@ -54,7 +54,8 @@ cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
 
 %post
 # Add sudo permissions for pariah user
-echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" > /etc/sudoers.d/pariah_worker
+echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py, /bin/systemctl start opensim@*.service, /bin/systemctl stop opensim@*.service, /bin/systemctl restart opensim@*.service, /bin/systemctl enable opensim@*.service, /bin/systemctl disable opensim@*.service" > /etc/sudoers.d/pariah_worker
+echo "pariah ALL=(opensim) NOPASSWD: /usr/bin/screen -p 0 -S OpenSim-* -X stuff *" >> /etc/sudoers.d/pariah_worker
 chmod 0440 /etc/sudoers.d/pariah_worker
 
 # This runs AFTER the files are copied to the server.

@@ -1,45 +1,45 @@
 {% extends 'base.html' %}
 
-{% block title %}Login - OS Pariah Portal{% endblock %}
+{% block title %}Login - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center">
-    <h1 style="color: var(--primary);">Welcome Back</h1>
-    <p style="color: var(--text-muted); margin-bottom: 24px;">Log in with your OpenSimulator avatar credentials.</p>
+<div class="text-center">
+    <h1 class="text-primary m-0">Welcome Back</h1>
+    <p class="text-muted mb-20 mt-10">Log in with your OpenSimulator avatar credentials.</p>
 </div>
 
 <div style="max-width: 500px; margin: 0 auto;">
     <form method="POST" action="{{ url_for('auth.login') }}">
-        <fieldset style="background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <fieldset class="card" style="box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
             <legend>Grid Login</legend>
-            
-            <div style="display: flex; gap: 12px;">
-                <div style="flex: 1;">
+
+            <div class="d-flex gap-10">
+                <div class="w-100">
                     <label>First Name</label>
                     <input type="text" name="first_name" placeholder="John" required autofocus>
                 </div>
-                <div style="flex: 1;">
+                <div class="w-100">
                     <label>Last Name</label>
                     <input type="text" name="last_name" placeholder="Resident" required>
                 </div>
             </div>
-            
+
             <label>Password</label>
             <input type="password" name="password" required>
 
-	    <div style="text-align: right; margin-top: -10px; margin-bottom: 10px;">
-                <a href="{{ url_for('auth.forgot_password') }}" style="font-size: 0.85rem; color: var(--info); text-decoration: none;">Forgot Password?</a>
+            <div class="text-right mb-10" style="margin-top: -10px;">
+                <a href="{{ url_for('auth.forgot_password') }}" class="text-sm text-info" style="text-decoration: none;">Forgot Password?</a>
             </div>
-            
-            <button type="submit" style="width: 100%; margin-top: 16px; font-size: 1.1rem;">
+
+            <button type="submit" class="w-100 mt-20 text-lg">
                 Access Portal
             </button>
         </fieldset>
     </form>
-    
-    <div class="center" style="margin-top: 20px; font-size: 0.9rem;">
-        <span style="color: var(--text-muted);">Don't have an avatar yet?</span><br>
-        <a href="{{ url_for('register.register') }}" style="color: var(--primary); font-weight: bold; text-decoration: none;">Register a new account</a>
+
+    <div class="text-center mt-20 text-sm">
+        <span class="text-muted">Don't have an avatar yet?</span><br>
+        <a href="{{ url_for('register.register') }}" class="text-primary fw-bold" style="text-decoration: none;">Register a new account</a>
     </div>
 </div>
 {% endblock %}

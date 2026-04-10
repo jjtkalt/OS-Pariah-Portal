@@ -1,29 +1,29 @@
 {% extends 'base.html' %}
 
-{% block title %}Action Required - OS Pariah Portal{% endblock %}
+{% block title %}Action Required - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center" style="margin-top: 40px; margin-bottom: 20px;">
-    <h1 style="color: var(--danger);">Action Required</h1>
-    <p style="color: var(--text-muted); font-size: 1.1rem;">The Grid Policies have been updated to version <strong>{{ version }}</strong>.</p>
+<div class="text-center mt-20 mb-20">
+    <h1 class="text-danger m-0">Action Required</h1>
+    <p class="text-muted text-lg mt-10">The Grid Policies have been updated to version <strong>{{ version }}</strong>.</p>
 </div>
 
-<div class="group" style="max-height: none; padding: 30px; background: white;">
-    <p style="margin-top: 0; line-height: 1.6;">
-        To continue accessing the OS Pariah Portal and the grid, you must review and agree to the latest rules and policies. 
+<div class="group" style="background: var(--input-bg);">
+    <p class="mt-0" style="line-height: 1.6;">
+        To continue accessing the OS Pariah Portal and the grid, you must review and agree to the latest rules and policies.
     </p>
 
-    <div style="background: var(--info-bg); padding: 15px; border-left: 4px solid var(--info); border-radius: 4px; margin: 20px 0;">
-        <p style="margin-top: 0; font-weight: bold; color: var(--info);">Documents requiring your review:</p>
-        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+    <div class="alert info mb-20 mt-20">
+        <p class="fw-bold mt-0 mb-10">Documents requiring your review:</p>
+        <ul class="m-0" style="padding-left: 20px; line-height: 1.8;">
             {% for p in policies %}
                 <li>
-                    <a href="{{ url_for('policies.view_policy', slug=p.slug) }}" target="_blank" style="color: var(--primary); font-weight: bold; text-decoration: none;">
+                    <a href="{{ url_for('policies.view_policy', slug=p.slug) }}" target="_blank" class="text-primary fw-bold" style="text-decoration: none;">
                         Read the {{ p.title }}
                     </a>
 
                     {% if last_agreed and p.updated_at > last_agreed %}
-                        <span style="background: var(--danger); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-left: 8px; vertical-align: middle;">
+                        <span class="btn-danger text-sm fw-bold" style="padding: 2px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle;">
                             NEW / UPDATED
                         </span>
                     {% endif %}
@@ -32,17 +32,17 @@
         </ul>
     </div>
 
-    <form method="POST" action="{{ url_for('user.policy_agreement') }}" style="margin-top: 30px; text-align: center;">
-        <label class="radio" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); margin-bottom: 20px; display: block;">
+    <form method="POST" action="{{ url_for('user.policy_agreement') }}" class="text-center mt-20">
+        <label class="radio text-lg fw-bold mb-20 d-block">
             <input type="checkbox" name="agree" value="yes" required style="width: 20px; height: 20px; vertical-align: middle;">
             I have read and agree to comply with these updated policies.
         </label>
-        
-        <button type="submit" style="background: var(--success); font-size: 1.1rem; padding: 12px 30px;">I Agree - Continue to Portal</button>
+
+        <button type="submit" class="btn-success text-lg mt-10">I Agree - Continue to Portal</button>
     </form>
-    
-    <div class="center" style="margin-top: 20px;">
-        <a href="{{ url_for('auth.logout') }}" style="color: var(--text-muted); font-size: 0.9rem; text-decoration: none;">I do not agree (Logout)</a>
+
+    <div class="text-center mt-20">
+        <a href="{{ url_for('auth.logout') }}" class="text-muted text-sm" style="text-decoration: none;">I do not agree (Logout)</a>
     </div>
 </div>
 {% endblock %}

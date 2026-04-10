@@ -6,19 +6,16 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
-* **[ ] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
-* **[ ] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
 
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
 * **[i] Regions.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
-* **[ ] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
-
 
 ## 🚀 Mid-Term (Next Major version release)
 *Focus: Major feature additions of compatibility changes.*
 
+* **[ ] Use inworld region menu to be online showable:** This would replace the need for the listable_regions setting by looking at the database of each region (a new read-only database handler would be needed to ready opensim_* region databases) and pulling the the boolean value from regionsettings.block_search.  If the value is true (1), the region would not be listable via the online api call for non-admins.  Basically, in the "online_lister" function of app/blueprints/api/routes.py, 'SELECT block_search FROM opensim_<regionname>.regionsettings' will return false for listable regions.
 * **[ ] Settings drive functions** Some variables, if not set, should deactivate the functionality in the portal. (Example: If there is no discord webhook URL, the app should skip the attempt to post to discord.  Or, if there is no smtp server defined, do not use email based options. (Of course, smtp might not be something we want to run without, so, this might need reconsideration))
 
 ## 🔮 Future / Under Consideration
@@ -32,12 +29,15 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] Private Money support:** Configure and deploy centralized private money support
 * **[ ] Registration Avatar:** Avatar model selection during registration
 
-## ✅ Recently Completed (v0.9.2 - v0.9.x)
+## ✅ Recently Completed (v0.9.2 - v0.9.3)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
 * **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
 * **[x] Texture/Photo viewer:** Admins of a certain userlevel should be able to review a users texture and photo inventory for safety and grid security.
 * **[x] Region Configurations:** A region should be disabled to save the configuration.  A disabled region should be able to be reactivated at a later point.  Only a disabled region should be able to be completely deleted from the database.
+* **[x] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
+* **[x] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
+* **[x] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
 
 ## ✅ Recently Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.

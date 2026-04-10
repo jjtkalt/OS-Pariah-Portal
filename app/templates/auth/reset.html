@@ -2,21 +2,21 @@
 {% block title %}Choose New Password - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center">
-    <h1 style="color: var(--primary);">Secure Password Reset</h1>
-    <p style="color: var(--text-muted); margin-bottom: 24px;">Please choose a strong, new password for your OpenSim avatar.</p>
+<div class="text-center">
+    <h1 class="text-primary m-0">Secure Password Reset</h1>
+    <p class="text-muted mb-20 mt-10">Please choose a strong, new password for your OpenSim avatar.</p>
 </div>
 
 <div style="max-width: 500px; margin: 0 auto;">
-    <form method="POST" action="{{ url_for('auth.reset_password', token=token) }}" class="group" style="background: white;" onsubmit="return validatePassword()">
+    <form method="POST" action="{{ url_for('auth.reset_password', token=token) }}" class="group" style="background: var(--input-bg);" onsubmit="return validatePassword()">
         <label>New Password</label>
         <input type="password" id="new_password" name="new_password" required autofocus>
-        
+
         <label>Confirm Password</label>
         <input type="password" id="confirm_password" name="confirm_password" required>
-        <small id="passMatchText" style="color: var(--danger); display: none; margin-bottom: 15px; font-weight: bold;">Passwords do not match.</small>
+        <small id="passMatchText" class="text-danger fw-bold mb-10" style="display: none; display: block;">Passwords do not match.</small>
 
-        <button type="submit" id="passSubmitBtn" style="width: 100%; font-size: 1.1rem; margin-top: 10px;">Update Password</button>
+        <button type="submit" id="passSubmitBtn" class="w-100 text-lg mt-10">Update Password</button>
     </form>
 </div>
 {% endblock %}

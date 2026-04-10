@@ -3,14 +3,14 @@
 {% block title %}Manage Bans - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+<div class="flex-between mb-20 flex-wrap gap-10">
     <div>
-        <h1 style="color: var(--danger); margin: 0;">Active Ban Records</h1>
-        <p style="color: var(--text-muted); margin-top: 5px; margin-bottom: 0;">Removing a ban here will automatically restore associated avatars to Level 0.</p>
+        <h1 class="text-danger m-0">Active Ban Records</h1>
+        <p class="text-muted m-0 mt-5">Removing a ban here will automatically restore associated avatars.</p>
     </div>
-    
-    <div>
-        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="btn" style="background: var(--info);">Gatekeeper Search</a>
+
+    <div class="d-flex gap-10">
+        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="btn btn-info">Gatekeeper Search</a>
         <a href="{{ url_for('user_mgmt.create_ban') }}" class="btn btn-danger">+ Issue Ban</a>
     </div>
 </div>
@@ -21,7 +21,7 @@
             <th>Date & Reason</th>
             <th>Type</th>
             <th>Enforcement Targets</th>
-            <th style="text-align: right;">Action</th>
+            <th class="text-right">Action</th>
         </tr>
     </thead>
     <tbody>
@@ -30,29 +30,29 @@
             <tr>
                 <td style="max-width: 250px;">
                     <strong>{{ ban.date.strftime('%Y-%m-%d %H:%M') }}</strong><br>
-                    <span style="color: var(--text-muted); font-size: 0.9rem;">{{ ban.reason }}</span>
+                    <span class="text-muted text-sm">{{ ban.reason }}</span>
                 </td>
                 <td>
-                    <span style="background: var(--danger-bg); color: #991b1b; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">
+                    <span class="text-danger fw-bold text-sm" style="background: var(--danger-bg); padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">
                         {{ ban.type }}
                     </span>
                 </td>
-                <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted);">
+                <td class="text-muted text-sm" style="font-family: monospace;">
                     {% if ban.uuids %}<strong>UUIDs:</strong> <span style="word-break: break-all;">{{ ban.uuids }}</span><br>{% endif %}
                     {% if ban.ips %}<strong>IPs:</strong> <span style="word-break: break-all;">{{ ban.ips }}</span><br>{% endif %}
                     {% if ban.macs %}<strong>MACs:</strong> <span style="word-break: break-all;">{{ ban.macs }}</span><br>{% endif %}
                     {% if ban.hostids %}<strong>Hosts:</strong> <span style="word-break: break-all;">{{ ban.hostids }}</span>{% endif %}
                 </td>
-                <td style="text-align: right; vertical-align: middle;">
-                    <form action="{{ url_for('user_mgmt.delete_ban', ban_id=ban.banid) }}" method="POST" style="margin: 0;" onsubmit="return confirm('WARNING: Are you sure you want to remove this ban and restore these avatars to Level 0?');">
-                        <button type="submit" class="btn" style="background: var(--text-muted); font-size: 0.8rem; padding: 6px 12px;">Remove Ban</button>
+                <td class="text-right" style="vertical-align: middle;">
+                    <form action="{{ url_for('user_mgmt.delete_ban', ban_id=ban.banid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to remove this ban and restore these avatars to Level 0?');">
+                        <button type="submit" class="btn btn-danger text-sm" style="padding: 6px 12px;">Remove Ban</button>
                     </form>
                 </td>
             </tr>
             {% endfor %}
         {% else %}
             <tr>
-                <td colspan="4" class="center" style="padding: 40px; color: var(--success); font-weight: bold;">
+                <td colspan="4" class="text-center text-success fw-bold" style="padding: 40px;">
                     No active bans found. Your grid is peaceful!
                 </td>
             </tr>

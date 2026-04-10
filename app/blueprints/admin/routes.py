@@ -200,6 +200,34 @@ def add_setting():
 
     return redirect(url_for('admin.settings'))
 
+@admin_bp.route('/settings/delete', methods=['POST'])
+@require_admin
+def delete_setting():
+    """Removes a configuration key from the database, reverting it to default."""
+    if int(session.get('user_level', 0)) < 250:
+        flash("Unauthorized.", "error")
+        return redirect(url_for('admin.system_settings'))
+
+    target_key = request.form.get('target_key', '').strip()
+
+    if target_key:
+        try:
+            conn = get_pariah_db()
+            with conn.cursor() as cursor:
+                # We do not prevent deleting KNOWN_SETTINGS because deleting them
+                # simply causes the get_dynamic_config() function to fall back
+                # to the safe defaults defined in schema.py.
+                cursor.execute("DELETE FROM config WHERE config_key = %s", (target_key,))
+            conn.commit()
+            flash(f"Setting '{target_key}' deleted and reverted to system default.", "success")
+        except Exception as e:
+            current_app.logger.error(f"Failed to delete setting {target_key}: {e}")
+            flash("Database error while deleting setting.", "error")
+    else:
+        flash("No target key specified.", "error")
+
+    return redirect(url_for('admin.system_settings'))
+
 # --- SMART TEXTURE PROXY ---
 @admin_bp.route('/texture/<hash_val>')
 @require_admin

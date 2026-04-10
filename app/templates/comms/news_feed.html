@@ -1,45 +1,45 @@
 {% extends 'base.html' %}
 
-{% block title %}Grid News & Alerts - OS Pariah Portal{% endblock %}
+{% block title %}Grid News & Alerts - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="nav-bar" style="border-bottom: none; margin-bottom: 10px;">
-    <h2>Grid News & Announcements</h2>
+<div class="nav-bar flex-between" style="border-bottom: none;">
+    <h2 class="m-0">Grid News & Announcements</h2>
     {% if session.get('is_admin') %}
-        <a href="{{ url_for('comms.post_news') }}" class="btn" style="background: var(--success);">+ Post Update</a>
+        <a href="{{ url_for('comms.post_news') }}" class="btn btn-success">+ Post Update</a>
     {% endif %}
 </div>
 
-<p style="color: var(--text-muted); margin-bottom: 24px;">
-    Stay up to date with the latest maintenance schedules, events, and grid updates.
+<p class="text-muted mb-20 mt-0">
+    Stay up to date with the latest maintenance schedules, events, and grid updates. 
 </p>
 
 {% if news_items %}
-    <div style="display: flex; flex-direction: column; gap: 16px;">
-	{% for item in news_items %}
-            <div class="group" style="max-height: none; {% if item.is_alert %}border-left: 4px solid var(--danger); background: var(--danger-bg);{% else %}border-left: 4px solid var(--primary); background: var(--card-bg);{% endif %} padding: 16px;">
+    <div class="flex-column gap-20">
+        {% for item in news_items %}
+            <div class="group m-0" style="max-height: none; {% if item.is_alert %}border-left: 4px solid var(--danger); background: var(--danger-bg);{% else %}border-left: 4px solid var(--primary);{% endif %}">
 
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                    <h3 style="margin: 0; {% if item.is_alert %}color: var(--danger);{% else %}color: var(--primary);{% endif %}">
+                <div class="flex-between mb-10" style="align-items: flex-start;">
+                    <h3 class="m-0 {% if item.is_alert %}text-danger{% else %}text-primary{% endif %}">
                         {% if item.is_alert %}🚨 ALERT: {% endif %}{{ item.title }}
                     </h3>
-                    <span class="date">
+                    <span class="date m-0">
                         {{ item.created_at.strftime('%B %d, %Y') }}
                     </span>
                 </div>
 
-                <p style="margin: 0 0 12px 0; white-space: pre-wrap; line-height: 1.5; color: var(--text-main);">{{ item.body }}</p>
+                <p class="m-0 mb-10" style="white-space: pre-wrap; line-height: 1.5;">{{ item.body }}</p>
 
-                <div style="font-size: 0.8rem; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 8px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>Posted by: <strong>{{ item.author_name }}</strong></div>
-                    
+                <div class="text-sm text-muted flex-between pt-10" style="border-top: 1px dashed var(--border-color);">
+                    <div>Posted by: <strong class="text-main">{{ item.author_name }}</strong></div>
+
                     {% if session.get('user_level', 0)|int >= 250 %}
-                    <form action="{{ url_for('comms.delete_news', news_id=item.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this announcement?');">
-                        <button type="submit" class="btn-danger" style="padding: 2px 8px; font-size: 0.75rem; border-radius: 4px;">Delete</button>
+                    <form action="{{ url_for('comms.delete_news', news_id=item.id) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this announcement?');">
+                        <button type="submit" class="btn-danger text-sm p-0" style="padding: 2px 8px;">Delete</button>
                     </form>
                     {% endif %}
                 </div>
-                
+
             </div>
         {% endfor %}
     </div>

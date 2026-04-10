@@ -24,7 +24,7 @@ Pariah was built to be enterprise-grade, capable of handling high-traffic OpenSi
 * **Policy, Rules, and Documentation:** Pariah tracks user's acceptance of system policies, keeping everyone up to date while allowing administrators to easily edit and publish documentation.
 * **Dynamic Helpdesk System:** Guests and members alike have a central location to get the help they need.  Administrators can get updates on Discord or Matrix.  Abuse is limited by Cloudflare&copy;'s Turnstyle&trade; CAPTCHA system.
 * **System and Region Configuration:** All of the various parts of running a grid are accessible to users and administrators in Pariah's centralized system.
-* **Viewer Welcome/Splash page:** a dynamic page for users of the grid when they are logging in.
+* **Viewer Welcome/Splash page:** a dynamic page for users of the grid when they are logging in. (Set the Welcome page in Robust.ini to point to https://portal.example.com/comms/splash)
 
 ## Philosophical Reasoning
 For all the various reasons that one thing or another was chosen, or to learn more about the industry best practices that were intended to be followed, refer to [Philosophy](PHILOSOPHY.md).
@@ -59,7 +59,8 @@ In our testing, the following commands were run as the opensim user from Pariah 
 
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.
 - Create the SUDO rules required for Pariah.  Something like:
-  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py" | sudo tee /etc/sudoers.d/pariah_worker```
+  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py, /bin/systemctl start opensim@*.service, /bin/systemctl stop opensim@*.service, /bin/systemctl restart opensim@*.service, /bin/systemctl enable opensim@*.service, /bin/systemctl disable opensim@*.service" | sudo tee /etc/sudoers.d/pariah_worker```
+  - ```echo "pariah ALL=(opensim) NOPASSWD: /usr/bin/screen -p 0 -S OpenSim-* -X stuff *" | sudo tee -a /etc/sudoers.d/pariah_worker```
   - ```sudo chmod 0440 /etc/sudoers.d/pariah_worker```
 - Create the Pariah Gallery Cache directory for image review: ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
   - IMPORTANT: If your FSAssets path is different than the default, or you aren't using the default fsassets table in the robust database, you must update this to where it will be located and update the default value in the Admin - Settings menu of the Portal UI.

@@ -3,41 +3,43 @@
 {% block title %}Gatekeeper Lookup - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="flex-between flex-wrap gap-10 mb-20">
     <div>
-        <h2 style="margin: 0; color: var(--primary);">Gatekeeper Cross-Reference Search</h2>
-        <p style="color: var(--text-muted); margin-top: 5px;">Identify alt accounts by crossing IP addresses, MAC addresses, or Host IDs.</p>
+        <h2 class="text-primary m-0">Gatekeeper Cross-Reference Search</h2>
+        <p class="text-muted mt-5 m-0">Identify alt accounts by crossing IP addresses, MAC addresses, or Host IDs.</p>
     </div>
-    <a href="{{ url_for('admin.texture_gallery') }}" class="btn">View Asset Gallery</a>
-    <a href="{{ url_for('user_mgmt.manage_bans') }}" class="btn btn-danger">Manage Bans</a>
+    <div class="d-flex gap-10">
+        <a href="{{ url_for('admin.texture_gallery') }}" class="btn">View Asset Gallery</a>
+        <a href="{{ url_for('user_mgmt.manage_bans') }}" class="btn btn-danger">Manage Bans</a>
+    </div>
 </div>
 
-<form method="GET" action="{{ url_for('user_mgmt.gatekeeper_lookup') }}">
-    <fieldset>
+<form method="GET" action="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="m-0 mb-20">
+    <fieldset class="group m-0">
         <legend>Search Gatekeeper Logs</legend>
-        
-        <div style="margin-bottom: 15px;">
-            <label class="radio">
+
+        <div class="mb-10 d-flex flex-wrap gap-10">
+            <label class="radio m-0">
                 <input type="radio" name="type" value="username" {% if search_type == 'username' or not search_type %}checked{% endif %}> Partial Username
             </label>
-            <label class="radio">
+            <label class="radio m-0">
                 <input type="radio" name="type" value="ip" {% if search_type == 'ip' %}checked{% endif %}> IP Address
             </label>
-            <label class="radio">
+            <label class="radio m-0">
                 <input type="radio" name="type" value="mac" {% if search_type == 'mac' %}checked{% endif %}> MAC Address
             </label>
-            <label class="radio">
+            <label class="radio m-0">
                 <input type="radio" name="type" value="host_id" {% if search_type == 'host_id' %}checked{% endif %}> Host ID
             </label>
-            <label class="radio">
+            <label class="radio m-0">
                 <input type="radio" name="type" value="uuid" {% if search_type == 'uuid' %}checked{% endif %}> UUID
             </label>
         </div>
-        
-        <div style="display: flex; gap: 10px;">
-            <input type="text" name="q" value="{{ query }}" placeholder="Enter value to search..." style="margin-bottom: 0;" required>
-            <button type="submit" style="white-space: nowrap;">Search Logs</button>
-            <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="btn" style="background: var(--text-muted); white-space: nowrap;">Clear</a>
+
+        <div class="d-flex gap-10">
+            <input type="text" name="q" value="{{ query }}" placeholder="Enter value to search..." class="m-0" required>
+            <button type="submit" class="btn-success">Search Logs</button>
+            <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="btn btn-muted">Clear</a>
         </div>
     </fieldset>
 </form>
@@ -46,40 +48,40 @@
     {% if not uuids %}
         <div class="alert info">No matching records found for that query.</div>
     {% else %}
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 30px; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: var(--primary);">Cross-Referenced Results</h3>
-            <a href="{{ url_for('user_mgmt.create_ban') }}" class="btn btn-danger">+ Create Custom Ban</a>
+        <div class="flex-between mt-20 mb-20 pt-10">
+            <h3 class="text-primary m-0">Cross-Referenced Results</h3>
+            <a href="{{ url_for('user_mgmt.create_ban') }}" class="btn-danger">+ Create Custom Ban</a>
         </div>
 
         {% if results.usernames %}
-        <div class="group" style="background: #e0f2fe; border-color: #7dd3fc;">
-            <h3 style="margin-top: 0; color: #0369a1;">Associated Avatars</h3>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div class="group" style="background: var(--info-bg); border-color: var(--info);">
+            <h3 class="mt-0 text-info">Associated Avatars</h3>
+            <div class="d-flex gap-10 flex-wrap">
                 {% for name in results.usernames %}
-                    <span style="background: white; padding: 4px 10px; border-radius: 4px; font-weight: bold; border: 1px solid #bae6fd;">{{ name }}</span>
+                    <span class="fw-bold" style="background: var(--input-bg); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color);">{{ name }}</span>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-            
-            <div class="group" style="max-height: 400px; margin: 0;">
-                <h2>Linked UUIDs</h2>
+        <div class="grid-cards">
+
+            <div class="group m-0" style="max-height: 400px;">
+                <h2 class="mt-0">Linked UUIDs</h2>
                 <ul style="list-style-type: none; padding: 0; margin: 0;">
                     {% for u in uuids %}
-                        <li style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
-                            <span class="uuid" style="display: block; margin-bottom: 5px;">{{ u }}</span>
-                            <div style="display: flex; justify-content: space-between;">
-                                <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" style="font-size: 0.85rem; color: var(--info); font-weight: bold; text-decoration: none;">View Staff Notes &rarr;</a>
-                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; margin: 0; padding: 2px;">View User Textures</a>
-                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" style="font-size: 0.8rem; color: var(--danger); font-weight: bold; text-decoration: none;">Ban UUID</a>
-                                
+                        <li class="mb-10 pb-10" style="border-bottom: 1px solid var(--border-color);">
+                            <span class="uuid d-block mb-5">{{ u }}</span>
+                            <div class="flex-between flex-wrap gap-5">
+                                <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="text-info fw-bold text-sm" style="text-decoration: none;">View Staff Notes &rarr;</a>
+                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; padding: 2px;">View Textures</a>
+                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" class="text-danger fw-bold text-sm" style="text-decoration: none;">Ban UUID</a>
+
                                 {% if session.get('user_level', 0)|int >= 250 %}
-                                <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" style="display: inline-block; margin-left: 15px;">
-                                    <div class="input-group">
-                                        <input type="number" name="new_level" class="form-control" placeholder="Level (e.g. 200)" required style="width: 120px; display: inline-block;">
-                                        <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="m-0 mt-5 w-100 text-right">
+                                    <div class="d-flex gap-5" style="justify-content: flex-end;">
+                                        <input type="number" name="new_level" placeholder="Level (e.g. 200)" class="m-0" required style="width: 120px; padding: 4px;">
+                                        <button type="submit" class="btn-warning text-sm" style="padding: 2px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
                                     </div>
                                 </form>
                                 {% endif %}
@@ -89,37 +91,37 @@
                 </ul>
             </div>
 
-            <div class="group" style="max-height: 400px; margin: 0;">
-                <h2>Known IPs</h2>
-                <ul style="padding-left: 20px; margin: 0; font-family: monospace;">
+            <div class="group m-0" style="max-height: 400px;">
+                <h2 class="mt-0">Known IPs</h2>
+                <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
                     {% for ip in results.ips %}
-                        <li style="margin-bottom: 8px;">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" style="color: var(--text-main);">{{ ip }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                        <li class="mb-10">
+                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" class="text-main">{{ ip }}</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>
             </div>
 
-            <div class="group" style="max-height: 400px; margin: 0;">
-                <h2>Known MAC Addresses</h2>
-                <ul style="padding-left: 20px; margin: 0; font-family: monospace;">
+            <div class="group m-0" style="max-height: 400px;">
+                <h2 class="mt-0">Known MAC Addresses</h2>
+                <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
                     {% for mac in results.macs %}
-                        <li style="margin-bottom: 8px;">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" style="color: var(--text-main);">{{ mac }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                        <li class="mb-10">
+                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" class="text-main">{{ mac }}</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>
             </div>
 
-            <div class="group" style="max-height: 400px; margin: 0;">
-                <h2>Known Host IDs</h2>
-                <ul style="padding-left: 20px; margin: 0; font-family: monospace; word-break: break-all;">
+            <div class="group m-0" style="max-height: 400px;">
+                <h2 class="mt-0">Known Host IDs</h2>
+                <ul class="m-0" style="padding-left: 20px; font-family: monospace; word-break: break-all;">
                     {% for hid in results.host_ids %}
-                        <li style="margin-bottom: 8px;">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" style="color: var(--text-main);">{{ hid }}</a>
-                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" style="float: right; font-family: sans-serif; font-size: 0.75rem; color: white; background: var(--danger); padding: 2px 6px; border-radius: 4px; text-decoration: none;">Ban</a>
+                        <li class="mb-10">
+                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" class="text-main">{{ hid }}</a>
+                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
                 </ul>

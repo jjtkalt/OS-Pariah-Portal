@@ -248,6 +248,9 @@ button:disabled, .btn:disabled {
 .btn-warning { background: var(--warning); color: #000; }
 .btn-warning:hover { filter: brightness(0.9); }
 
+.btn-muted { background: var(--text-muted); color: #000; }
+.btn-muted:hover { filter: brightness(0.9); }
+
 .btn-outline {
   background: transparent;
   border: 1px solid var(--border-color);
@@ -394,6 +397,8 @@ tr:hover {
 /* Text & Alignment */
 .text-center { text-align: center; }
 .text-right { text-align: right; }
+.text-success { color: var(--success-text); }
+.text-info { color: var(--info-text); }
 .text-muted { color: var(--text-muted); }
 .text-primary { color: var(--primary); }
 .text-danger { color: var(--danger); }

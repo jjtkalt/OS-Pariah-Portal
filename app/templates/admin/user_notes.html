@@ -4,47 +4,47 @@
 
 {% block content %}
 <div style="max-width: 800px; margin: 0 auto;">
-    
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;">
+
+    <div class="flex-between mb-20" style="align-items: flex-end;">
         <div>
-            <h1 style="color: var(--primary); margin: 0;">Staff Notes & Warnings</h1>
-            <p class="uuid" style="margin-top: 5px; margin-bottom: 0;">Target UUID: {{ target_uuid }}</p>
+            <h1 class="text-primary m-0">Staff Notes & Warnings</h1>
+            <p class="uuid m-0 mt-5">Target UUID: {{ target_uuid }}</p>
         </div>
-        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" style="color: var(--text-muted); text-decoration: none; font-weight: 600;">&larr; Back to Lookup</a>
+        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}" class="text-muted fw-bold" style="text-decoration: none;">&larr; Back to Lookup</a>
     </div>
 
-    <form method="POST" action="{{ url_for('user_mgmt.user_notes', uuid=target_uuid) }}" class="group">
-        <fieldset>
+    <form method="POST" action="{{ url_for('user_mgmt.user_notes', uuid=target_uuid) }}" class="group m-0">
+        <fieldset class="m-0">
             <legend>Add New Note</legend>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+            <p class="text-sm text-muted m-0">
                 Notes added here are permanently attached to this UUID and are visible to all staff members.
             </p>
-            <textarea name="note" rows="4" placeholder="Enter staff warning, observation, or alt-account information here..." required></textarea>
-            <div style="text-align: right; margin-top: 10px;">
+            <textarea name="note" rows="4" placeholder="Enter staff warning, observation, or alt-account information here" class="mt-10" required></textarea>
+            <div class="text-right mt-10">
                 <button type="submit">+ Save Note</button>
             </div>
         </fieldset>
     </form>
 
-    <h3 style="color: var(--text-muted); margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 5px;">Existing Notes</h3>
+    <h3 class="text-muted mt-20 pb-5" style="border-bottom: 2px solid var(--border-color);">Existing Notes</h3>
 
     {% if notes %}
-        <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div class="flex-column gap-10">
             {% for note in notes %}
-            <div class="group" style="max-height: none; margin: 0; border-left: 4px solid var(--info);">
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px dashed var(--border-color); padding-bottom: 5px;">
-		    <span style="font-size: 0.85rem; color: var(--text-muted);">
-                        <strong>Added By:</strong> {{ note.admin_name }} 
-                        <span class="uuid" style="font-size: 0.75rem;">({{ note.admin_uuid }})</span>
+            <div class="group m-0" style="max-height: none; border-left: 4px solid var(--info);">
+
+                <div class="flex-between mb-10 pb-5" style="border-bottom: 1px dashed var(--border-color);">
+                    <span class="text-sm text-muted">
+                        <strong>Added By:</strong> {{ note.admin_name }}
+                        <span class="uuid text-sm">({{ note.admin_uuid }})</span>
                     </span>
-                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                    <span class="text-sm text-muted">
                         {{ note.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </span>
                 </div>
-                
-                <div style="white-space: pre-wrap; line-height: 1.5; color: var(--text-main);">{{ note.note }}</div>
-                
+
+                <div class="text-main" style="white-space: pre-wrap; line-height: 1.5;">{{ note.note }}</div>
+
             </div>
             {% endfor %}
         </div>

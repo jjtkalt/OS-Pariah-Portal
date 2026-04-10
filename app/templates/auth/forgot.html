@@ -2,34 +2,34 @@
 {% block title %}Forgot Password - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
-<div class="center">
-    <h1 style="color: var(--primary);">Password Recovery</h1>
-    <p style="color: var(--text-muted); margin-bottom: 24px;">Enter your Avatar Name to receive a secure reset link.</p>
+<div class="text-center">
+    <h1 class="text-primary m-0">Password Recovery</h1>
+    <p class="text-muted mb-20 mt-10">Enter your Avatar Name to receive a secure reset link.</p>
 </div>
 
 <div style="max-width: 500px; margin: 0 auto;">
-    <form method="POST" action="{{ url_for('auth.forgot_password') }}" class="group" style="background: white;">
-        
-        <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-            <div style="flex: 1;">
+    <form method="POST" action="{{ url_for('auth.forgot_password') }}" class="group" style="background: var(--input-bg);">
+
+        <div class="d-flex gap-10 mb-10">
+            <div class="w-100">
                 <label>First Name</label>
                 <input type="text" name="first_name" placeholder="John" required autofocus>
             </div>
-            <div style="flex: 1;">
+            <div class="w-100">
                 <label>Last Name</label>
                 <input type="text" name="last_name" placeholder="Resident" required>
             </div>
         </div>
-        
-        <div style="display: flex; justify-content: center; margin: 15px 0;">
+
+        <div class="flex-center mt-10 mb-10">
             <div class="cf-turnstile" data-sitekey="{{ site_key }}" data-callback="captchaSolved"></div>
         </div>
 
-        <button type="submit" id="submitBtn" style="width: 100%; font-size: 1.1rem;" disabled>Send Reset Link</button>
+        <button type="submit" id="submitBtn" class="w-100 text-lg mt-10" disabled>Send Reset Link</button>
     </form>
-    
-    <div class="center" style="margin-top: 20px;">
-        <a href="{{ url_for('auth.login') }}" style="color: var(--text-muted); text-decoration: none;">&larr; Back to Login</a>
+
+    <div class="text-center mt-20">
+        <a href="{{ url_for('auth.login') }}" class="text-muted" style="text-decoration: none;">&larr; Back to Login</a>
     </div>
 </div>
 {% endblock %}

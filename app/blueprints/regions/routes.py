@@ -7,6 +7,21 @@ from app.utils.auth_helpers import require_admin
 
 regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
 
+def format_uptime(seconds):
+    """Converts raw seconds into a clean human-readable string like '2d 4h' or '45m'."""
+    if not seconds or seconds <= 0:
+        return "Just Started"
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    
+    if days > 0:
+        return f"{int(days)}d {int(hours)}h"
+    elif hours > 0:
+        return f"{int(hours)}h {int(minutes)}m"
+    else:
+        return f"{int(minutes)}m"
+
 @regions_bp.route('/api/config/<region_uuid>.xml', methods=['GET'])
 def get_region_xml(region_uuid):
     client_ip = request.remote_addr
@@ -72,7 +87,6 @@ def manage_regions():
     try:
         conn_pariah = get_pariah_db()
         with conn_pariah.cursor() as cursor:
-            # UPDATED: Added c.is_active to the SELECT and GROUP BY clauses
             cursor.execute("""
                 SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active,
                        MAX(IF(s.setting_key = 'InternalPort', s.setting_value, NULL)) AS serverPort
@@ -87,8 +101,9 @@ def manage_regions():
                     'serverIP': 'Managed (See DNS Mapping)',
                     'serverPort': r['serverPort'] or 'Unknown',
                     'is_managed': True,
-                    'is_active': bool(r['is_active']),  # Pass state to the template
-                    'is_online': False 
+                    'is_active': bool(r['is_active']),
+                    'is_online': False,
+                    'uptime': 'N/A'
                 }
 
         conn_robust = get_robust_db()
@@ -106,9 +121,64 @@ def manage_regions():
                         'serverIP': r['serverIP'],
                         'serverPort': r['serverPort'],
                         'is_managed': False,
-                        'is_active': True, # Unmanaged regions are inherently active if they are in Robust
-                        'is_online': True
+                        'is_active': True,
+                        'is_online': True,
+                        'uptime': 'External' # We can't fetch uptime for remote/unmanaged regions
                     }
+
+        # --- SYSTEMD UPTIME FETCHING ---
+        managed_safe_names = [r['regionName'].replace(" ", "_") for r in combined_regions.values() if r['is_managed']]
+        uptimes = {}
+        
+        if managed_safe_names:
+            try:
+                # Ask systemd for all region statuses in one single, fast command
+                services = [f"opensim@{name}.service" for name in managed_safe_names]
+                cmd = ["/usr/bin/systemctl", "show"] + services + ["-p", "Id,ActiveState,ExecMainStartTimestampMonotonic"]
+                output = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.DEVNULL)
+                
+                # Systemd tracks time against the system Monotonic clock (in microseconds)
+                current_mono_usec = time.clock_gettime(time.CLOCK_MONOTONIC) * 1_000_000
+                
+                current_id, active_state, start_mono = None, None, 0
+                
+                # Parse the raw systemctl output blocks
+                for line in output.split('\n'):
+                    line = line.strip()
+                    if line.startswith('Id='):
+                        current_id = line.split('=', 1)[1]
+                    elif line.startswith('ActiveState='):
+                        active_state = line.split('=', 1)[1]
+                    elif line.startswith('ExecMainStartTimestampMonotonic='):
+                        try:
+                            start_mono = int(line.split('=', 1)[1])
+                        except ValueError:
+                            start_mono = 0
+                    elif not line:
+                        # Blank line = end of block for one service
+                        if current_id and current_id.startswith('opensim@') and current_id.endswith('.service'):
+                            r_name_safe = current_id[8:-8]
+                            if active_state == 'active' and start_mono > 0:
+                                uptime_sec = (current_mono_usec - start_mono) / 1_000_000
+                                uptimes[r_name_safe] = format_uptime(uptime_sec)
+                        current_id, active_state, start_mono = None, None, 0
+                        
+                # Process the final block just in case the output doesn't end with a trailing newline
+                if current_id and current_id.startswith('opensim@') and current_id.endswith('.service'):
+                    r_name_safe = current_id[8:-8]
+                    if active_state == 'active' and start_mono > 0:
+                        uptime_sec = (current_mono_usec - start_mono) / 1_000_000
+                        uptimes[r_name_safe] = format_uptime(uptime_sec)
+
+            except Exception as e:
+                # If they are running on a dev env without systemd, just ignore gracefully
+                current_app.logger.warning(f"Unable to fetch systemd uptimes: {e}")
+
+        # Map the calculated uptimes back to the main region dictionary
+        for r in combined_regions.values():
+            if r['is_managed'] and r['is_online']:
+                safe_name = r['regionName'].replace(" ", "_")
+                r['uptime'] = uptimes.get(safe_name, "Starting...")
 
     except Exception as e:
         current_app.logger.error(f"Region Management Sync Error: {e}")
@@ -139,30 +209,27 @@ def control_region(action, region_uuid):
 
     region_name = region['region_name']
     safe_region_name = region_name.replace(" ", "_")
-    grid_tools_dir = "/home/opensim/GridTools"
     
     env = os.environ.copy()
-    env['HOME'] = '/home/opensim'
-    env['PATH'] = '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin:/home/opensim/GridTools'
     
     try:
-        # Popen fires the command in the background (fire-and-forget) so the web UI never hangs
-        # start_new_session=True fully detaches it from the Gunicorn worker thread
+        # --- NEW SYSTEMD INTEGRATION ---
         if action == 'start':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/startregion", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "start", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Start signal sent for '{region_name}'. It may take a moment to appear online.", "info")
+            flash(f"Start signal sent to systemd for '{region_name}'.", "info")
             
         elif action == 'stop':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/stopregion", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "stop", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Stop signal sent for '{region_name}'. It will go offline shortly.", "info")
+            flash(f"Stop signal sent to systemd for '{region_name}'.", "info")
             
         elif action == 'restart':
-            cmd = ["/bin/bash", f"{grid_tools_dir}/softrestart", safe_region_name]
+            cmd = ["/usr/bin/sudo", "/bin/systemctl", "restart", f"opensim@{safe_region_name}.service"]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            flash(f"Restart initiated for '{region_name}'. The 60-second in-world warning has begun.", "info")
+            flash(f"Restart initiated via systemd for '{region_name}'.", "info")
             
+        # --- OAR BACKUPS (Still requires screen injection) ---
         elif action == 'oar':
             backup_dir = os.path.join(current_app.root_path, 'static', 'downloads', 'oars')
             os.makedirs(backup_dir, exist_ok=True)
@@ -172,13 +239,14 @@ def control_region(action, region_uuid):
             
             screen_name = f"OpenSim-{safe_region_name}"
             stuff_cmd = f"save oar {filename}\r"
-            cmd = ["/usr/bin/screen", "-p", "0", "-S", screen_name, "-X", "stuff", stuff_cmd]
+            # Note: We use sudo here assuming the screen session is owned by the 'opensim' user
+            cmd = ["/usr/bin/sudo", "-u", "opensim", "/usr/bin/screen", "-p", "0", "-S", screen_name, "-X", "stuff", stuff_cmd]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             flash(f"OAR backup requested for '{region_name}'.", "info")
 
     except Exception as e:
-        current_app.logger.error(f"Subprocess execution failed: {e}")
-        flash(f"Fatal error executing script.", "error")
+        current_app.logger.error(f"Subprocess execution failed for action {action} on {region_name}: {e}")
+        flash(f"Fatal error executing control script. Check server logs.", "error")
 
     return redirect(url_for('regions.manage_regions'))
 
