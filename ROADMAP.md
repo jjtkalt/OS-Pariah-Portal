@@ -7,10 +7,13 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
 
+
+
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
 * **[i] Regions.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
+* **[ ] User Name Change:** Allow admins to change user's login/account name
 
 ## 🚀 Mid-Term (Next Major version release)
 *Focus: Major feature additions of compatibility changes.*
@@ -28,6 +31,10 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] PoDex support:** Configure and deploy centralized PoDex money handling support
 * **[ ] Private Money support:** Configure and deploy centralized private money support
 * **[ ] Registration Avatar:** Avatar model selection during registration
+* **[ ] Partner system:** Ability for users to partner with others.  Current "Partner Tree" is API-Only for inworld use, but we will want to implement this via portal.  This has a security implication as direct Robust Database UPDATE permission would be needed, and portal has, to date, been read only.  To work around this, we might need a worker script that can be triggered with very specific sudo permission only.
+
+## ✅ Recently Completed (v0.9.3 - v0.9.x)
+* **[x] Missing File during installation:** check_mariadb.py fails to be installed via RPM
 
 ## ✅ Recently Completed (v0.9.2 - v0.9.3)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.

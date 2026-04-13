@@ -38,7 +38,7 @@ mkdir -p %{buildroot}/etc/nginx/vhosts.d
 mkdir -p %{buildroot}/var/log/os_pariah
 
 # Copy application files
-cp -r app scripts migrations wsgi.py worker.py migrate.py requirements.txt %{buildroot}/opt/os_pariah/
+cp -r app scripts migrations wsgi.py worker.py check_mariadb.py migrate.py requirements.txt %{buildroot}/opt/os_pariah/
 
 # Install the default blank config template
 cp .env.example %{buildroot}/etc/os_pariah/os-pariah.conf
