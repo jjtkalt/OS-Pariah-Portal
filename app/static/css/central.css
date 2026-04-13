@@ -123,16 +123,25 @@ html, body {
   color: white;
 }
 
+.admin-menu {
+  background: var(--warning);
+  border: none;
+  border-radius: 6px;
+  color: black;
+  cursor: pointer;
+  display: inline-block;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-right: 16px;
+  padding: 6px 12px;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s, opacity 0.2s;
+}
 .admin-dropdown {
   display: inline-block;
   position: relative;
-}
-.admin-dropdown span {
-  color: var(--warning);
-  cursor: pointer;
-  font-weight: bold;
-  margin-right: 16px;
-  padding: 6px 12px;
 }
 .dropdown-content {
   background-color: var(--input-bg);
@@ -140,7 +149,6 @@ html, body {
   border-radius: 8px;
   box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
   display: none;
-  margin-top: 5px;
   min-width: 180px;
   overflow: hidden;
   position: absolute;

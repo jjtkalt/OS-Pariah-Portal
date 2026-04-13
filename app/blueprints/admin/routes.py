@@ -175,8 +175,7 @@ def add_setting():
     """Injects a new custom override key into the configuration table."""
     if int(session.get('user_level', 0)) < 250:
         flash("Unauthorized.", "error")
-        # Adjust 'admin.settings' if your route is named differently (e.g., 'admin.system_settings')
-        return redirect(url_for('admin.settings'))
+        return redirect(url_for('admin.system_settings'))
 
     new_key = request.form.get('new_key', '').strip()
     new_value = request.form.get('new_value', '').strip()
@@ -198,7 +197,7 @@ def add_setting():
     else:
         flash("Both Key and Value are required.", "error")
 
-    return redirect(url_for('admin.settings'))
+    return redirect(url_for('admin.system_settings'))
 
 @admin_bp.route('/settings/delete', methods=['POST'])
 @require_admin
