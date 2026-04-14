@@ -5,14 +5,14 @@ import time
 
 # --- 1. TEST THE CACHE CLEANUP ROUTINE ---
 
-@patch('worker.os.listdir')
-@patch('worker.os.path.getmtime')
-@patch('worker.os.remove')
-@patch('worker.os.path.exists')
-@patch('worker.get_dynamic_config')
+@patch('scripts.worker.os.listdir')
+@patch('scripts.worker.os.path.getmtime')
+@patch('scripts.worker.os.remove')
+@patch('scripts.worker.os.path.exists')
+@patch('scripts.worker.get_dynamic_config')
 def test_clean_texture_cache(mock_get_config, mock_exists, mock_remove, mock_getmtime, mock_listdir):
     """Test that the cleanup routine correctly identifies and deletes old files."""
-    from worker import clean_texture_cache
+    from scripts.worker import clean_texture_cache
 
     # Setup mocks
     mock_get_config.return_value = '/fake/cache/dir'
@@ -46,20 +46,23 @@ def test_texture_gallery_access(mock_get_db, client):
     mock_cursor = MagicMock()
     mock_get_db.return_value = mock_conn
     mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+    
+    # UPDATED: Match the new SQL structure!
     mock_cursor.fetchall.return_value = [
-        {'id': '123', 'hash': 'abcdef', 'name': 'Test Texture', 'create_time': 1600000000, 'owner': 'user-uuid'}
+        {'id': '123', 'hash': 'abcdef', 'name': 'Test Texture', 'create_time': 1600000000, 'owner_uuid': 'user-uuid', 'owner_name': 'Test Avatar'}
     ]
-
+    
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-uuid'
         sess['is_admin'] = True
         sess['user_level'] = 200
-
+    
     response = client.get('/admin/gallery')
     assert response.status_code == 200
     assert b'Texture Gallery' in response.data
     assert b'Test Texture' in response.data
     assert b'abcdef' in response.data
+    assert b'Test Avatar' in response.data
 
 
 # --- 3. TEST THE OPENCV SMART PROXY ---

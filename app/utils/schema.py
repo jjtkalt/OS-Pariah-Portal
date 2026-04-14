@@ -15,7 +15,7 @@ KNOWN_SETTINGS = {
         "TURNSTILE_SECRET_KEY": {"label": "Turnstile Secret Key", "type": "password", "default": "1x0000000000000000000000000000000AA"},
     },
     "User Access & Policies": {
-        "global_policy_version": {"label": "Global Policy Version", "type": "text", "default": "1.0"},
+        "global_policy_version": {"label": "Global Policy Version", "type": "text", "default": "0.0"},
         "rejected_user_level": {"label": "Rejected User Level", "type": "number", "default": "-5"},
         "ban_level_account": {"label": "Account Ban User Level", "type": "number", "default": "-10"},
         "ban_level_ip": {"label": "IP Ban User Level", "type": "number", "default": "-11"},
@@ -34,14 +34,14 @@ KNOWN_SETTINGS = {
         "smtp_from": {"label": "SMTP From Address", "type": "email", "default": "noreply@example.com"},
     },
     "Helpdesk & Support": {
-        "allow_ticket_deletion": {"label": "Allow Users to Delete Tickets", "type": "boolean", "default": "false"},
+        "allow_ticket_deletion": {"label": "Allow High Admins to Delete Tickets", "type": "boolean", "default": "false"},
         "allowed_attachment_exts": {"label": "Allowed Attachment Extensions", "type": "text", "default": "png,jpg,jpeg,gif,txt,pdf,log"},
     },
     "Region & Grid Defaults": {
         "default_max_agents": {"label": "Default Max Agents per Region", "type": "number", "default": "100"},
         "max_region_size_multiplier": {"label": "Max Region Size Multiplier", "type": "number", "default": "4"},
         "listable_regions": {"label": "Publicly Listable Regions", "type": "text", "default": "Welcome, Sandbox"},
-        "region_host_ips": {"label": "Allowed Region Host IPs", "type": "text", "default": ""},
+        "region_host_ips": {"label": "Valid Region Host IPs (eg: 127.0.0.1, 192.168.1.50)", "type": "text", "default": ""},
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},

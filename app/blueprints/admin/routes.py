@@ -294,7 +294,7 @@ def serve_texture(hash_val):
 def texture_gallery():
     """Renders a paginated gallery of grid textures."""
     
-    # Check permissions and warn Admin
+    # Check permissions and warn Admin (RESTORED)
     cache_dir = get_dynamic_config('texture_cache_path')
     try:
         if not os.path.exists(cache_dir) or not os.access(cache_dir, os.W_OK):
@@ -312,37 +312,38 @@ def texture_gallery():
     
     try:
         with robust_conn.cursor() as cursor:
+            # Base query joining inventoryitems (i), fsassets (f), and useraccounts (u)
+            base_query = """
+                SELECT f.id, f.hash, MAX(i.inventoryName) as name, MAX(f.create_time) as create_time,
+                       MAX(i.avatarID) as owner_uuid, MAX(CONCAT(u.FirstName, ' ', u.LastName)) as owner_name
+                FROM inventoryitems i
+                JOIN fsassets f ON i.assetID = f.id
+                LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
+                WHERE i.assetType = 0 
+                  AND i.inventoryName NOT LIKE '%Baked%' 
+                  AND i.inventoryName NOT LIKE '%Mesh%'
+            """
+
             if target_uuid:
-                cursor.execute("""
-                    SELECT f.id, f.hash, MAX(i.inventoryName) as name, MAX(f.create_time) as create_time 
-                    FROM fsassets f 
-                    JOIN inventoryitems i ON f.id = i.assetID 
-                    WHERE i.avatarID = %s AND i.assetType = 0 
-                    GROUP BY f.hash 
-                    ORDER BY MAX(f.create_time) DESC 
-                    LIMIT %s OFFSET %s
+                cursor.execute(base_query + """
+                  AND i.avatarID = %s 
+                  GROUP BY f.hash 
+                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
                 """, (target_uuid, per_page, offset))
-                raw_textures = cursor.fetchall()
-                # If we targeted a user, we already know the owner!
-                for t in raw_textures:
-                    t['owner'] = target_uuid
-                textures = raw_textures
             else:
-                cursor.execute("""
-                    SELECT id, hash, name, create_time 
-                    FROM fsassets 
-                    WHERE type = 0 
-                    ORDER BY create_time DESC 
-                    LIMIT %s OFFSET %s
+                cursor.execute(base_query + """
+                  GROUP BY f.hash 
+                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
                 """, (per_page, offset))
-                raw_textures = cursor.fetchall()
-                
-                # Fetch owners efficiently (48 fast index lookups is better than joining massive tables)
-                for t in raw_textures:
-                    cursor.execute("SELECT avatarID FROM inventoryitems WHERE assetID = %s LIMIT 1", (t['id'],))
-                    owner_row = cursor.fetchone()
-                    t['owner'] = owner_row['avatarID'] if owner_row else 'System / Orphaned'
-                textures = raw_textures
+            
+            raw_textures = cursor.fetchall()
+            
+            # Map unresolved names for Hypergrid or orphaned system items
+            for t in raw_textures:
+                if not t['owner_name']:
+                    t['owner_name'] = "System / Orphaned / HG"
+            
+            textures = raw_textures
 
     except Exception as e:
         current_app.logger.error(f"Gallery Query Failed: {e}")

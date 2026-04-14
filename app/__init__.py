@@ -97,7 +97,11 @@ def create_app(config_class='app.config.Config'):
             return
             
         current_version = get_dynamic_config('global_policy_version')
-        
+
+        # Bypass completely if the grid hasn't set up policies yet
+        if current_version == '0.0':
+            return
+
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:
             cursor.execute(

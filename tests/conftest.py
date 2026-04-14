@@ -1,5 +1,11 @@
 import pytest
+import sys
 from unittest.mock import patch, MagicMock
+
+if sys.platform == "win32":
+    mock_fcntl = MagicMock()
+    sys.modules["fcntl"] = mock_fcntl
+
 from app import create_app
 import app as main_app
 

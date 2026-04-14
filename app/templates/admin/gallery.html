@@ -37,12 +37,12 @@
                     <a href="{{ url_for('admin.serve_texture', hash_val=tex.hash) }}" target="_blank" class="text-primary" style="text-decoration: none;">{{ tex.name or 'Untitled Texture' }}</a>
                 </strong>
 
-                <span class="text-muted d-block text-sm" style="font-family: monospace; cursor: help;" title="{{ tex.hash }}">
-                    Hash: {{ tex.hash[:8] }}...
+                <span class="text-muted d-block text-sm" style="font-family: monospace; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Click to Copy: {{ tex.hash }}" onclick="navigator.clipboard.writeText('{{ tex.hash }}'); alert('Hash copied to clipboard!');">
+                    Hash: {{ tex.hash }}
                 </span>
 
-                <span class="text-main d-block text-sm mt-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ tex.owner }}">
-                    Owner: <a href="{{ url_for('admin.texture_gallery', uuid=tex.owner) }}" style="color: inherit;">{{ tex.owner }}</a>
+                <span class="text-main d-block text-sm mt-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="UUID: {{ tex.owner_uuid }}">
+                    Owner: <a href="{{ url_for('admin.texture_gallery', uuid=tex.owner_uuid) }}" style="color: inherit;">{{ tex.owner_name }}</a>
                 </span>
 
                 <span class="text-info d-block mt-5 text-sm">

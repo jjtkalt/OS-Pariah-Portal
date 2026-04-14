@@ -1,6 +1,8 @@
 [Unit]
 Description=Gunicorn instance to serve OS Pariah Portal
-After=network.target
+After=network.target mariadb.service
+Before=pariah-worker-iar.service pariah-worker-log.service pariah-worker-log.timer
+Requires=pariah-worker-iar.service pariah-worker-log.timer
 
 [Service]
 # The will automatically create this user during installation
@@ -14,7 +16,8 @@ EnvironmentFile=/etc/os_pariah/os-pariah.conf
 RuntimeDirectory=os_pariah
 
 # Gunicorn Command
-ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/check_mariadb.py
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/check_mariadb.py
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/migrate_db.py
 ExecStart=/opt/os_pariah/venv/bin/gunicorn \
     --workers 4 \
     --forwarded-allow-ips="127.0.0.1" \

@@ -7,19 +7,23 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
 
-
-
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
 * **[i] Regions.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
 * **[ ] User Name Change:** Allow admins to change user's login/account name
+* **[ ] Setting are saving default:** When "Save All Configuration" is clicked in settings, even the default settings are saved.  Need logic to remove the option from the database if it is default, and only save the non-default options.  Also should indicate what the default setting is if it was overridden, otherwise the "Reset" button is ambiguous.
+* **[ ] Sudoers file management:** Create a pariah_workers file for the sudoers.d directory instead of having the file created from echos in the .spec file.
+* **[ ] Region Import redirect:** When importing a region to Pariah, it should not take us to the edit screen.
+* **[ ] CSS overwritten during upgrade:** the CSS file location should be settable in case users want to theme.  Otherwise, all updates are overwritten during the rpm upgrade.
+* **[ ] Use Log File:** Logs for Pariah should go to the /var/log/os_pariah directory and not just the system journal for historical review is wanted.
 
 ## 🚀 Mid-Term (Next Major version release)
 *Focus: Major feature additions of compatibility changes.*
 
-* **[ ] Use inworld region menu to be online showable:** This would replace the need for the listable_regions setting by looking at the database of each region (a new read-only database handler would be needed to ready opensim_* region databases) and pulling the the boolean value from regionsettings.block_search.  If the value is true (1), the region would not be listable via the online api call for non-admins.  Basically, in the "online_lister" function of app/blueprints/api/routes.py, 'SELECT block_search FROM opensim_<regionname>.regionsettings' will return false for listable regions.
+* **[ ] Use in-world region menu to be online showable:** This would replace the need for the listable_regions setting by looking at the database of each region (a new read-only database handler would be needed to ready opensim_* region databases) and pulling the the boolean value from regionsettings.block_search.  If the value is true (1), the region would not be listable via the online api call for non-admins.  Basically, in the "online_lister" function of app/blueprints/api/routes.py, 'SELECT block_search FROM opensim_<regionname>.regionsettings' will return false for listable regions.
 * **[ ] Settings drive functions** Some variables, if not set, should deactivate the functionality in the portal. (Example: If there is no discord webhook URL, the app should skip the attempt to post to discord.  Or, if there is no smtp server defined, do not use email based options. (Of course, smtp might not be something we want to run without, so, this might need reconsideration))
+* **[ ] Add Doc/man entries:** Document the usage for admins that don't want to read GitHub
 
 ## 🔮 Future / Under Consideration
 *Focus: Big ideas, complex integrations, and "nice-to-have" features that require significant architectural planning.*
@@ -31,12 +35,24 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] PoDex support:** Configure and deploy centralized PoDex money handling support
 * **[ ] Private Money support:** Configure and deploy centralized private money support
 * **[ ] Registration Avatar:** Avatar model selection during registration
-* **[ ] Partner system:** Ability for users to partner with others.  Current "Partner Tree" is API-Only for inworld use, but we will want to implement this via portal.  This has a security implication as direct Robust Database UPDATE permission would be needed, and portal has, to date, been read only.  To work around this, we might need a worker script that can be triggered with very specific sudo permission only.
+* **[ ] Partner system:** Ability for users to partner with others.  Current "Partner Tree" is API-Only for in-world use, but we will want to implement this via portal.  This has a security implication as direct Robust Database UPDATE permission would be needed, and portal has, to date, been read only.  To work around this, we might need a worker script that can be triggered with very specific sudo permission only.
 
 ## ✅ Recently Completed (v0.9.3 - v0.9.x)
 * **[x] Missing File during installation:** check_mariadb.py fails to be installed via RPM
+* **[x] Database migration missing column:** in region_configs, is_active TINYINT(1) NOT NULL DEFAULT 1;
+* **[x] CSS Update:** Main area should be wider and use the user's screen space
+* **[x] Variable name is misleading:** allow_ticket_deletion should have a description of "Allow Super Admins to Delete Tickets" and ot reference Users.
+* **[x] Permissions wrong on config file:** /etc/os_pariah/os-pariah.conf needs to be owned by group opensim or opensim cannot run worker services
+* **[x] Systemd Unit file is wrong location:** RPMs should install systemd unit files to /usr/lib/systemd/system/
+* **[x] Missing License File:** Need to add a %license to .spec
+* **[x] Policy bouncer is bouncing where there are no policies:** The default for global_policy_version should be 0.0.  And the Policy bouncer page should not check users if the Policy version is 0.0.
+* **[x] Variable name is misleading:** region_host_ips should give a hint of what it allows and what format to use for multiple IPs.
+* **[x] Gatekeeper Cross-Reference:** in the case of more that one avatar found, the names listed should be shows as buttons that will do "exact username" search to make sure that information is only for that user.
+* **[x] Gatekeeper Cross-Reference:** UUIDs found should show the grid-from information to differentiate between local and Hypergrid users.
+* **[x] Texture Gallery:** 1-Define system/orphaned (is there a way to get more info, eg: is it hypergrid?) 2- search and "owner" should use avatar names, not uuids.  3- Mesh data and baked texture should be skipped (it can't render anyway being 3d info, as I understand it, why is it still a 0 type item?!)  4- Hash should expand (and be copyable) if pointed at.  5- Explore a bit as to why some things don't render (EG: broken links and "null")
+* **[x] Last on/Last Used info in Gatekeeper Lookup:** The date_time for all gatekeeper info is not being used.  We should display it to help admins get a better idea of what evens from users happened when.  Paint a better picture!
 
-## ✅ Recently Completed (v0.9.2 - v0.9.3)
+## ✅ Completed (v0.9.2 - v0.9.3)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
 * **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
@@ -46,7 +62,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[x] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
 * **[x] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
 
-## ✅ Recently Completed (v0.9.0 - v0.9.1)
+## ✅ Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
 * **[x] Socket Architecture:** Transitioned Gunicorn to high-performance Unix domain sockets.
 * **[x] Automated CI/CD:** Implemented GitHub Actions for testing and release builds.

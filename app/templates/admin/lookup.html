@@ -58,20 +58,31 @@
             <h3 class="mt-0 text-info">Associated Avatars</h3>
             <div class="d-flex gap-10 flex-wrap">
                 {% for name in results.usernames %}
-                    <span class="fw-bold" style="background: var(--input-bg); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-color);">{{ name }}</span>
+                    <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='exact_username', q=name) }}" class="btn-outline text-sm fw-bold" style="background: var(--input-bg); padding: 4px 10px; border-radius: 4px; text-decoration: none; color: var(--text-main);">
+                        {{ name }} &rarr;
+                    </a>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
 
         <div class="grid-cards">
-
             <div class="group m-0" style="max-height: 400px;">
                 <h2 class="mt-0">Linked UUIDs</h2>
                 <ul style="list-style-type: none; padding: 0; margin: 0;">
-                    {% for u in uuids %}
+                    {% for u, info in uuid_info.items() %}
                         <li class="mb-10 pb-10" style="border-bottom: 1px solid var(--border-color);">
                             <span class="uuid d-block mb-5">{{ u }}</span>
+                            
+                            <div class="mb-10">
+                                {% if info.is_local %}
+                                    <span class="text-success fw-bold text-sm">🏡 {{ info.grid_from }}</span>
+                                {% else %}
+                                    <span class="text-warning fw-bold text-sm">🛸 HG: {{ info.grid_from }}</span>
+                                {% endif %}
+                                <span class="text-muted text-sm" style="margin-left: 8px;">(Last seen: {{ info.last_seen }})</span>
+                            </div>
+
                             <div class="flex-between flex-wrap gap-5">
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="text-info fw-bold text-sm" style="text-decoration: none;">View Staff Notes &rarr;</a>
                                 <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; padding: 2px;">View Textures</a>
@@ -81,7 +92,7 @@
                                 <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="m-0 mt-5 w-100 text-right">
                                     <div class="d-flex gap-5" style="justify-content: flex-end;">
                                         <input type="number" name="new_level" placeholder="Level (e.g. 200)" class="m-0" required style="width: 120px; padding: 4px;">
-                                        <button type="submit" class="btn-warning text-sm" style="padding: 2px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                        <button type="submit" class="btn-warning text-sm" style="padding: 4px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
                                     </div>
                                 </form>
                                 {% endif %}
@@ -94,9 +105,10 @@
             <div class="group m-0" style="max-height: 400px;">
                 <h2 class="mt-0">Known IPs</h2>
                 <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
-                    {% for ip in results.ips %}
+                    {% for ip, last_seen in results.ips.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" class="text-main">{{ ip }}</a>
+                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
                             <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
@@ -106,9 +118,10 @@
             <div class="group m-0" style="max-height: 400px;">
                 <h2 class="mt-0">Known MAC Addresses</h2>
                 <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
-                    {% for mac in results.macs %}
+                    {% for mac, last_seen in results.macs.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" class="text-main">{{ mac }}</a>
+                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
                             <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}
@@ -118,9 +131,10 @@
             <div class="group m-0" style="max-height: 400px;">
                 <h2 class="mt-0">Known Host IDs</h2>
                 <ul class="m-0" style="padding-left: 20px; font-family: monospace; word-break: break-all;">
-                    {% for hid in results.host_ids %}
+                    {% for hid, last_seen in results.host_ids.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" class="text-main">{{ hid }}</a>
+                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
                             <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban</a>
                         </li>
                     {% endfor %}

@@ -338,6 +338,7 @@ CREATE TABLE IF NOT EXISTS `policy_agreements` (
 CREATE TABLE IF NOT EXISTS `region_configs` (
   `region_uuid` char(36) NOT NULL,
   `region_name` varchar(100) NOT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`region_uuid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

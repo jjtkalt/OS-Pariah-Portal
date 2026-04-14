@@ -10,10 +10,10 @@ if os.path.exists('/etc/os_pariah/os-pariah.conf'):
 else:
     load_dotenv('.env')
 
-DB_HOST = os.environ.get('PARIAH_DB_HOST', '127.0.0.1')
+DB_HOST = os.environ.get('PARIAH_DB_HOST')
 DB_USER = os.environ.get('PARIAH_DB_USER')
 DB_PASS = os.environ.get('PARIAH_DB_PASS')
-DB_NAME = os.environ.get('PARIAH_DB_NAME', 'os_pariah')
+DB_NAME = os.environ.get('PARIAH_DB_NAME')
 
 def get_connection():
     """Establishes a connection capable of running full SQL dump files."""

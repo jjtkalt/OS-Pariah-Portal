@@ -11,9 +11,9 @@ The following basic assumptions are in place:
 - Users should be respected and not treated like a lesser group because they are not part of the grid staff
 - Security, privacy, respect, and functionality should be core values of any Grid and or community.
 - Python 3.12 is available (the code MIGHT be compatible with later versions, but it is untested)
-- The web browser is Nginx.  Apache or other webserver packages could well work, but you are on your own with them
+- The web server is Nginx.  Apache or other webserver packages could well work, but you are on your own with them
 
-While this application is almost entirely platform agnostic, as of right now, it is only supported in a unix environment and still has a few dependencies on the OS-Pariah Installation project.  A midterm goal is to roll those dependencies into the code to allow it to be truly standalone.  This MOSTLY affects the region controls at this time.  YMMV
+OS Pariah is an enterprise-grade portal built for scale and stability. Because it heavily integrates with native OS-level process management (like systemd, firewalld, and screen), the portal backend requires a Linux environment (Currently only OpenSUSE is officially supported for reliability reasons - Technically, there is no known reason why a Ubuntu, CentOS, or other Linux variant wouldn't work assuming a manual install, but your milage may vary.). Windows Server is not supported for the portal installation.
 
 ## Functionality
 

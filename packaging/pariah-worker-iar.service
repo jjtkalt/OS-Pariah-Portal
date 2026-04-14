@@ -1,14 +1,15 @@
 [Unit]
 Description=OS Pariah IAR Processing Worker
-After=network.target mariadb.service
+After=network.target mariadb.service pariah.service
+Requires=pariah.service
 
 [Service]
 Type=oneshot
 User=opensim
 Group=opensim
 WorkingDirectory=/opt/os_pariah
-ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/check_mariadb.py
-ExecStart=/opt/os_pariah/venv/bin/python /opt/os_pariah/worker.py iar
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/check_mariadb.py
+ExecStart=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/worker.py iar
 
 [Install]
 WantedBy=multi-user.target
