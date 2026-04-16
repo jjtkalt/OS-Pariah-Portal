@@ -37,10 +37,10 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] Registration Avatar:** Avatar model selection during registration
 * **[ ] Partner system:** Ability for users to partner with others.  Current "Partner Tree" is API-Only for in-world use, but we will want to implement this via portal.  This has a security implication as direct Robust Database UPDATE permission would be needed, and portal has, to date, been read only.  To work around this, we might need a worker script that can be triggered with very specific sudo permission only.
 
-## ✅ Recently Completed (v0.9.3 - v0.9.x)
+## ✅ Recently Completed (v0.9.4 - v0.9.x)
 
 
-## ✅ Completed (v0.9.2 - v0.9.3)
+## ✅ Completed (v0.9.2 - v0.9.4)
 * **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
 * **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
 * **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
