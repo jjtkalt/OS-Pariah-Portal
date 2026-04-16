@@ -1,9 +1,8 @@
 import pytest
+from unittest.mock import patch
 
-# -------------------------------------------------------------------
-# Test 1: The Policy Bouncer Intercepts Unsigned Users
-# -------------------------------------------------------------------
-@patch('app.get_dynamic_config')
+# UPDATED: Point to the exact module where get_dynamic_config lives
+@patch('app.utils.db.get_dynamic_config')
 def test_policy_bouncer_intercept(mock_config, app, client, db_cursor):
     """Proves that if a logged-in user hasn't signed the latest policies, they are redirected."""
     
