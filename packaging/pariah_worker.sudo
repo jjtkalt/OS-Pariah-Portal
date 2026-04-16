@@ -1,0 +1,7 @@
+Cmnd_Alias PARIAHCONTROL = /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service
+Cmnd_Alias PARIAHSECURE = /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py
+Cmnd_Alias OPENSIMCTL = /bin/systemctl start opensim@*.service, /bin/systemctl stop opensim@*.service, /bin/systemctl restart opensim@*.service, /bin/systemctl enable opensim@*.service, /bin/systemctl disable opensim@*.service
+Cmnd_Alias OPENSIMSCREEN = /usr/bin/screen -p 0 -S OpenSim-* -X stuff *
+
+pariah ALL=(ALL) NOPASSWD: PARIAHCONTROL, PARIAHSECURE, OPENSIMCTL
+pariah ALL=(opensim) NOPASSWD: OPENSIMSCREEN
