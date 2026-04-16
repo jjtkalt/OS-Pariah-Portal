@@ -38,6 +38,17 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] Partner system:** Ability for users to partner with others.  Current "Partner Tree" is API-Only for in-world use, but we will want to implement this via portal.  This has a security implication as direct Robust Database UPDATE permission would be needed, and portal has, to date, been read only.  To work around this, we might need a worker script that can be triggered with very specific sudo permission only.
 
 ## ✅ Recently Completed (v0.9.3 - v0.9.x)
+
+
+## ✅ Completed (v0.9.2 - v0.9.3)
+* **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
+* **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
+* **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
+* **[x] Texture/Photo viewer:** Admins of a certain userlevel should be able to review a users texture and photo inventory for safety and grid security.
+* **[x] Region Configurations:** A region should be disabled to save the configuration.  A disabled region should be able to be reactivated at a later point.  Only a disabled region should be able to be completely deleted from the database.
+* **[x] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
+* **[x] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
+* **[x] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
 * **[x] Missing File during installation:** check_mariadb.py fails to be installed via RPM
 * **[x] Database migration missing column:** in region_configs, is_active TINYINT(1) NOT NULL DEFAULT 1;
 * **[x] CSS Update:** Main area should be wider and use the user's screen space
@@ -51,16 +62,6 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[x] Gatekeeper Cross-Reference:** UUIDs found should show the grid-from information to differentiate between local and Hypergrid users.
 * **[x] Texture Gallery:** 1-Define system/orphaned (is there a way to get more info, eg: is it hypergrid?) 2- search and "owner" should use avatar names, not uuids.  3- Mesh data and baked texture should be skipped (it can't render anyway being 3d info, as I understand it, why is it still a 0 type item?!)  4- Hash should expand (and be copyable) if pointed at.  5- Explore a bit as to why some things don't render (EG: broken links and "null")
 * **[x] Last on/Last Used info in Gatekeeper Lookup:** The date_time for all gatekeeper info is not being used.  We should display it to help admins get a better idea of what evens from users happened when.  Paint a better picture!
-
-## ✅ Completed (v0.9.2 - v0.9.3)
-* **[x] Splash/Welcome Screen:** For the welcome screen in the viewers, we should generate a basic page with current announcements, grids stats, etc.
-* **[x] Helpdesk ticket sort:** Logged in users and admins should have a filter option to view closed or withdrawn tickets.
-* **[x] User IAR Generation:** When a user generates an IAR Backup, the download button generates an error saying the requested backup file could not be found on the server, however, that file is created and available.
-* **[x] Texture/Photo viewer:** Admins of a certain userlevel should be able to review a users texture and photo inventory for safety and grid security.
-* **[x] Region Configurations:** A region should be disabled to save the configuration.  A disabled region should be able to be reactivated at a later point.  Only a disabled region should be able to be completely deleted from the database.
-* **[x] Full UI Sweep focusing on CSS:** review all CSS and inline style to make sure it makes sense and is centralized in the css file for easy theming.  (AI suggested the sweep, especially on .group and .card)
-* **[x] System Settings:** Currently there is no ability to delete a setting and/or return it to it's default setting.  Can we add some sort of Clear/Delete/Reset button to remove a setting's entry from the setting database table?
-* **[x] Region Controls:** When trying to stop/restart a region from the admin menu, sudo fails.  Probably because of the new much tighter permissions granted to pariah.
 
 ## ✅ Completed (v0.9.0 - v0.9.1)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
