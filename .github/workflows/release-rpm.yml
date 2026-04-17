@@ -25,7 +25,7 @@ jobs:
     # 3. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
       run: |
-        # Grab the GitHub Release Tag (e.g., "v0.9.1") and strip the "v" prefix
+        # Grab the GitHub Release Tag and strip the "v" prefix (should be in the vx.x.x format)
         TAG="${{ github.event.release.tag_name }}"
         APP_VERSION="${TAG#v}"
         
@@ -80,6 +80,6 @@ jobs:
 
     # 6. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: /github/home/rpmbuild/RPMS/x86_64/os-pariah-portal-*.rpm
