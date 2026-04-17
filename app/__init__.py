@@ -55,7 +55,8 @@ def create_app(config_class='app.config.Config'):
         return {
             'grid_name': get_dynamic_config('grid_name'),
             'grid_website_url': get_dynamic_config('grid_website_url'),
-            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY')
+            'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY'),
+            'custom_css_path': get_dynamic_config('custom_css_path')
         }
 
     from .blueprints.auth.routes import auth_bp

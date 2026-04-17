@@ -390,7 +390,7 @@ tr:hover {
 .gap-20 { gap: 20px; }
 
 /* Grid */
-.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+.grid-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 
 /* Spacing (Margin & Padding) */
 .m-0 { margin: 0; }

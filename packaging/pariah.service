@@ -17,7 +17,7 @@ RuntimeDirectory=os_pariah
 
 # Gunicorn Command
 ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/check_mariadb.py
-ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/migrate_db.py
+ExecStartPre=/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/migrate.py
 ExecStart=/opt/os_pariah/venv/bin/gunicorn \
     --workers 4 \
     --forwarded-allow-ips="127.0.0.1" \

@@ -41,13 +41,13 @@
                     Hash: {{ tex.hash }}
                 </span>
 
-                <span class="text-main d-block text-sm mt-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="UUID: {{ tex.owner_uuid }}">
+                <div class="text-main text-sm mt-5" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="UUID: {{ tex.owner_uuid }}">
                     Owner: <a href="{{ url_for('admin.texture_gallery', uuid=tex.owner_uuid) }}" style="color: inherit;">{{ tex.owner_name }}</a>
-                </span>
+                </div>
 
-                <span class="text-info d-block mt-5 text-sm">
+                <div class="text-info mt-5 text-sm">
                     Uploaded: <script>document.write(new Date({{ tex.create_time }} * 1000).toLocaleDateString());</script>
-                </span>
+                </div>
             </div>
         </div>
     {% else %}

@@ -2,7 +2,7 @@ import subprocess
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.auth_helpers import require_admin
-from app.utils.robust_api import set_user_level
+from app.utils.robust_api import set_user_level, update_robust_name
 
 user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 
@@ -79,12 +79,22 @@ def gatekeeper_lookup():
                 # Fetch Hypergrid Origin Information & Timestamp
                 cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
                 grid_data = {row['user_uuid']: {'from': row['grid_from'], 'last_seen': format_dt(row['last_seen'])} for row in cursor.fetchall()}
-                
+
+                grid_domain = str(get_dynamic_config('domain')).strip().lower()
+
                 for u in uuids:
                     g_data = grid_data.get(u, {})
-                    origin = g_data.get('from')
+                    origin = str(g_data.get('from', '')).strip()
                     last_seen = g_data.get('last_seen', 'Unknown')
-                    is_local = not origin or "127.0.0.1" in origin or origin == ""
+                    
+                    # --- UPDATED LOCAL LOGIC ---
+                    is_local = False
+                    origin_lower = origin.lower()
+                    
+                    if not origin or origin == "None" or "127.0.0.1" in origin_lower or "localhost" in origin_lower:
+                        is_local = True
+                    elif grid_domain and grid_domain != "none" and grid_domain in origin_lower:
+                        is_local = True
                     
                     uuid_info[u] = {
                         'grid_from': "Local Grid" if is_local else origin,
@@ -96,7 +106,7 @@ def gatekeeper_lookup():
         current_app.logger.error(f"Gatekeeper lookup error: {e}")
         flash('Database query failed.', 'error')
 
-    return render_template('admin/lookup.html', query=query_raw, search_type=search_type, results=results, uuid_info=uuid_info)
+    return render_template('admin/lookup.html', query=query_raw, search_type=search_type, results=results, uuid_info=uuid_info, uuids=list(uuids))
 
 @user_mgmt_bp.route('/<uuid>/notes', methods=['GET', 'POST'])
 @require_admin
@@ -302,3 +312,26 @@ def update_user_level(uuid):
         flash("A database error occurred.", "error")
 
     return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
+@user_mgmt_bp.route('/<uuid>/rename', methods=['POST'])
+@require_admin
+def rename_user(uuid):
+    """Allows Level 200+ Admins to rename a user's avatar."""
+    if int(session.get('user_level', 0)) < 200:
+        flash("Unauthorized: Requires Level 200+.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
+    new_first = request.form.get('first_name', '').strip()
+    new_last = request.form.get('last_name', '').strip()
+
+    if not new_first or not new_last:
+        flash("Both First and Last name are required.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
+    # UPDATED: Use the Robust API instead of direct SQL
+    if update_robust_name(uuid, new_first, new_last):
+        flash(f"User successfully renamed to {new_first} {new_last}. (Note: The user may need to clear their viewer cache).", "success")
+    else:
+        flash("Failed to update name via Robust API.", "error")
+
+    return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))

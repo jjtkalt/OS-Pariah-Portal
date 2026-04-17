@@ -51,7 +51,7 @@ def test_settings_update_success(client, db_cursor):
     assert upsert_query_found, "Did not attempt to save settings to the database."
 
     # 2. Assert the user sees the success message
-    assert b"System settings updated successfully" in response.data
+    assert b"System settings saved" in response.data
 
 
 # -------------------------------------------------------------------

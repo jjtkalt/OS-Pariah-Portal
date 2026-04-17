@@ -16,8 +16,8 @@
                     <div class="mb-10 relative" style="position: relative;">
                         <div class="flex-between mb-5">
                             <label for="cfg_{{ key }}" class="fw-bold m-0">
-                                {{ meta.label }} <br>
-                                <small class="text-muted" style="font-family: monospace; font-weight: normal;">{{ key }}</small>
+                                {{ meta.label }}
+                                <span class="text-muted text-sm" style="font-weight: normal; margin-left: 5px;">(Default: {{ meta.default }})</span>
                             </label>
                             
                             {% if key in db_settings %}

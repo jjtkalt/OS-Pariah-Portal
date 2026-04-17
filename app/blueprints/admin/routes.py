@@ -136,14 +136,28 @@ def system_settings():
                 for key, value in request.form.items():
                     if key.startswith('cfg_'):
                         actual_key = key.replace('cfg_', '')
-                        # FIX: Using UPSERT so brand-new schema keys are safely inserted
-                        cursor.execute("""
-                            INSERT INTO config (config_key, config_value, updated_at)
-                            VALUES (%s, %s, CURRENT_TIMESTAMP)
-                            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = CURRENT_TIMESTAMP
-                        """, (actual_key, value.strip()))
+                        val = value.strip()
+                        
+                        # Check if the submitted value matches our schema default
+                        is_default = False
+                        for category, fields in KNOWN_SETTINGS.items():
+                            if actual_key in fields:
+                                if str(fields[actual_key].get('default', '')) == val:
+                                    is_default = True
+                                break
+
+                        # If it is the default, DELETE it from the DB to keep things clean!
+                        if is_default:
+                            cursor.execute("DELETE FROM config WHERE config_key = %s", (actual_key,))
+                        else:
+                            # Otherwise, save the custom override
+                            cursor.execute("""
+                                INSERT INTO config (config_key, config_value, updated_at)
+                                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                                ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = CURRENT_TIMESTAMP
+                            """, (actual_key, val))
             pariah_conn.commit()
-            flash("System settings updated successfully.", "success")
+            flash("System settings saved. Default values were safely purged from the database.", "success")
         except Exception as e:
             current_app.logger.error(f"Failed to update config: {e}")
             flash("Database error while updating settings.", "error")
@@ -320,8 +334,8 @@ def texture_gallery():
                 JOIN fsassets f ON i.assetID = f.id
                 LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
                 WHERE i.assetType = 0 
-                  AND i.inventoryName NOT LIKE '%Baked%' 
-                  AND i.inventoryName NOT LIKE '%Mesh%'
+                  AND i.inventoryName NOT LIKE '%%Baked%%' 
+                  AND i.inventoryName NOT LIKE '%%Mesh%%'
             """
 
             if target_uuid:

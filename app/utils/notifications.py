@@ -116,6 +116,44 @@ def send_approval_email(to_email, grid_name):
     except Exception as e:
         current_app.logger.error(f"Failed to send approval email to {to_email}: {e}")
 
+def send_email_change_verification(to_email, token):
+    """Sends a verification link when an existing user changes their email address."""
+    grid_name = get_dynamic_config('grid_name')
+    smtp_server = get_dynamic_config('smtp_server')
+    smtp_port = int(get_dynamic_config('smtp_port'))
+    smtp_user = get_dynamic_config('smtp_user')
+    smtp_pass = get_dynamic_config('smtp_pass')
+    smtp_from = get_dynamic_config('smtp_from')
+    
+    # NEW ENDPOINT specifically for profile changes
+    verify_url = url_for('user.verify_email_change', token=token, _external=True)
+    
+    msg = EmailMessage()
+    msg.set_content(
+        f"Hello,\n\n"
+        f"You recently requested to update the email address associated with your {grid_name} account.\n\n"
+        f"Please verify this new email address by clicking the link below:\n\n"
+        f"{verify_url}\n\n"
+        f"If you did not request this change, please ignore this email and your account will remain unchanged.\n\n"
+        f"- The {grid_name} Team"
+    )
+    msg['Subject'] = f"Verify your new email for {grid_name}"
+    msg['From'] = smtp_from
+    msg['To'] = to_email
+    
+    if not smtp_server:
+        current_app.logger.warning(f"SMTP NOT CONFIGURED. Email Change Link for {to_email}: {verify_url}")
+        return
+        
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send email change verification to {to_email}: {e}")
+
 def notify_staff_new_app(first_name, last_name, user_uuid, inviter, discord, matrix, other_info):
     """Sends a formatted payload to the configured Matrix/Discord webhook."""
     message = f"**{first_name} {last_name}** has verified their email and is awaiting approval.\n"

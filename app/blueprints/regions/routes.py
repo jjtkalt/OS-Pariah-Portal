@@ -448,12 +448,12 @@ def import_region(region_uuid):
 
         pariah_conn.commit()
         flash(f"Successfully imported {region_data['regionName']}.", "success")
-        return redirect(url_for('regions.edit_region', region_uuid=region_uuid))
 
     except Exception as e:
         current_app.logger.error(f"Failed to import region {region_uuid}: {e}")
         flash(f"Import failed: {e}", "error")
-        return redirect(url_for('regions.manage_regions'))
+
+    return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/hosts', methods=['GET', 'POST'])
 @require_admin

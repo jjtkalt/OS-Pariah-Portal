@@ -58,6 +58,30 @@ def set_user_level(uuid, level):
         return True
     return False
 
+def update_robust_name(uuid, first_name, last_name):
+    """
+    Updates an existing user's First and Last Name via the Robust API.
+    """
+    payload = {
+        'PrincipalID': uuid,
+        'FirstName': first_name,
+        'LastName': last_name
+    }
+    response_text = call_robust_api('setaccount', payload)
+    
+    if response_text and 'True' in response_text:
+        return True
+    return False
+
+def update_robust_email(uuid, email):
+    """Updates an existing user's Email via the Robust API."""
+    payload = {
+        'PrincipalID': uuid,
+        'Email': email
+    }
+    response_text = call_robust_api('setaccount', payload)
+    return response_text and 'True' in response_text
+
 @cache.cached(timeout=300, key_prefix='total_regions_count')
 def get_total_regions_count():
     """Fetches the total number of connected regions from Robust, cached for 5 minutes."""

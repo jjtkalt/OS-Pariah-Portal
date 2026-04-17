@@ -6,6 +6,7 @@ KNOWN_SETTINGS = {
         "DOMAIN": {"label": "Robust Domain (Base URL)", "type": "url", "default": "https://world.example.com"},
         "portal_url": {"label": "Portal Domain URL", "type": "url", "default": "https://portal.example.com"},
         "grid_website_url": {"label": "Grid Main Website URL", "type": "url", "default": "https://example.com"},
+        "custom_css_path": {"label": "Custom CSS Path (For Theming)", "type": "text", "default": "/static/css/central.css"},
     },
     "Registration & Captcha": {
         "require_admin_approval": {"label": "Require Admin Approval for New Accounts", "type": "boolean", "default": "true"},

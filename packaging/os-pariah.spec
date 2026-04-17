@@ -84,6 +84,7 @@ fi
 
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
+nginx -t && systemctl reload nginx.service || echo "Need to manually fix and start Nginx"
 
 echo "========================================================="
 echo "OS Pariah Portal Installed Successfully!"

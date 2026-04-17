@@ -11,11 +11,6 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## 🚧 Short-Term (Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*
 
-* **[ ] Region Import redirect:** When importing a region to Pariah, it should not take us to the edit screen.
-* **[ ] User Name Change:** Allow admins to change user's login/account name
-* **[ ] Setting are saving default:** When "Save All Configuration" is clicked in settings, even the default settings are saved.  Need logic to remove the option from the database if it is default, and only save the non-default options.  Also should indicate what the default setting is if it was overridden, otherwise the "Reset" button is ambiguous.
-* **[ ] CSS overwritten during upgrade:** the CSS file location should be settable in case users want to theme.  Otherwise, all updates are overwritten during the rpm upgrade.
-* **[ ] Use Log File:** Logs for Pariah should go to the /var/log/os_pariah directory and not just the system journal for historical review is wanted.
 * **[i] Regions.ini Information:** All regional information should be kept in the portal database.  No region specific ini files should be needed for regions
 
 ## 🚀 Mid-Term (Next Major version release)
@@ -32,6 +27,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[ ] Web-Based Setup Wizard:** A graphical first-run installer to securely collect database credentials, generate system secrets, and run initial migrations without requiring terminal access.
 * **[ ] OpenSim.ini Guided Configuration:** Let's seed a simple opensim@.service that uses the service instance name to query the portal to get the entire configuration to run.  This will involve importing all of the relevant .ini files from the current OpenSim version and presenting them to a high admin with the ability set all of the settings, with explanation of each setting, to make a set of defaults.  Each region instance will override the defaults with instance specific settings (overrides - eg: opensim@Admin1 sets the chat distance to 2M instead of the default for the grid).  The results will be pulled in via http call from an -include line in the very basic common opensim.ini file.
 * **[ ] Robust.ini Guided Configuration:** Let's seed a simple robust@.service that uses the service instance name to query the portal to get the entire configuration to run.  This will involve importing all of the relevant .ini files from the current Robust version and presenting them to a high admin with the ability set all of the settings, with explanation of each setting, to make a set of defaults.  Each robust instance will override the defaults with instance specific settings (overrides - eg: robust@Asset1 only starts the asset service and the HD asset services).  The selection of specialized service configuration should be via checkbox that includes all related services to this instance.  All of the asset service info not used on this instance should be pared out.  The results will be pulled in via http call from an -include line in the very basic common robust.ini file.  At time of request, it is understood that Asset and Inventory services can run separate from the main Robust instance.  It is likely that auth services (specifically user authentication) could be handled via separate process as well.  All three of these, in theory could be off loaded to third party processes and that option might need to be supported as well.  If a phased implementation of this is needed to be followed, as a first step, we will support the ability to move asset services to separate robust using configuration understandings already in place and tested.  Note, a chicken and the egg situation should happen here if the web-based setup wizard isn't active, notably, if robust isn't running, a user cannot (currently) login to the portal.
+* **[ ] Use Log File:** Logs for Pariah should go to the /var/log/os_pariah directory and not just the system journal for historical review if wanted.  Right now, it is easier in journal, and shouldn't normally be needed.
 * **[ ] Gloebit support:** Configure and deploy centralized Gloebit money handling support
 * **[ ] PoDex support:** Configure and deploy centralized PoDex money handling support
 * **[ ] Private Money support:** Configure and deploy centralized private money support
@@ -64,9 +60,13 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 * **[x] Last on/Last Used info in Gatekeeper Lookup:** The date_time for all gatekeeper info is not being used.  We should display it to help admins get a better idea of what evens from users happened when.  Paint a better picture!
 * **[x] Security updates:** Dependency updates to address security issues.
 * **[x] Sudoers file management:** Create a pariah_workers file for the sudoers.d directory instead of having the file created from echos in the .spec file.
+* **[x] Region Import redirect:** When importing a region to Pariah, it should not take us to the edit screen.
+* **[x] User Name Change:** Allow  high (or mid?) admins to change user's login/account name
+* **[x] Setting are saving default:** When "Save All Configuration" is clicked in settings, even the default settings are saved.  Need logic to remove the option from the database if it is default, and only save the non-default options.  Also should indicate what the default setting is if it was overridden, otherwise the "Reset" button is ambiguous.
+* **[x] CSS overwritten during upgrade:** the CSS file location should be settable in case users want to theme.  Otherwise, all updates are overwritten during the rpm upgrade.
 
 
-## ✅ Completed (v0.9.0 - v0.9.1)
+## ✅ Completed (v0.9.0 - v0.9.2)
 * **[x] RPM Packaging:** Fully automated build pipeline for openSUSE/RHEL.
 * **[x] Socket Architecture:** Transitioned Gunicorn to high-performance Unix domain sockets.
 * **[x] Automated CI/CD:** Implemented GitHub Actions for testing and release builds.

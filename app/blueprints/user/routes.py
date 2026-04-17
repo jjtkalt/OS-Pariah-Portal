@@ -3,8 +3,8 @@ import uuid
 import subprocess
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory
 from app.utils.db import get_pariah_db, get_dynamic_config
-from app.utils.robust_api import call_robust_api
-from app.utils.notifications import send_verification_email
+from app.utils.robust_api import call_robust_api, update_robust_email
+from app.utils.notifications import send_verification_email, send_email_change_verification
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
 
@@ -52,21 +52,55 @@ def update_password():
 def request_email_change():
     if not session.get('uuid'):
         return redirect(url_for('auth.login'))
-        
+
     new_email = request.form.get('new_email').strip()
     verification_token = uuid.uuid4().hex
-    
+
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
         cursor.execute("""
             INSERT INTO pending_registrations (user_uuid, email, verification_token, requires_approval, status) 
-            VALUES (%s, %s, %s, FALSE, 'pending_email')
-            ON DUPLICATE KEY UPDATE email = VALUES(email), verification_token = VALUES(verification_token), status='pending_email'
+            VALUES (%s, %s, %s, FALSE, 'pending_email_change')
+            ON DUPLICATE KEY UPDATE email = VALUES(email), verification_token = VALUES(verification_token), status='pending_email_change'
         """, (session['uuid'], new_email, verification_token))
     pariah_conn.commit()
-    
-    send_verification_email(new_email, verification_token)
+
+    send_email_change_verification(new_email, verification_token)
     flash('A verification link has been sent to your new email address.', 'info')
+    return redirect(url_for('user.profile'))
+
+@user_bp.route('/verify-email/<token>')
+def verify_email_change(token):
+    """Dedicated endpoint for verifying an email update, bypassing the new-user workflow."""
+    pariah_conn = get_pariah_db()
+    
+    try:
+        with pariah_conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT user_uuid, email, status 
+                FROM pending_registrations 
+                WHERE verification_token = %s
+            """, (token,))
+            reg = cursor.fetchone()
+
+        if not reg or reg['status'] != 'pending_email_change':
+            flash('Invalid or expired email verification link.', 'error')
+            return redirect(url_for('user.profile'))
+
+        # Use the Robust API to update the email securely
+        if update_robust_email(reg['user_uuid'], reg['email']):
+            # Clean up the pending row
+            with pariah_conn.cursor() as cursor:
+                cursor.execute("DELETE FROM pending_registrations WHERE user_uuid = %s AND status = 'pending_email_change'", (reg['user_uuid'],))
+            pariah_conn.commit()
+            flash('Your email address has been successfully updated.', 'success')
+        else:
+            flash('Failed to update email address in the grid database.', 'error')
+
+    except Exception as e:
+        current_app.logger.error(f"Error during email change verification: {e}")
+        flash('An internal error occurred during verification. Please contact support.', 'error')
+
     return redirect(url_for('user.profile'))
 
 @user_bp.route('/profile/backup', methods=['POST'])
