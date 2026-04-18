@@ -231,14 +231,14 @@ def control_region(action, region_uuid):
             
         # --- OAR BACKUPS (Still requires screen injection) ---
         elif action == 'oar':
-            backup_dir = os.path.join(current_app.root_path, 'static', 'downloads', 'oars')
+            backup_dir = os.path.join('/home', 'opensim', 'Backups', 'OARs')
             os.makedirs(backup_dir, exist_ok=True)
             
             timestamp = int(time.time())
             filename = f"{backup_dir}/{safe_region_name}_{timestamp}.oar"
             
             screen_name = f"OpenSim-{safe_region_name}"
-            stuff_cmd = f"save oar {filename}\r"
+            stuff_cmd = f"save oar --noassets {filename}\r"
             # Note: We use sudo here assuming the screen session is owned by the 'opensim' user
             cmd = ["/usr/bin/sudo", "-u", "opensim", "/usr/bin/screen", "-p", "0", "-S", screen_name, "-X", "stuff", stuff_cmd]
             subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)

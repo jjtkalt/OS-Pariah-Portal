@@ -3,7 +3,8 @@
 KNOWN_SETTINGS = {
     "Grid Identity": {
         "grid_name": {"label": "Grid Name", "type": "text", "default": "OS Pariah"},
-        "DOMAIN": {"label": "Robust Domain (Base URL)", "type": "url", "default": "https://world.example.com"},
+        "DOMAIN": {"label": "Robust Domain (Base URL)", "type": "url", "default": "http://127.0.0.1:8002"},
+        "ROBUST_PRIVATE_URL": {"label": "Robust Private URL", "type": "url", "default": "http://127.0.0.1:8003"},
         "portal_url": {"label": "Portal Domain URL", "type": "url", "default": "https://portal.example.com"},
         "grid_website_url": {"label": "Grid Main Website URL", "type": "url", "default": "https://example.com"},
         "custom_css_path": {"label": "Custom CSS Path (For Theming)", "type": "text", "default": "/static/css/central.css"},

@@ -66,7 +66,7 @@
         </div>
         {% endif %}
 
-        <div class="grid-cards">
+        <div class="grid-4cards">
             <div class="group m-0" style="max-height: 400px;">
                 <h2 class="mt-0">Linked UUIDs</h2>
                 <ul style="list-style-type: none; padding: 0; margin: 0;">
@@ -88,13 +88,26 @@
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="text-info fw-bold text-sm" style="text-decoration: none;">View Staff Notes &rarr;</a>
                                 <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; padding: 2px;">View Textures</a>
 
-                                {% if session.get('user_level', 0)|int >= 250 %}
-                                <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="m-0 mt-5 w-100 text-right">
-                                    <div class="d-flex gap-5" style="justify-content: flex-end;">
-                                        <input type="number" name="new_level" placeholder="Level (e.g. 200)" class="m-0" required style="width: 120px; padding: 4px;">
-                                        <button type="submit" class="btn-warning text-sm" style="padding: 4px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                {% if info.is_local %}
+                                    {% if session.get('user_level', 0)|int >= 250 %}
+                                    <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="m-0 mt-5 w-100 text-right">
+                                        <div class="d-flex gap-5" style="justify-content: flex-end;">
+                                            <input type="number" name="new_level" placeholder="Level (e.g. 200)" class="m-0" required style="width: 120px; padding: 4px;">
+                                            <button type="submit" class="btn-warning text-sm" style="padding: 4px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                        </div>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="m-0 mt-10 w-100 text-right">
+                                        <div class="d-flex gap-5" style="justify-content: flex-end;">
+                                            <input type="text" name="first_name" placeholder="New First Name" class="m-0" required style="width: 130px; padding: 4px;">
+                                            <input type="text" name="last_name" placeholder="New Last Name" class="m-0" required style="width: 130px; padding: 4px;">
+                                            <button type="submit" class="btn-info text-sm" style="padding: 4px;" onclick="return confirm('Rename this avatar?');">Rename</button>
+                                        </div>
+                                    </form>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="text-muted text-sm mt-5 w-100 text-right" style="font-style: italic;">
+                                        Account modifications not available for Hypergrid users.
                                     </div>
-                                </form>
                                 {% endif %}
                             </div>
                         </li>

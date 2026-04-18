@@ -391,6 +391,9 @@ tr:hover {
 
 /* Grid */
 .grid-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.grid-4cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.grid-3cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-2cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 
 /* Spacing (Margin & Padding) */
 .m-0 { margin: 0; }

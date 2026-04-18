@@ -3,19 +3,10 @@ import uuid
 import subprocess
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory
 from app.utils.db import get_pariah_db, get_dynamic_config
-from app.utils.robust_api import call_robust_api, update_robust_email
+from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password
 from app.utils.notifications import send_verification_email, send_email_change_verification
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
-
-def update_robust_password(user_uuid, new_password):
-    """Safely updates the user's password via the Robust API."""
-    payload = {
-        'PrincipalID': user_uuid,
-        'Password': new_password
-    }
-    response_text = call_robust_api('setaccount', payload)
-    return response_text and 'True' in response_text
 
 @user_bp.route('/profile', methods=['GET'])
 def profile():
@@ -41,7 +32,7 @@ def update_password():
         flash('Passwords do not match.', 'error')
         return redirect(url_for('user.profile'))
         
-    if update_robust_password(session['uuid'], new_password):
+    if update_user_password(session['uuid'], new_password):
         flash('Password updated successfully.', 'success')
     else:
         flash('Failed to update password. Please try again.', 'error')

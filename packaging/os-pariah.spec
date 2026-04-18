@@ -39,6 +39,7 @@ mkdir -p %{buildroot}/usr/lib/systemd/system
 mkdir -p %{buildroot}/etc/nginx/vhosts.d
 mkdir -p %{buildroot}/var/log/os_pariah
 mkdir -p %{buildroot}/home/opensim/FSAssets/pariahcache
+mkdir -p %{buildroot}/home/opensim/Backups/downloads
 
 # Copy application files
 cp -r app scripts migrations wsgi.py requirements.txt %{buildroot}/opt/os_pariah/
@@ -69,7 +70,7 @@ echo "Installing Python Dependencies..."
 /opt/os_pariah/venv/bin/pip install -r /opt/os_pariah/requirements.txt
 
 # Lock down permissions
-chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /var/log/pariah /home/opensim/FSAssets/pariahcache
+chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
 
 # Initialize Firewalld Ban Hammer IPSet (If firewalld is running)
 echo "Configuring firewalld rules for Pariah Ban Hammer..."
@@ -97,13 +98,14 @@ echo "========================================================="
 %files
 # We claim ownership of these directories and files
 /opt/os_pariah/
-/var/log/os_pariah/
-/home/opensim/FSAssets/pariahcache
+/home/opensim/FSAssets/pariahcache/
+%attr(0775, pariah, opensim) /home/opensim/Backups/downloads/
+%dir %attr(0770, pariah, opensim) /var/log/os_pariah/
 /usr/lib/systemd/system/pariah.service
 /usr/lib/systemd/system/pariah-worker-iar.service
 /usr/lib/systemd/system/pariah-worker-log.service
 /usr/lib/systemd/system/pariah-worker-log.timer
-/etc/nginx/vhosts.d/OS-Pariah.conf
+%config(noreplace) /etc/nginx/vhosts.d/OS-Pariah.conf
 /etc/nginx/dummypariah.crt
 /etc/nginx/dummypariah.key
 /etc/sudoers.d/pariah_worker
@@ -112,3 +114,5 @@ echo "========================================================="
 %doc ROADMAP.md
 %doc COMPATIBILITY.md
 %license LICENSE
+
+%autochangelog

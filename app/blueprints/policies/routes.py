@@ -73,7 +73,7 @@ def create_policy():
                         major, minor = map(int, current_version.split('.'))
                         new_version = f"{major + 1}.0" if version_action == 'major' else f"{major}.{minor + 1}"
                     except ValueError:
-                        new_version = "2.0"
+                        new_version = "1.0"
 
                     cursor.execute("""
                         INSERT INTO config (config_key, config_value) VALUES ('global_policy_version', %s) 

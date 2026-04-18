@@ -20,6 +20,7 @@ OS Pariah is an enterprise-grade portal built for scale and stability. Because i
 Pariah was built to be enterprise-grade, capable of handling high-traffic OpenSimulator grids without buckling or exposing the host OS to vulnerabilities.
 
 * **Advanced user management:** From registration, to promotion, to warnings and bans, Pariah is ready for it all
+* **User can self-update:** Users can change their own passwords or email addresses.  They can even backup their own inventory.
 * **Gatekeeper Cross-Referencing:** Collecting all user connection information allows for quick insight into user issues and grid safety concerns.
 * **Policy, Rules, and Documentation:** Pariah tracks user's acceptance of system policies, keeping everyone up to date while allowing administrators to easily edit and publish documentation.
 * **Dynamic Helpdesk System:** Guests and members alike have a central location to get the help they need.  Administrators can get updates on Discord or Matrix.  Abuse is limited by Cloudflare&copy;'s Turnstyle&trade; CAPTCHA system.
@@ -39,8 +40,8 @@ Install the RPM.  Note: This is only tested on openSUSE 15.6 right now per the O
 
 To verify the RPM, add this public key to your rpm key ring (save to a file, then rpm --import <file>).  Please note - the is the signing key for the Pariah ecosystem:
 
+```
 -----BEGIN PGP PUBLIC KEY BLOCK-----
-
 mDMEaczq4RYJKwYBBAHaRw8BAQdAk33PRQWPrSBVPWowoeYunQPP82t8qkBbl+a9
 GWBJF9+0HkpqIEthbHQgPGpqYW5kdGthbHRAZ21haWwuY29tPoiTBBMWCgA7FiEE
 7WH3aBWPsIvqEdDqgoSdDkW0ATQFAmnM6uECGwMFCwkIBwICIgIGFQoJCAsCBBYC
@@ -52,6 +53,7 @@ goSdDkW0ATRrsQD/TE5LQlgpUiWRh8i/P7irqMD7JMziH9MakUYteFvmW0UBAP+f
 iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 =UiGf
 -----END PGP PUBLIC KEY BLOCK-----
+```
 
 ### Manual Installation (Not recommended or supported.  But it should work!)
 
@@ -59,10 +61,17 @@ In our testing, the following commands were run as the opensim user from Pariah 
 
 - Create a pariah user to run the portal.  Assign the home directory to be your installation base.
 - Create the SUDO rules required for Pariah.  Something like:
-  - ```echo "pariah ALL=(ALL) NOPASSWD: /bin/systemctl start pariah-worker-iar.service, /bin/systemctl stop pariah-worker-iar.service, /bin/systemctl restart pariah-worker-iar.service, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_firewall.py, /opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/sync_robust.py, /bin/systemctl start opensim@*.service, /bin/systemctl stop opensim@*.service, /bin/systemctl restart opensim@*.service, /bin/systemctl enable opensim@*.service, /bin/systemctl disable opensim@*.service" | sudo tee /etc/sudoers.d/pariah_worker```
-  - ```echo "pariah ALL=(opensim) NOPASSWD: /usr/bin/screen -p 0 -S OpenSim-* -X stuff *" | sudo tee -a /etc/sudoers.d/pariah_worker```
+  - ```sudo cp /opt/os_pariah/packaging/pariah_worker.sudo /etc/sudoers.d/pariah_worker```
   - ```sudo chmod 0440 /etc/sudoers.d/pariah_worker```
-- Create the Pariah Gallery Cache directory for image review: ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
+- Create the Pariah Gallery Cache directory for image review:
+  - ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
+  - ```sudo chown pariah:pariah /home/opensim/FSAssets/pariahcache```
+- Create the files (EG: IAR) storage path
+  - ```sudo mkdir -p /home/opensim/Backups/downloads```
+  - ```sudo chown pariah:pariah /home/opensim/Backups/downloads```
+- Create the system log location
+  - ```sudo mkdir -m 0770 -p /var/log/os_pariah```
+  - ```sudo chown pariah:opensim /var/log/os_pariah```
   - IMPORTANT: If your FSAssets path is different than the default, or you aren't using the default fsassets table in the robust database, you must update this to where it will be located and update the default value in the Admin - Settings menu of the Portal UI.
 - Clone the GitHub repository into /opt/os_pariah
 - Edit ```.env_example``` with your DB credentials and save it as either ```.env``` or the standard /etc/os_pariah/os-pariah.conf

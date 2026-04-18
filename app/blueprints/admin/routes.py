@@ -282,6 +282,7 @@ def serve_texture(hash_val):
             uncompressed_bytes = f.read()
             
         file_bytes = np.asarray(bytearray(uncompressed_bytes), dtype=np.uint8)
+        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         if img is None:

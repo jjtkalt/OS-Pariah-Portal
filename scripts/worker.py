@@ -8,6 +8,14 @@ import subprocess
 import pymysql
 from dotenv import load_dotenv
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+# Add it to the system path so Python can find 'app.utils.schema'
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+from app.utils.schema import KNOWN_SETTINGS
+
 # Try the system config first, fallback to local dev file
 if os.path.exists('/etc/os_pariah/os-pariah.conf'):
     load_dotenv('/etc/os_pariah/os-pariah.conf')
@@ -41,8 +49,17 @@ def get_dynamic_config(key, default=None):
         with conn.cursor() as cursor:
             cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
             result = cursor.fetchone()
+            
+            # 1. Return the DB override if it exists
             if result:
                 return result['config_value']
+            
+            # 2. DRY Fix: Look up the default value in our global schema
+            for category, settings in KNOWN_SETTINGS.items():
+                if key in settings:
+                    return settings[key].get('default', default)
+                    
+            # 3. Ultimate fallback
             return default
     finally:
         conn.close()
@@ -167,6 +184,19 @@ def process_iar_backups():
             print(f"Processing IAR for User UUID: {user_uuid}")
 
             try:
+                # --- NEW: Safe Dynamic Config Retrieval ---
+                iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
+                iar_region_screen = get_dynamic_config('IAR_REGION_SCREEN')
+
+                if not iar_output_dir or str(iar_output_dir).strip().lower() == 'none':
+                    raise ValueError("IAR_OUTPUT_DIR is not configured in the system settings.")
+                if not iar_region_screen or str(iar_region_screen).strip().lower() == 'none':
+                    raise ValueError("IAR_REGION_SCREEN is not configured in the system settings.")
+                
+                # Force to string just to be absolutely safe for os operations
+                iar_output_dir = str(iar_output_dir).strip()
+                iar_region_screen = str(iar_region_screen).strip()
+
                 robust_conn = get_robust_db()
                 with robust_conn.cursor() as r_cursor:
                     r_cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (user_uuid,))
@@ -177,7 +207,6 @@ def process_iar_backups():
                     last_name = account['LastName']
                 robust_conn.close()
 
-                iar_output_dir = get_dynamic_config('IAR_OUTPUT_DIR')
                 os.makedirs(iar_output_dir, exist_ok=True)
 
                 timestamp = int(time.time())
@@ -185,11 +214,10 @@ def process_iar_backups():
                 filename = f"backup_{clean_name}_{timestamp}.iar"
                 full_path = os.path.join(iar_output_dir, filename)
 
-                iar_region_screen = get_dynamic_config('IAR_REGION_SCREEN')
-
+                # Ensure env doesn't cause a crash (we just use os.environ)
                 cmd = ["/usr/bin/screen", "-p", "0", "-S", iar_region_screen, "-X", "stuff", f"save iar --skipbadassets {first_name} {last_name} / {full_path}\n\r"]
                 print(f"Injecting command into screen session: {iar_region_screen}")
-                subprocess.run(cmd, env=env, check=True)
+                subprocess.run(cmd, env=os.environ.copy(), check=True)
 
                 print(f"Command injected. Waiting for {filename} to appear...")
                 file_appeared = False
@@ -227,8 +255,8 @@ def process_iar_backups():
                 print(f"IAR generation failed: {iar_error}")
                 with conn.cursor() as cursor:
                     cursor.execute("UPDATE iar_backups SET status = 'failed' WHERE id = %s", (backup_id,))
-                    fail_msg = "Your Inventory Archive (IAR) backup failed to generate. Please contact support."
-                    cursor.execute("INSERT INTO user_notices (user_uuid, message) VALUES (%s, %s)", (user_uuid, fail_msg))
+                    fail_msg = f"Your Inventory Archive (IAR) backup failed to generate. Reason: {iar_error}"
+                    cursor.execute("INSERT INTO user_notices (user_uuid, message) VALUES (%s, %s)", (user_uuid, fail_msg[:255])) # Truncate to avoid SQL limits
 
             conn.commit()
 
