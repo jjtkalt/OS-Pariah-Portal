@@ -114,5 +114,3 @@ echo "========================================================="
 %doc ROADMAP.md
 %doc COMPATIBILITY.md
 %license LICENSE
-
-%autochangelog
