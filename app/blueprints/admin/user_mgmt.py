@@ -54,15 +54,16 @@ def gatekeeper_lookup():
                 uuids.add(query_raw)
 
             # Changed sets to dictionaries to hold the timestamps
-            results = {'usernames': set(), 'ips': {}, 'macs': {}, 'host_ids': {}}
+            results = {'ips': {}, 'macs': {}, 'host_ids': {}}
             uuid_info = {}
             
             if uuids:
                 format_strings = ','.join(['%s'] * len(uuids))
                 uuid_tuple = tuple(uuids)
 
-                cursor.execute(f"SELECT DISTINCT user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
+                # Map user_uuid to the associated user_name
+                cursor.execute(f"SELECT user_uuid, MAX(user_name) as u_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
+                uuid_names = {row['user_uuid']: row['u_name'] for row in cursor.fetchall()}
 
                 # Fetch IPs, group by IP, get most recent date, and sort!
                 cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
@@ -87,6 +88,8 @@ def gatekeeper_lookup():
                     origin = str(g_data.get('from', '')).strip()
                     last_seen = g_data.get('last_seen', 'Unknown')
                     
+                    avatar_name = uuid_names.get(u, 'Unknown Avatar')
+                    
                     # --- UPDATED LOCAL LOGIC ---
                     is_local = False
                     origin_lower = origin.lower()
@@ -97,6 +100,7 @@ def gatekeeper_lookup():
                         is_local = True
                     
                     uuid_info[u] = {
+                        'avatar_name': avatar_name,
                         'grid_from': "Local Grid" if is_local else origin,
                         'is_local': is_local,
                         'last_seen': last_seen

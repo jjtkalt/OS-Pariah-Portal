@@ -300,7 +300,7 @@ tr:hover {
 .uuid {
   color: var(--text-muted);
   font-family: monospace;
-  font-size: 0.95rem;
+  font-size: 0.65rem;
 }
 .uuidlist {
   background: var(--bg-hover);

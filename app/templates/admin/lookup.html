@@ -53,63 +53,56 @@
             <a href="{{ url_for('user_mgmt.create_ban') }}" class="btn btn-danger">+ Create Custom Ban</a>
         </div>
 
-        {% if results.usernames %}
-        <div class="group" style="background: var(--info-bg); border-color: var(--info);">
-            <h3 class="mt-0 text-info">Associated Avatars</h3>
-            <div class="d-flex gap-10 flex-wrap">
-                {% for name in results.usernames %}
-                    <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='exact_username', q=name) }}" class="btn-outline text-sm fw-bold" style="background: var(--input-bg); padding: 4px 10px; border-radius: 4px; text-decoration: none; color: var(--text-main);">
-                        {{ name }} &rarr;
-                    </a>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
         <div class="grid-4cards">
-            <div class="group m-0" style="max-height: 400px;">
-                <h2 class="mt-0">Linked UUIDs</h2>
+            <div class="group m-0" style="overflow-y: auto; max-height: 400px;">
+                <h2 class="mt-0">Linked Accounts</h2>
                 <ul style="list-style-type: none; padding: 0; margin: 0;">
                     {% for u, info in uuid_info.items() %}
                         <li class="mb-10 pb-10" style="border-bottom: 1px solid var(--border-color);">
-                            <span class="uuid d-block mb-5">{{ u }}</span>
                             
-                            <div class="mb-10">
-                                {% if info.is_local %}
-                                    <span class="text-success fw-bold text-sm">🏡 {{ info.grid_from }}</span>
-                                {% else %}
-                                    <span class="text-warning fw-bold text-sm">🛸 HG: {{ info.grid_from }}</span>
-                                {% endif %}
-                                <span class="text-muted text-sm" style="margin-left: 8px;">(Last seen: {{ info.last_seen }})</span>
-                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban UUID</a>
+                            <div>
+                                <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='exact_username', q=info.avatar_name) }}" class="text-primary fw-bold text-lg" style="text-decoration: none;">
+                                    {{ info.avatar_name }}
+                                </a>
+                                <span class="uuid text-right d-block">({{ info.last_seen }})</span>
+                                
                             </div>
-
-                            <div class="flex-between flex-wrap gap-5">
-                                <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="text-info fw-bold text-sm" style="text-decoration: none;">View Staff Notes &rarr;</a>
-                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn" style="font-size: 0.70rem; text-decoration: none; padding: 2px;">View Textures</a>
-
+                            <div class="uuid d-block">
+                                UUID: {{ u }}
+                            </div>
+                            
+                            <div class="text-success text-sm">
                                 {% if info.is_local %}
-                                    {% if session.get('user_level', 0)|int >= 250 %}
-                                    <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="m-0 mt-5 w-100 text-right">
-                                        <div class="d-flex gap-5" style="justify-content: flex-end;">
-                                            <input type="number" name="new_level" placeholder="Level (e.g. 200)" class="m-0" required style="width: 120px; padding: 4px;">
-                                            <button type="submit" class="btn-warning text-sm" style="padding: 4px;" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
-                                        </div>
-                                    </form>
-                                    <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="m-0 mt-10 w-100 text-right">
-                                        <div class="d-flex gap-5" style="justify-content: flex-end;">
-                                            <input type="text" name="first_name" placeholder="New First Name" class="m-0" required style="width: 130px; padding: 4px;">
-                                            <input type="text" name="last_name" placeholder="New Last Name" class="m-0" required style="width: 130px; padding: 4px;">
-                                            <button type="submit" class="btn-info text-sm" style="padding: 4px;" onclick="return confirm('Rename this avatar?');">Rename</button>
-                                        </div>
-                                    </form>
-                                    {% endif %}
+                                    🏡 {{ info.grid_from }}
                                 {% else %}
-                                    <div class="text-muted text-sm mt-5 w-100 text-right" style="font-style: italic;">
-                                        Account modifications not available for Hypergrid users.
+                                    🛸 HG: {{ info.grid_from }}
+                                {% endif %}
+                            </div>
+                            <div class="flex-between flex-wrap gap-5">
+                                <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" class="btn btn-danger text-sm p-0">Ban UUID</a>
+                                <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn text-sm p-0">View Textures</a>
+                                <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="btn btn-info text-sm p-0">Staff Notes</a>
+                            </div>
+                            {% if info.is_local %}
+                                {% if session.get('user_level', 0)|int >= 250 %}
+                                    <div>
+                                        <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="w-100">
+                                            <div class="flex-between gap-5">
+                                                <input type="number" name="new_level" placeholder="Level (e.g. 200)" required>
+                                                <button type="submit" class="btn-warning text-sm" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                            </div>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="w-100">
+                                            <div class="flex-between gap-5">
+                                                <input type="text" name="first_name" placeholder="New First Name" required>
+                                                <input type="text" name="last_name" placeholder="New Last Name" required>
+                                                <button type="submit" class="btn-info text-sm" onclick="return confirm('Rename this avatar?');">Rename</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 {% endif %}
-                            </div>
+                            {% endif %}
+
                         </li>
                     {% endfor %}
                 </ul>
