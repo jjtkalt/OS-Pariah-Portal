@@ -120,54 +120,18 @@ def reject_user():
         current_app.logger.error(f"Rejection exception: {e}")
         return jsonify({'status': 'error', 'message': str(e)})
 
-@admin_bp.route('/settings', methods=['GET', 'POST'])
+@admin_bp.route('/settings', methods=['GET'])
 @rbac_required(PERM_MANAGE_SETTINGS)
 def system_settings():
+    """Admin dashboard to configure dynamic portal settings."""
     pariah_conn = get_pariah_db()
-
-    if request.method == 'POST':
-        try:
-            with pariah_conn.cursor() as cursor:
-                for key, value in request.form.items():
-                    if key.startswith('cfg_'):
-                        actual_key = key.replace('cfg_', '')
-                        val = value.strip()
-                        
-                        # Check if the submitted value matches our schema default
-                        is_default = False
-                        for category, fields in KNOWN_SETTINGS.items():
-                            if actual_key in fields:
-                                if str(fields[actual_key].get('default', '')) == val:
-                                    is_default = True
-                                break
-
-                        # If it is the default, DELETE it from the DB to keep things clean!
-                        if is_default:
-                            cursor.execute("DELETE FROM config WHERE config_key = %s", (actual_key,))
-                        else:
-                            # Otherwise, save the custom override
-                            cursor.execute("""
-                                INSERT INTO config (config_key, config_value, updated_at)
-                                VALUES (%s, %s, CURRENT_TIMESTAMP)
-                                ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = CURRENT_TIMESTAMP
-                            """, (actual_key, val))
-            pariah_conn.commit()
-            flash("System settings saved. Default values were safely purged from the database.", "success")
-        except Exception as e:
-            current_app.logger.error(f"Failed to update config: {e}")
-            flash("Database error while updating settings.", "error")
-
-        return redirect(url_for('admin.system_settings'))
 
     # Fetch existing DB settings
     with pariah_conn.cursor() as cursor:
         cursor.execute("SELECT config_key, config_value FROM config")
         db_rows = cursor.fetchall()
     
-    # Convert to a flat dictionary for easy lookup
     db_settings = {row['config_key']: row['config_value'] for row in db_rows}
-
-    # Identify "Custom" settings that are in the DB but not in our KNOWN_SETTINGS schema
     known_keys = [k for cat in KNOWN_SETTINGS.values() for k in cat.keys()]
     custom_settings = {k: v for k, v in db_settings.items() if k not in known_keys}
 
@@ -177,6 +141,46 @@ def system_settings():
         db_settings=db_settings,
         custom_settings=custom_settings
     )
+
+@admin_bp.route('/settings/update_single', methods=['POST'])
+@rbac_required(PERM_MANAGE_SETTINGS)
+def update_single_setting():
+    """AJAX endpoint to update a single setting on the fly."""
+    key = request.form.get('key')
+    val = request.form.get('value', '').strip()
+
+    if not key:
+        return jsonify({'status': 'error', 'message': 'Missing configuration key.'}), 400
+
+    # Strip the 'cfg_' prefix we use in the HTML IDs
+    actual_key = key.replace('cfg_', '') if key.startswith('cfg_') else key
+
+    # Check if the submitted value matches our schema default
+    is_default = False
+    for category, fields in KNOWN_SETTINGS.items():
+        if actual_key in fields:
+            if str(fields[actual_key].get('default', '')) == val:
+                is_default = True
+            break
+
+    pariah_conn = get_pariah_db()
+    try:
+        with pariah_conn.cursor() as cursor:
+            # If it is the default, DELETE it from the DB to keep things clean
+            if is_default:
+                cursor.execute("DELETE FROM config WHERE config_key = %s", (actual_key,))
+            else:
+                # Otherwise, save the custom override
+                cursor.execute("""
+                    INSERT INTO config (config_key, config_value, updated_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), updated_at = CURRENT_TIMESTAMP
+                """, (actual_key, val))
+        pariah_conn.commit()
+        return jsonify({'status': 'success', 'is_default': is_default})
+    except Exception as e:
+        current_app.logger.error(f"Failed to update config {actual_key}: {e}")
+        return jsonify({'status': 'error', 'message': 'Database error.'}), 500
 
 @admin_bp.route('/settings/add', methods=['POST'])
 @rbac_required(PERM_MANAGE_SETTINGS)
