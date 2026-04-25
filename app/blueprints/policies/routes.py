@@ -1,7 +1,8 @@
 import re
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app
 from app.utils.db import get_pariah_db, get_dynamic_config
-from app.utils.auth_helpers import require_admin
+from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.schema import *
 
 policies_bp = Blueprint('policies', __name__)
 
@@ -27,13 +28,9 @@ def view_policy(slug):
     return render_template('policies/view.html', policy=policy, version=current_version)
 
 @policies_bp.route('/admin/manage', methods=['GET'])
-@require_admin
+@rbac_required(PERM_MANAGE_POLICIES)
 def manage_policies():
-    """Level 250+ Admin dashboard for policies."""
-    if int(session.get('user_level', 0)) < 250:
-        flash("Unauthorized. Senior Admin (Level 250+) required.", "error")
-        return redirect(url_for('comms.news_feed'))
-
+    """Admin dashboard for policies."""
     pariah_conn = get_pariah_db()
     current_version = get_dynamic_config('global_policy_version')
     
@@ -44,12 +41,9 @@ def manage_policies():
     return render_template('policies/manage.html', policies=policies, current_version=current_version)
 
 @policies_bp.route('/admin/create', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_POLICIES)
 def create_policy():
     """Creates a new document."""
-    if int(session.get('user_level', 0)) < 250:
-        return redirect(url_for('comms.news_feed'))
-
     if request.method == 'POST':
         raw_slug = request.form.get('slug', '').strip().lower()
         slug = re.sub(r'[^a-z0-9-_]', '-', raw_slug)
@@ -93,12 +87,9 @@ def create_policy():
     return render_template('policies/create.html')
 
 @policies_bp.route('/admin/edit/<slug>', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_POLICIES)
 def edit_policy(slug):
     """Edits an existing document."""
-    if int(session.get('user_level', 0)) < 250:
-        return redirect(url_for('comms.news_feed'))
-
     pariah_conn = get_pariah_db()
 
     if request.method == 'POST':
@@ -140,11 +131,8 @@ def edit_policy(slug):
     return render_template('policies/edit.html', policy=policy)
 
 @policies_bp.route('/admin/delete/<slug>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_POLICIES)
 def delete_policy(slug):
-    if int(session.get('user_level', 0)) < 250:
-        return redirect(url_for('comms.news_feed'))
-
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:

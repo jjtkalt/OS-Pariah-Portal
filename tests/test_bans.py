@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from app.utils.schema import *
 
 # -------------------------------------------------------------------
 # Test 1: Creating a Ban (Cascading DB & Severity Level Sync)
@@ -12,8 +13,7 @@ def test_create_ban_cascading(mock_popen, mock_set_level, client, db_cursor):
     # Inject Super Admin Session
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_ISSUE_BANS
 
     response = client.post('/admin/users/bans/create', data={
         'reason': 'Griefing Sandbox',
@@ -47,8 +47,7 @@ def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_ISSUE_BANS
 
     # Mock the DB returning the UUID tied to the ban we are deleting,
     # and then return an empty list when the redirect loads the Ban Table UI!
@@ -80,8 +79,7 @@ def test_manual_user_promotion(mock_set_level, client):
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_MANAGE_ROLES
 
     response = client.post('/admin/users/good-guy-uuid/set_level', data={
         'new_level': '200'

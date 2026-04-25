@@ -5,6 +5,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, sessio
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.blueprints.auth.routes import verify_turnstile
 from app.utils.notifications import send_matrix_discord_webhook, send_ticket_transcript_email
+from app.utils.auth_helpers import has_permission
+from app.utils.schema import *
 
 tickets_bp = Blueprint('tickets', __name__, url_prefix='/tickets')
 
@@ -16,7 +18,7 @@ def allowed_file(filename):
 @tickets_bp.route('/')
 def index():
     user_uuid = session.get('uuid')
-    is_admin = session.get('is_admin', False)
+    is_staff = has_permission(PERM_STAFF_TICKETS)
     # Default to showing only "Actionable" tickets so the dashboard isn't flooded with closed ones
     status_filter = request.args.get('status', 'All Open')
     tickets = []
@@ -27,7 +29,7 @@ def index():
     if user_uuid:
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:
-            if is_admin:
+            if is_staff:
                 # ADMIN LOGIC
                 if status_filter == 'All Open':
                     cursor.execute("SELECT * FROM tickets WHERE status IN %s ORDER BY updated_at DESC", (open_statuses,))
@@ -125,7 +127,7 @@ def new_ticket():
 @tickets_bp.route('/view/<int:ticket_id>')
 def view(ticket_id):
     user_uuid = session.get('uuid')
-    is_admin = session.get('is_admin', False)
+    is_staff = has_permission(PERM_STAFF_TICKETS)
 
     if not user_uuid:
         flash('You must be logged in to view tickets.', 'error')
@@ -140,7 +142,7 @@ def view(ticket_id):
             flash('Ticket not found.', 'error')
             return redirect(url_for('tickets.index'))
             
-        if not is_admin and ticket['user_uuid'] != user_uuid:
+        if not is_staff and ticket['user_uuid'] != user_uuid:
             flash('Access denied. You do not own this ticket.', 'error')
             return redirect(url_for('tickets.index'))
 
@@ -151,7 +153,7 @@ def view(ticket_id):
         attachments = cursor.fetchall()
 
     allow_delete = False
-    if is_admin:
+    if has_permission(PERM_DELETE_TICKETS):
         allow_delete = get_dynamic_config('allow_ticket_deletion') == 'true'
 
     return render_template('tickets/view.html', ticket=ticket, replies=replies, attachments=attachments, allow_delete=allow_delete)
@@ -162,12 +164,13 @@ def view_attachment(ticket_id, filename):
     if not user_uuid:
         return redirect(url_for('auth.login'))
 
+    is_staff = has_permission(PERM_STAFF_TICKETS)
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
         cursor.execute("SELECT user_uuid FROM tickets WHERE id = %s", (ticket_id,))
         ticket = cursor.fetchone()
 
-    if not ticket or (ticket['user_uuid'] != user_uuid and not session.get('is_admin')):
+    if not ticket or (ticket['user_uuid'] != user_uuid and not is_staff):
         flash('Access denied.', 'error')
         return redirect(url_for('tickets.index'))
 
@@ -189,7 +192,7 @@ def reply_ticket(ticket_id):
 
     user_uuid = session.get('uuid')
     user_name = session.get('name', 'Staff')
-    is_admin = session.get('is_admin', False)
+    is_staff = has_permission(PERM_STAFF_TICKETS)
 
     conn = get_pariah_db()
     try:
@@ -204,7 +207,7 @@ def reply_ticket(ticket_id):
             assigned_name = ticket['assigned_to_name']
             new_status = explicit_status
 
-            if is_admin:
+            if is_staff:
                 # Admins auto-claim tickets they touch (unless closing them out entirely)
                 if new_status not in ['Completed', 'Withdrawn', 'Will not work', 'No Response']:
                     assigned_uuid = user_uuid
@@ -217,7 +220,7 @@ def reply_ticket(ticket_id):
                 if not new_status:
                     new_status = "Waiting on Staff"
 
-            # 1. Insert the reply
+            # Insert the reply
             reply_id = None
             if reply_body or (attachment and attachment.filename):
                 # Storing the replier's name in 'replier_email' since we don't have a name column in that table yet!
@@ -241,7 +244,7 @@ def reply_ticket(ticket_id):
                         VALUES (%s, %s, %s, %s, %s)
                     """, (ticket_id, reply_id, user_uuid, filename, unique_filename))
 
-            # 2. Touch the main ticket
+            # Touch the main ticket
             cursor.execute("""
                 UPDATE tickets
                 SET status = %s, assigned_to_uuid = %s, assigned_to_name = %s, updated_at = CURRENT_TIMESTAMP
@@ -250,8 +253,8 @@ def reply_ticket(ticket_id):
 
         conn.commit()
 
-        # 3. Fire off the email transcript if Admin replies
-        if is_admin and ticket['user_email'] and reply_body:
+        # Fire off the email transcript if Admin replies
+        if is_staff and ticket['user_email'] and reply_body:
             send_ticket_transcript_email(ticket['user_email'], ticket_id, ticket['subject'], reply_body, user_name)
 
         flash('Ticket updated successfully.', 'success')
@@ -264,7 +267,8 @@ def reply_ticket(ticket_id):
 
 @tickets_bp.route('/<int:ticket_id>/delete', methods=['POST'])
 def delete_ticket(ticket_id):
-    if int(session.get('user_level', 0)) < 250 or get_dynamic_config('allow_ticket_deletion') != 'true':
+
+    if not has_permission(PERM_DELETE_TICKETS) or get_dynamic_config('allow_ticket_deletion') != 'true':
         flash("Unauthorized: Ticket deletion is disabled globally or you lack clearance.", "error")
         return redirect(url_for('tickets.view', ticket_id=ticket_id))
 

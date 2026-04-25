@@ -58,3 +58,60 @@ KNOWN_SETTINGS = {
         "texture_cache_path": {"label": "Cache Directory Location", "type": "text", "default": "/home/opensim/FSAssets/pariahcache"},
     }
 }
+
+# --- RBAC BITWISE CONSTANTS ---
+PERM_NONE            = 0
+PERM_SUPER_ADMIN     = 1 << 0  
+PERM_MANAGE_ROLES    = 1 << 1  
+PERM_ADD_NOTES       = 1 << 2  
+PERM_VIEW_NOTES      = 1 << 3  
+PERM_STAFF_TICKETS   = 1 << 4  
+PERM_POST_NEWS       = 1 << 5  
+PERM_DELETE_NEWS     = 1 << 6  
+PERM_REGION_CONTROL  = 1 << 7  
+PERM_MANAGE_REGIONS  = 1 << 8  
+PERM_USER_LOOKUP     = 1 << 9  
+PERM_VIEW_ASSETS     = 1 << 10 
+PERM_MANAGE_SETTINGS = 1 << 11 
+PERM_MANAGE_INFRA    = 1 << 12 
+PERM_ISSUE_BANS      = 1 << 13 
+PERM_APPROVE_USERS   = 1 << 14 
+PERM_RENAME_USERS    = 1 << 15 
+PERM_DELETE_TICKETS  = 1 << 16 
+PERM_DELETE_USER     = 1 << 17 
+PERM_MANAGE_ASSETS   = 1 << 18 
+PERM_MANAGE_POLICIES = 1 << 19 
+
+# --- UNIFIED RBAC UI SCHEMA ---
+RBAC_SCHEMA = {
+    "System & Security": {
+        PERM_SUPER_ADMIN: {"label": "Super Admin", "desc": "Master Key: Overrides all checks"},
+        PERM_MANAGE_ROLES: {"label": "Manage Roles", "desc": "Can modify user permissions"},
+        PERM_MANAGE_SETTINGS: {"label": "Manage Settings", "desc": "Edit global configurations"},
+        PERM_MANAGE_INFRA: {"label": "Manage Infra", "desc": "Modify DNS/Host Mappings"},
+    },
+    "Grid Operations": {
+        PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions"},
+        PERM_MANAGE_REGIONS: {"label": "Manage Regions", "desc": "Edit WebXML configs & limits"},
+    },
+    "Moderation & Support": {
+        PERM_USER_LOOKUP: {"label": "Gatekeeper Lookup", "desc": "Search alt-accounts via IP/MAC"},
+        PERM_ADD_NOTES: {"label": "Add Staff Notes", "desc": "Attach internal warnings to users"},
+        PERM_VIEW_NOTES: {"label": "View Staff Notes", "desc": "Read internal warnings"},
+        PERM_ISSUE_BANS: {"label": "Issue Bans", "desc": "Create/Remove active grid bans"},
+        PERM_STAFF_TICKETS: {"label": "Helpdesk Access", "desc": "View, assign, and reply to tickets"},
+        PERM_DELETE_TICKETS: {"label": "Delete Tickets", "desc": "Permanently erase tickets"},
+    },
+    "User Administration": {
+        PERM_APPROVE_USERS: {"label": "Approve Registrations", "desc": "Review and approve new users"},
+        PERM_RENAME_USERS: {"label": "Rename Avatars", "desc": "Change first and last names"},
+        PERM_DELETE_USER: {"label": "Delete User", "desc": "Erase avatar from the grid"},
+    },
+    "Communications & Assets": {
+        PERM_POST_NEWS: {"label": "Post News", "desc": "Publish grid announcements"},
+        PERM_DELETE_NEWS: {"label": "Delete News", "desc": "Remove grid announcements"},
+        PERM_MANAGE_POLICIES: {"label": "Manage Policies", "desc": "Edit Grid Policies & Guides"},
+        PERM_VIEW_ASSETS: {"label": "View Assets", "desc": "Access texture gallery"},
+        PERM_MANAGE_ASSETS: {"label": "Manage Assets", "desc": "Purge items from FSAssets"},
+    }
+}

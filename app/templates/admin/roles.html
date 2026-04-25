@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Roles - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+    <div class="flex-between mb-20" style="align-items: flex-end;">
+        <div>
+            <h1 class="text-primary m-0">Role Management</h1>
+            <p class="text-muted m-0 mt-5">Editing permissions for: <strong>{{ avatar_name }}</strong></p>
+            <p class="uuid m-0 mt-5">UUID: {{ target_uuid }}</p>
+        </div>
+        <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=target_uuid) }}" class="text-muted fw-bold" style="text-decoration: none;">&larr; Back to Profile</a>
+    </div>
+
+    <form method="POST" action="{{ url_for('user_mgmt.manage_roles', uuid=target_uuid) }}" class="m-0">
+        
+        <div class="alert info mb-20 flex-between">
+            <span><strong>Current Bitmask Value:</strong> {{ current_permissions }}</span>
+            {% if (current_permissions b-and PERMS.PERM_SUPER_ADMIN) %}
+                <span class="text-danger fw-bold">MASTER KEY ACTIVE</span>
+            {% endif %}
+        </div>
+
+        {# Loop through the categories we defined in schema.py #}
+        {% for category, perms in RBAC_SCHEMA.items() %}
+            <fieldset class="card p-0 mb-20">
+                <legend>{{ category }}</legend>
+                <div class="grid-2cards">
+                    
+                    {# Loop through the specific permissions in this category #}
+                    {% for bit_val, details in perms.items() %}
+                        
+                        {# Jinja Bitwise AND: Checks if the user holds this specific bit #}
+                        {% set has_bit = (current_permissions b-and bit_val) %}
+
+                        <div class="card m-0" style="padding: 12px; {% if has_bit %}border-left: 4px solid var(--success); background: var(--success-bg);{% else %}border-left: 4px solid var(--border-color);{% endif %}">
+                            <label class="radio fw-bold m-0 d-flex" style="align-items: center; gap: 10px; cursor: pointer;">
+                                
+                                <input type="checkbox" name="permissions" value="{{ bit_val }}" {% if has_bit %}checked{% endif %} style="width: auto; margin: 0;">
+                                
+                                <div>
+                                    <span class="{% if has_bit %}text-success{% else %}text-primary{% endif %}">{{ details.label }}</span><br>
+                                    <span class="text-sm text-muted" style="font-weight: normal;">{{ details.desc }}</span>
+                                </div>
+                                
+                            </label>
+                        </div>
+                    {% endfor %}
+                    
+                </div>
+            </fieldset>
+        {% endfor %}
+
+        <div class="text-right pt-20 mt-20" style="border-top: 1px solid var(--border-color);">
+            <button type="submit" class="btn-success text-lg">Save Permissions</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

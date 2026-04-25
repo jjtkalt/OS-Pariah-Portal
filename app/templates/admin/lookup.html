@@ -90,6 +90,7 @@
                                             <div class="flex-between gap-5">
                                                 <input type="number" name="new_level" placeholder="Level (e.g. 200)" required>
                                                 <button type="submit" class="btn-warning text-sm" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                                <a href="{{ url_for('user_mgmt.manage_roles', uuid=u) }}" class="btn btn-warning text-sm">Manage Roles</a>
                                             </div>
                                         </form>
                                         <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="w-100">

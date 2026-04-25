@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import os
 import time
+from app.utils.schema import *
 
 # --- 1. TEST THE CACHE CLEANUP ROUTINE ---
 
@@ -54,8 +55,7 @@ def test_texture_gallery_access(mock_get_db, client):
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 200
+        sess['permissions'] = PERM_VIEW_ASSETS
     
     response = client.get('/admin/gallery')
     assert response.status_code == 200
@@ -90,7 +90,7 @@ def test_serve_texture_cached(mock_send_dir, mock_get_config, mock_exists, mock_
 
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-uuid'
-        sess['is_admin'] = True
+        sess['permissions'] = PERM_VIEW_ASSETS
 
     response = client.get('/admin/texture/1a2b3c4d5e')
 
@@ -134,7 +134,7 @@ def test_serve_texture_unzipped_and_converted(mock_send_dir, mock_get_config, mo
 
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-uuid'
-        sess['is_admin'] = True
+        sess['permissions'] = PERM_VIEW_ASSETS
 
     response = client.get('/admin/texture/1a2b3c4d5e')
 
@@ -146,7 +146,7 @@ def test_serve_texture_invalid_hash(client):
     """Test that path traversal attacks or invalid hashes are blocked."""
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-uuid'
-        sess['is_admin'] = True
+        sess['permissions'] = PERM_VIEW_ASSETS
 
     # Includes non-hex characters - Should hit our explicit abort(400)
     response = client.get('/admin/texture/invalid_hash_with_symbols!')

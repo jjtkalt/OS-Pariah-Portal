@@ -1,15 +1,15 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from app.utils.schema import *
 
 # --- TOGGLE STATE TESTS ---
 
 @patch('app.blueprints.regions.routes.get_pariah_db')
 def test_toggle_state_unauthorized(mock_db, client):
-    """Ensure users below level 200 cannot toggle region state."""
+    """Ensure users without PERM_MANAGE_REGIONS cannot toggle region state."""
     with client.session_transaction() as sess:
         sess['uuid'] = 'user-123'
-        sess['is_admin'] = True
-        sess['user_level'] = 100 # Too low
+        sess['permissions'] = PERM_APPROVE_USERS # Has some rights, but not region rights!
         
     response = client.post('/regions/toggle_state/test-uuid')
     assert response.status_code == 302 # Redirects away
@@ -17,10 +17,9 @@ def test_toggle_state_unauthorized(mock_db, client):
     # Ensure DB was never even called
     mock_db.assert_not_called()
 
-
 @patch('app.blueprints.regions.routes.get_pariah_db')
 def test_toggle_state_success(mock_db, client):
-    """Ensure Admins (Level 200+) can successfully toggle a region's state."""
+    """Ensure Admins with PERM_MANAGE_REGIONS can successfully toggle state."""
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
     mock_db.return_value = mock_conn
@@ -31,8 +30,7 @@ def test_toggle_state_success(mock_db, client):
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'admin-123'
-        sess['is_admin'] = True  # FIX: Tell the bouncer we are an admin
-        sess['user_level'] = 200
+        sess['permissions'] = PERM_MANAGE_REGIONS
         
     response = client.post('/regions/toggle_state/test-uuid')
     
@@ -45,7 +43,7 @@ def test_toggle_state_success(mock_db, client):
 
 @patch('app.blueprints.regions.routes.get_pariah_db')
 def test_delete_region_safety_lock(mock_db, client):
-    """Ensure Delete fails if the region is still active, even for Level 250 Super Admins."""
+    """Ensure Delete fails if the region is still active, even for Super Admins."""
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
     mock_db.return_value = mock_conn
@@ -55,9 +53,8 @@ def test_delete_region_safety_lock(mock_db, client):
     mock_cursor.fetchone.return_value = {'is_active': 1, 'region_name': 'TestRegion'}
     
     with client.session_transaction() as sess:
-        sess['uuid'] = 'superadmin-123'
-        sess['is_admin'] = True  # FIX: Tell the bouncer we are an admin
-        sess['user_level'] = 250
+        sess['uuid'] = 'admin-123'
+        sess['permissions'] = PERM_SUPER_ADMIN
         
     response = client.post('/regions/delete/test-uuid')
     
@@ -70,7 +67,7 @@ def test_delete_region_safety_lock(mock_db, client):
 
 @patch('app.blueprints.regions.routes.get_pariah_db')
 def test_delete_region_success(mock_db, client):
-    """Ensure Delete succeeds if the region is explicitly disabled AND user is Level 250."""
+    """Ensure Delete succeeds if the region is explicitly disabled AND user has PERM_MANAGE_REGIONS."""
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
     mock_db.return_value = mock_conn
@@ -80,9 +77,8 @@ def test_delete_region_success(mock_db, client):
     mock_cursor.fetchone.return_value = {'is_active': 0, 'region_name': 'TestRegion'}
     
     with client.session_transaction() as sess:
-        sess['uuid'] = 'superadmin-123'
-        sess['is_admin'] = True  # FIX: Tell the bouncer we are an admin
-        sess['user_level'] = 250
+        sess['uuid'] = 'admin-123'
+        sess['permissions'] = PERM_MANAGE_REGIONS
         
     response = client.post('/regions/delete/test-uuid')
     

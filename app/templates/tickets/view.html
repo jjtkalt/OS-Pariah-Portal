@@ -16,7 +16,7 @@
 
     <div class="group m-0" style="max-height: none !important;">
         <p class="text-muted text-sm mt-0 pb-10" style="border-bottom: 1px solid var(--border-color);">
-            {% if session.get('is_admin') %}
+            {% if has_permission(PERMS.PERM_STAFF_TICKETS) %}
                 <strong>Assigned to:</strong> {{ ticket.assigned_to_name or 'Unassigned' }} <br>
             {% endif %}
             <strong>Posted by:</strong> {{ ticket.user_name }} {% if not ticket.user_uuid %}(Guest){% endif %} on {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
@@ -86,7 +86,7 @@
                 <div style="flex: 1;">
                     <label for="status">Change Status</label>
                     <select id="status" name="status" class="mb-0">
-                        {% if session.get('is_admin') %}
+                        {% if has_permission(PERMS.PERM_STAFF_TICKETS) %}
                             <option value="Waiting on User" selected>Waiting on User (Default)</option>
                             <option value="Completed">Completed</option>
                             <option value="In Progress">In Progress</option>

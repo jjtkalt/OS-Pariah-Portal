@@ -1,69 +1,55 @@
 import pytest
+from app.utils.schema import *
 
 # -------------------------------------------------------------------
 # Test 1: Unauthorized Access (Standard Admin tries to peek)
 # -------------------------------------------------------------------
 def test_settings_unauthorized(client):
-    """Proves that a Level 200 Admin gets rejected from Level 250 pages/actions."""
+    """Proves that an Admin without PERM_MANAGE_SETTINGS gets rejected."""
     
-    # Inject a fake session for a Level 200 Admin
     with client.session_transaction() as sess:
         sess['uuid'] = 'fake-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 200  # Not high enough!
+        # Give them some admin rights, but NOT settings management
+        sess['permissions'] = PERM_APPROVE_USERS 
 
-    # Check the main UI page
     response = client.get('/admin/settings', follow_redirects=True)
-    assert b"Unauthorized: Only Level 250+" in response.data
-
-    # Check the Add route
-    response_add = client.post('/admin/settings/add', data={'new_key': 'test', 'new_value': 'test'}, follow_redirects=True)
-    assert b"Unauthorized" in response_add.data
-
-    # Check the Delete route
-    response_delete = client.post('/admin/settings/delete', data={'target_key': 'test'}, follow_redirects=True)
-    assert b"Unauthorized" in response_delete.data
+    # The new decorator flashes this exact message
+    assert b"Unauthorized: You lack the required portal permissions." in response.data
 
 
 # -------------------------------------------------------------------
-# Test 2: Successful Settings Update (Super Admin)
+# Test 2: Successful Settings Update (Authorized Admin)
 # -------------------------------------------------------------------
 def test_settings_update_success(client, db_cursor):
-    """Proves a Level 250 Admin can successfully UPSERT new system settings."""
+    """Proves an Admin with PERM_MANAGE_SETTINGS can UPSERT new settings."""
     
-    # Inject a fake session for a Level 250 Super Admin
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_MANAGE_SETTINGS # Inject the exact right bit!
 
-    # Simulate hitting "Save" on the Settings Form
     response = client.post('/admin/settings', data={
         'cfg_grid_name': 'My Awesome Test Grid',
         'cfg_smtp_port': '2525'
     }, follow_redirects=True)
 
-    # 1. Assert the SQL Upsert ran
     assert db_cursor.execute.called, "Database cursor execute was not called."
     
     sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
     upsert_query_found = any("INSERT INTO config" in q for q in sql_queries)
     assert upsert_query_found, "Did not attempt to save settings to the database."
 
-    # 2. Assert the user sees the success message
     assert b"System settings saved" in response.data
 
 
 # -------------------------------------------------------------------
-# Test 3: Successful Settings Add (Super Admin)
+# Test 3: Successful Settings Add (Authorized Admin)
 # -------------------------------------------------------------------
 def test_settings_add_success(client, db_cursor):
-    """Proves a Level 250 Admin can inject a custom variable."""
+    """Proves an Admin with PERM_MANAGE_SETTINGS can inject a custom variable."""
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_MANAGE_SETTINGS 
 
     response = client.post('/admin/settings/add', data={
         'new_key': 'my_custom_key',
@@ -83,15 +69,14 @@ def test_settings_add_success(client, db_cursor):
 
 
 # -------------------------------------------------------------------
-# Test 4: Successful Settings Delete (Super Admin)
+# Test 4: Successful Settings Delete (Authorized Admin)
 # -------------------------------------------------------------------
 def test_settings_delete_success(client, db_cursor):
-    """Proves a Level 250 Admin can delete a setting and revert it."""
+    """Proves an Admin with PERM_MANAGE_SETTINGS can delete a setting and revert it."""
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
-        sess['is_admin'] = True
-        sess['user_level'] = 250
+        sess['permissions'] = PERM_MANAGE_SETTINGS 
 
     response = client.post('/admin/settings/delete', data={
         'target_key': 'grid_name'

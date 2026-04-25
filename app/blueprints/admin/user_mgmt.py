@@ -1,13 +1,14 @@
 import subprocess
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
-from app.utils.auth_helpers import require_admin
+from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.schema import *
 from app.utils.robust_api import set_user_level, update_robust_name
 
 user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 
 @user_mgmt_bp.route('/lookup', methods=['GET'])
-@require_admin
+@rbac_required(PERM_USER_LOOKUP)
 def gatekeeper_lookup():
     """Cross-references IP, MAC, HostID, and Inbound From to find alt accounts."""
     search_type = request.args.get('type', 'username')
@@ -113,15 +114,24 @@ def gatekeeper_lookup():
     return render_template('admin/lookup.html', query=query_raw, search_type=search_type, results=results, uuid_info=uuid_info, uuids=list(uuids))
 
 @user_mgmt_bp.route('/<uuid>/notes', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_VIEW_NOTES)
 def user_notes(uuid):
     pariah_conn = get_pariah_db()
+
     if request.method == 'POST':
+        if not has_permission(PERM_ADD_NOTES):
+            flash("Unauthorized: You do not have permission to add staff notes.", "error")
+            return redirect(url_for('user_mgmt.user_notes', uuid=uuid))
+
         note_body = request.form.get('note', '').strip()
         admin_uuid = session.get('uuid')
+
         if note_body:
             with pariah_conn.cursor() as cursor:
-                cursor.execute("INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)", (uuid, admin_uuid, note_body))
+                cursor.execute(
+                    "INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)",
+                    (uuid, admin_uuid, note_body)
+                )
             pariah_conn.commit()
             flash('Note added successfully.', 'success')
             return redirect(url_for('user_mgmt.user_notes', uuid=uuid))
@@ -150,7 +160,7 @@ def user_notes(uuid):
     return render_template('admin/user_notes.html', target_uuid=uuid, notes=notes)
 
 @user_mgmt_bp.route('/bans', methods=['GET'])
-@require_admin
+@rbac_required(PERM_ISSUE_BANS)
 def manage_bans():
     """Displays all active bans across all vectors."""
     pariah_conn = get_pariah_db()
@@ -192,7 +202,7 @@ def trigger_system_sync_workers(ban_id="Manual/Unknown"):
         current_app.logger.error(f"Failed to trigger sync workers: {e}")
 
 @user_mgmt_bp.route('/bans/create', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_ISSUE_BANS)
 def create_ban():
     if request.method == 'GET':
         prep_uuid = request.args.get('uuid', '')
@@ -266,7 +276,7 @@ def create_ban():
     return redirect(url_for('user_mgmt.manage_bans'))
 
 @user_mgmt_bp.route('/bans/<int:ban_id>/delete', methods=['POST'])
-@require_admin
+@rbac_required(PERM_ISSUE_BANS)
 def delete_ban(ban_id):
     """Deletes a ban and attempts to restore associated accounts to Level 0."""
     pariah_conn = get_pariah_db()
@@ -296,12 +306,9 @@ def delete_ban(ban_id):
     return redirect(url_for('user_mgmt.manage_bans'))
 
 @user_mgmt_bp.route('/<uuid>/set_level', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_ROLES)
 def update_user_level(uuid):
     """Allows Super Admins to manually adjust a user's level (e.g., Promotions)."""
-    if int(session.get('user_level', 0)) < 250:
-        flash("Only Level 250+ Admins can manually adjust user access levels.", "error")
-        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
 
     new_level = request.form.get('new_level')
     
@@ -318,7 +325,7 @@ def update_user_level(uuid):
     return redirect(url_for('user_mgmt.gatekeeper_lookup'))
 
 @user_mgmt_bp.route('/<uuid>/rename', methods=['POST'])
-@require_admin
+@rbac_required(PERM_RENAME_USERS)
 def rename_user(uuid):
     """Allows Level 200+ Admins to rename a user's avatar."""
     if int(session.get('user_level', 0)) < 200:
@@ -339,3 +346,62 @@ def rename_user(uuid):
         flash("Failed to update name via Robust API.", "error")
 
     return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
+
+user_mgmt_bp.route('/<uuid>/roles', methods=['GET', 'POST'])
+@rbac_required(PERM_MANAGE_ROLES)
+def manage_roles(uuid):
+    pariah_conn = get_pariah_db()
+    robust_conn = get_robust_db()
+    
+    # 1. Fetch user's real name from Robust
+    with robust_conn.cursor() as r_cursor:
+        r_cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (uuid,))
+        account = r_cursor.fetchone()
+        
+    if not account:
+        flash("User not found in the grid database.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+        
+    avatar_name = f"{account['FirstName']} {account['LastName']}"
+
+    if request.method == 'POST':
+        # Get list of checked values from the form (returns strings)
+        selected_bits = request.form.getlist('permissions')
+        
+        # Calculate the new combined bitmask
+        new_bitmask = 0
+        for bit_str in selected_bits:
+            try:
+                new_bitmask |= int(bit_str) # Bitwise OR combines them!
+            except ValueError:
+                pass
+                
+        try:
+            with pariah_conn.cursor() as cursor:
+                # Upsert the new permissions
+                cursor.execute("""
+                    INSERT INTO user_rbac (user_uuid, permissions) 
+                    VALUES (%s, %s)
+                    ON DUPLICATE KEY UPDATE permissions = VALUES(permissions)
+                """, (uuid, new_bitmask))
+            pariah_conn.commit()
+            
+            flash(f"Permissions successfully updated for {avatar_name}.", "success")
+        except Exception as e:
+            current_app.logger.error(f"Failed to update roles for {uuid}: {e}")
+            flash("A database error occurred.", "error")
+            
+        return redirect(url_for('user_mgmt.manage_roles', uuid=uuid))
+
+    # 3. GET Request: Fetch current permissions to populate the checkboxes
+    current_permissions = 0
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (uuid,))
+        row = cursor.fetchone()
+        if row:
+            current_permissions = row['permissions']
+
+    return render_template('admin/roles.html', 
+                           target_uuid=uuid, 
+                           avatar_name=avatar_name, 
+                           current_permissions=current_permissions)

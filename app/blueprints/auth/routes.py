@@ -86,6 +86,18 @@ def login():
                     session['user_level'] = account['userLevel']
                     session['is_admin'] = account['userLevel'] >= 200
 
+                    # --- OPTIMIZED RBAC HYDRATION ---
+                    # Skip the DB hit entirely for standard Level 0 users
+                    if account['userLevel'] > 0:
+                        pariah_conn = get_pariah_db()
+                        with pariah_conn.cursor() as p_cursor:
+                            p_cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (user_uuid,))
+                            rbac_row = p_cursor.fetchone()
+                            session['permissions'] = rbac_row['permissions'] if rbac_row else 0
+                    else:
+                        session['permissions'] = 0
+                    # --------------------------------
+
                     # Check if they were trying to log in via an external OIDC app
                     if 'next' in session:
                         next_url = session.pop('next')

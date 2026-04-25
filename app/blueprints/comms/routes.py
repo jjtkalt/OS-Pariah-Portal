@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session
+from flask import Blueprint, render_template, request, flash, redirect, current_app, url_for, session
 from app.utils.db import get_pariah_db
-from app.utils.auth_helpers import require_admin
+from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.schema import *
 from app.blueprints.api.routes import fetch_all_online_users
 from app.utils.robust_api import get_total_regions_count
 
@@ -21,7 +22,7 @@ def news_feed():
     return render_template('comms/news_feed.html', news_items=news_items)
 
 @comms_bp.route('/admin/post', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_POST_NEWS)
 def post_news():
     """Admin interface to post news or global alerts."""
     if request.method == 'POST':
@@ -66,13 +67,9 @@ def user_notices():
     return render_template('comms/user_notices.html', notices=notices)
 
 @comms_bp.route('/news/delete/<int:news_id>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_DELETE_NEWS)
 def delete_news(news_id):
     """Permanently deletes a news/announcement item."""
-    if int(session.get('user_level', 0)) < 250:
-        flash("Unauthorized. Senior Admin clearance required.", "error")
-        return redirect(url_for('comms.news_feed'))
-
     try:
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:

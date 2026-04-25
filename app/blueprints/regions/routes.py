@@ -3,7 +3,9 @@ import os
 import time
 from flask import Blueprint, render_template, request, Response, flash, redirect, url_for, current_app, session
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
-from app.utils.auth_helpers import require_admin
+from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.schema import *
+
 
 regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
 
@@ -80,7 +82,7 @@ def get_region_xml(region_uuid):
         return Response("<error>Internal Server Error</error>", status=500, mimetype='application/xml')
 
 @regions_bp.route('/manage', methods=['GET'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def manage_regions():
     combined_regions = {}
 
@@ -188,12 +190,8 @@ def manage_regions():
     return render_template('admin/manage_regions.html', regions=final_list)
 
 @regions_bp.route('/control/<action>/<region_uuid>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_REGION_CONTROL)
 def control_region(action, region_uuid):
-    if int(session.get('user_level', 0)) < 200:
-        flash("Unauthorized.", "error")
-        return redirect(url_for('regions.manage_regions'))
-
     allowed_actions = ['start', 'stop', 'restart', 'oar']
     if action not in allowed_actions:
         return redirect(url_for('regions.manage_regions'))
@@ -251,7 +249,7 @@ def control_region(action, region_uuid):
     return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/add', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def add_region():
     if request.method == 'POST':
         region_name = request.form.get('region_name', '').strip()
@@ -291,12 +289,9 @@ def add_region():
     return render_template('admin/add_region.html', sizes=sizes)
 
 @regions_bp.route('/toggle_state/<region_uuid>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def toggle_state(region_uuid):
     """Flips a managed region between Enabled (1) and Disabled (0)."""
-    if int(session.get('user_level', 0)) < 200:
-        flash("Unauthorized.", "error")
-        return redirect(url_for('regions.manage_regions'))
 
     pariah_conn = get_pariah_db()
     try:
@@ -328,12 +323,8 @@ def toggle_state(region_uuid):
     return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/delete/<region_uuid>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def delete_region(region_uuid):
-    if int(session.get('user_level', 0)) < 250:
-        flash("Unauthorized.", "error")
-        return redirect(url_for('regions.manage_regions'))
-
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
@@ -355,7 +346,7 @@ def delete_region(region_uuid):
     return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/edit/<region_uuid>', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def edit_region(region_uuid):
     if request.method == 'POST':
         size = request.form.get('Size', '256')
@@ -405,7 +396,7 @@ def edit_region(region_uuid):
         return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/import/<region_uuid>', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_REGIONS)
 def import_region(region_uuid):
     try:
         robust_conn = get_robust_db()
@@ -456,12 +447,8 @@ def import_region(region_uuid):
     return redirect(url_for('regions.manage_regions'))
 
 @regions_bp.route('/hosts', methods=['GET', 'POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_INFRA)
 def manage_hosts():
-    if int(session.get('user_level', 0)) < 250:
-        flash("Unauthorized: Only Level 250+ Senior Admins can modify DNS mappings.", "error")
-        return redirect(url_for('regions.manage_regions'))
-
     pariah_conn = get_pariah_db()
 
     if request.method == 'POST':
@@ -498,12 +485,8 @@ def manage_hosts():
 
 
 @regions_bp.route('/hosts/<ip>/delete', methods=['POST'])
-@require_admin
+@rbac_required(PERM_MANAGE_INFRA)
 def delete_host(ip):
-    if int(session.get('user_level', 0)) < 250:
-        flash("Unauthorized.", "error")
-        return redirect(url_for('regions.manage_regions'))
-
     try:
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:

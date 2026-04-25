@@ -22,15 +22,29 @@
                     <a href="{{ url_for('tickets.index') }}" class="btn btn-warning" Title="Helpdesk">&#10067;</a>
 
                     {% if session.get('uuid') %}
-                        {% if session.get('is_admin') %}
+                        {% if session.get('permissions', 0) > 0 %}
                             <div class="admin-dropdown">
                                 <span class="admin-menu">Admin Tools &#9662;</span>
                                 <div class="dropdown-content">
-                                    <a href="{{ url_for('admin.pending_approvals') }}">Registration Approvals</a>
-                                    <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}">User Management</a>
-                                    <a href="{{ url_for('regions.manage_regions') }}">Region Configs</a>
-                                    <a href="{{ url_for('policies.manage_policies') }}">Grid Policies</a>
-                                    <a href="{{ url_for('admin.system_settings') }}">System Settings</a>
+                                    {% if has_permission(PERMS.PERM_APPROVE_USERS) %}
+                                        <a href="{{ url_for('admin.pending_approvals') }}">Registration Approvals</a>
+                                    {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_USER_LOOKUP) %}
+                                        <a href="{{ url_for('user_mgmt.gatekeeper_lookup') }}">User Management</a>
+                                    {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_MANAGE_REGIONS) %}
+                                        <a href="{{ url_for('regions.manage_regions') }}">Region Configs</a>
+                                    {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %}
+                                        <a href="{{ url_for('policies.manage_policies') }}">Grid Policies</a>
+                                    {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_MANAGE_SETTINGS) %}
+                                        <a href="{{ url_for('admin.system_settings') }}">System Settings</a>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endif %}

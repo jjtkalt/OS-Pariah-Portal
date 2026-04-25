@@ -52,11 +52,17 @@ def create_app(config_class='app.config.Config'):
     @app.context_processor
     def inject_globals():
         from app.utils.db import get_dynamic_config
+        from app.utils import auth_helpers
+        from app.utils.schema import RBAC_SCHEMA
+
         return {
             'grid_name': get_dynamic_config('grid_name'),
             'grid_website_url': get_dynamic_config('grid_website_url'),
             'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY'),
-            'custom_css_path': get_dynamic_config('custom_css_path')
+            'custom_css_path': get_dynamic_config('custom_css_path'),
+            'has_permission': auth_helpers.has_permission,
+            'PERMS': auth_helpers, # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML
+            'RBAC_SCHEMA': RBAC_SCHEMA # Allows us to build the categorized UI!
         }
 
     from .blueprints.auth.routes import auth_bp
