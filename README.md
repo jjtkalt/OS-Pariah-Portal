@@ -78,7 +78,7 @@ In our testing, the following commands were run as the opensim user from Pariah 
 - Create the virtual environment inside /opt/os_pariah: ```cd /opt/os_pariah; python3.12 -m venv venv```
 - Activate the Virtual environment in your shell: ```source /opt/os_pariah/venv/bin/activate```
 - Install requirements into the virtual environment: ```/opt/os_pariah/venv/bin/pip -r requirements.txt```
-- Run database migrations: ```/opt/os_pariah/venv/bin/python migrate.py```
+- Run database migrations: ```/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/migrate.py```
 - Install and activate the Systemd services and the Nginx vhost configuration from the /opt/os_pariah/packaging directory
   - ```sudo cp /opt/os_pariah/packaging/OS-Pariah.conf /etc/nginx/vhosts.d/```
   - ```sudo cp /opt/os_pariah/packaging/*.service /opt/os_pariah/packaging/*.timer /etc/systemd/system/```

@@ -13,6 +13,7 @@ from flask import Blueprint, request, session, redirect, url_for, flash, current
 from app.utils.db import get_robust_db, get_pariah_db, get_dynamic_config
 from app.utils.robust_api import call_robust_api
 from app.utils.notifications import send_password_reset_email
+from app.utils.schema import *
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -93,7 +94,23 @@ def login():
                         with pariah_conn.cursor() as p_cursor:
                             p_cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (user_uuid,))
                             rbac_row = p_cursor.fetchone()
-                            session['permissions'] = rbac_row['permissions'] if rbac_row else 0
+                            if rbac_row:
+                                # Normal login for an existing staff member
+                                session['permissions'] = rbac_row['permissions']
+                            else:
+                                # --- THE BOOTSTRAP LOGIC ---
+                                # If they have no RBAC record, but OpenSim says they are a Grid Owner (Specifically 250+)
+                                # The logic here is to allow a grid owner to setup their account that first time into portal so they don't have to edit the database directly or run scripts.
+                                # Note: This WILL NOT allow "recovering access" in the portal without the extra step of deleting the RBAC entry for their UUID first.
+                                if account['userLevel'] >= 250:
+                                    p_cursor.execute("INSERT INTO user_rbac (user_uuid, permissions) VALUES (%s, %s)", (user_uuid, PERM_SUPER_ADMIN))
+                                    pariah_conn.commit()
+                                    session['permissions'] = PERM_SUPER_ADMIN
+                                    flash('Bootstrap: Super Admin permissions automatically synchronized from your OpenSim user level.', 'info')
+                                    current_app.logger.info(f"Bootstrap: Auto-granted PERM_SUPER_ADMIN to {first_name} {last_name}.")
+                                else:
+                                    # They are staff (1-249), but have no assigned portal roles yet
+                                    session['permissions'] = 0
                     else:
                         session['permissions'] = 0
                     # --------------------------------
