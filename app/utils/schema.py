@@ -2,11 +2,14 @@
 
 KNOWN_SETTINGS = {
     "Grid Identity": {
-        "grid_name": {"label": "Grid Name", "type": "text", "default": "OS Pariah"},
-        "DOMAIN": {"label": "Robust Domain (Base URL)", "type": "url", "default": "http://127.0.0.1:8002"},
-        "ROBUST_PRIVATE_URL": {"label": "Robust Private URL", "type": "url", "default": "http://127.0.0.1:8003"},
-        "portal_url": {"label": "Portal Domain URL", "type": "url", "default": "https://portal.example.com"},
-        "grid_website_url": {"label": "Grid Main Website URL", "type": "url", "default": "https://example.com"},
+        "grid_name": {"label": "Grid Name", "type": "text", "default": "OS Pariah", "no_reset": True},
+        "grid_website_url": {"label": "Grid Main Website URL", "type": "url", "default": "https://example.com", "no_reset": True},
+        "grid_domain": {"label": "Grid Base Domain (e.g., example.com)", "type": "text", "default": "ospariah.local", "no_reset": True},
+        "portal_subdomain": {"label": "Portal Subdomain (e.g., portal)", "type": "text", "default": "portal", "no_reset": True},
+        "robust_protocol": {"label": "Robust Protocol", "type": "text", "default": "http"},
+        "robust_subdomain": {"label": "Robust Subdomain", "type": "text", "default": "robust"},
+        "robust_public_port": {"label": "Robust Public Port", "type": "number", "default": "8002"},
+        "robust_private_port": {"label": "Robust Private Port", "type": "number", "default": "8003"},
         "custom_css_path": {"label": "Custom CSS Path (For Theming)", "type": "text", "default": "/static/css/central.css"},
     },
     "Registration & Captcha": {
@@ -17,7 +20,7 @@ KNOWN_SETTINGS = {
         "TURNSTILE_SECRET_KEY": {"label": "Turnstile Secret Key", "type": "password", "default": "1x0000000000000000000000000000000AA"},
     },
     "User Access & Policies": {
-        "global_policy_version": {"label": "Global Policy Version", "type": "text", "default": "0.0"},
+        "global_policy_version": {"label": "Global Policy Version", "type": "text", "default": "0.0", "no_reset": True},
         "rejected_user_level": {"label": "Rejected User Level", "type": "number", "default": "-5"},
         "ban_level_account": {"label": "Account Ban User Level", "type": "number", "default": "-10"},
         "ban_level_ip": {"label": "IP Ban User Level", "type": "number", "default": "-11"},
@@ -25,14 +28,14 @@ KNOWN_SETTINGS = {
         "ban_level_host": {"label": "HostID Ban User Level", "type": "number", "default": "-13"},
     },
     "Communications (Webhooks & Email)": {
-        "discord_webhook_url": {"label": "Discord Webhook URL", "type": "password", "default": ""},
-        "matrix_webhook_url": {"label": "Matrix Server Base URL", "type": "url", "default": ""},
-        "matrix_access_token": {"label": "Matrix Access Token", "type": "password", "default": ""},
-        "matrix_room_id": {"label": "Matrix Room ID", "type": "text", "default": ""},
-        "smtp_server": {"label": "SMTP Server", "type": "text", "default": ""},
-        "smtp_port": {"label": "SMTP Port", "type": "number", "default": "587"},
-        "smtp_user": {"label": "SMTP Username", "type": "text", "default": ""},
-        "smtp_pass": {"label": "SMTP Password", "type": "password", "default": ""},
+        "discord_webhook_url": {"label": "Discord Webhook URL", "type": "password", "default": "", "no_reset": True},
+        "matrix_webhook_url": {"label": "Matrix Server Base URL", "type": "url", "default": "", "no_reset": True},
+        "matrix_access_token": {"label": "Matrix Access Token", "type": "password", "default": "", "no_reset": True},
+        "matrix_room_id": {"label": "Matrix Room ID", "type": "text", "default": "", "no_reset": True},
+        "smtp_server": {"label": "SMTP Server", "type": "text", "default": "", "no_reset": True},
+        "smtp_port": {"label": "SMTP Port", "type": "number", "default": "587", "no_reset": True},
+        "smtp_user": {"label": "SMTP Username", "type": "text", "default": "", "no_reset": True},
+        "smtp_pass": {"label": "SMTP Password", "type": "password", "default": "", "no_reset": True},
         "smtp_from": {"label": "SMTP From Address", "type": "email", "default": "noreply@example.com"},
     },
     "Helpdesk & Support": {
@@ -43,7 +46,7 @@ KNOWN_SETTINGS = {
         "default_max_agents": {"label": "Default Max Agents per Region", "type": "number", "default": "100"},
         "max_region_size_multiplier": {"label": "Max Region Size Multiplier", "type": "number", "default": "4"},
         "listable_regions": {"label": "Publicly Listable Regions", "type": "text", "default": "Welcome, Sandbox"},
-        "region_host_ips": {"label": "Valid Region Host IPs (eg: 127.0.0.1, 192.168.1.50)", "type": "text", "default": ""},
+        "region_host_ips": {"label": "Valid Region Host IPs (eg: 127.0.0.1, 192.168.1.50)", "type": "text", "default": "", "no_reset": True},
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
@@ -61,31 +64,35 @@ KNOWN_SETTINGS = {
 
 # --- RBAC BITWISE CONSTANTS ---
 PERM_NONE            = 0
-PERM_SUPER_ADMIN     = 1 << 0  
-PERM_MANAGE_ROLES    = 1 << 1  
-PERM_ADD_NOTES       = 1 << 2  
-PERM_VIEW_NOTES      = 1 << 3  
-PERM_STAFF_TICKETS   = 1 << 4  
-PERM_POST_NEWS       = 1 << 5  
-PERM_DELETE_NEWS     = 1 << 6  
-PERM_REGION_CONTROL  = 1 << 7  
-PERM_MANAGE_REGIONS  = 1 << 8  
-PERM_USER_LOOKUP     = 1 << 9  
-PERM_VIEW_ASSETS     = 1 << 10 
-PERM_MANAGE_SETTINGS = 1 << 11 
-PERM_MANAGE_INFRA    = 1 << 12 
-PERM_ISSUE_BANS      = 1 << 13 
-PERM_APPROVE_USERS   = 1 << 14 
-PERM_RENAME_USERS    = 1 << 15 
-PERM_DELETE_TICKETS  = 1 << 16 
-PERM_DELETE_USER     = 1 << 17 
-PERM_MANAGE_ASSETS   = 1 << 18 
-PERM_MANAGE_POLICIES = 1 << 19 
+PERM_SUPER_ADMIN     = 1 << 0
+PERM_MANAGE_ROLES    = 1 << 1
+PERM_ADD_NOTES       = 1 << 2
+PERM_VIEW_NOTES      = 1 << 3
+PERM_STAFF_TICKETS   = 1 << 4
+PERM_POST_NEWS       = 1 << 5
+PERM_DELETE_NEWS     = 1 << 6
+PERM_REGION_CONTROL  = 1 << 7
+PERM_MANAGE_REGIONS  = 1 << 8
+PERM_USER_LOOKUP     = 1 << 9
+PERM_VIEW_ASSETS     = 1 << 10
+PERM_MANAGE_SETTINGS = 1 << 11
+PERM_MANAGE_INFRA    = 1 << 12
+PERM_ISSUE_BANS      = 1 << 13
+PERM_APPROVE_USERS   = 1 << 14
+PERM_RENAME_USERS    = 1 << 15
+PERM_DELETE_TICKETS  = 1 << 16
+PERM_DELETE_USER     = 1 << 17
+PERM_MANAGE_ASSETS   = 1 << 18
+PERM_MANAGE_POLICIES = 1 << 19
+PERM_UPDATE_EMAIL    = 1 << 20 # 1048576 - Admin: Force update user emails
+PERM_FORCE_PWRESET   = 1 << 21 # 2097152 - Admin: Send password reset links
+PERM_VIEW_AUDIT      = 1 << 22 # 4194304 - Security: View Audit Logs
 
 # --- UNIFIED RBAC UI SCHEMA ---
 RBAC_SCHEMA = {
     "System & Security": {
         PERM_SUPER_ADMIN: {"label": "Super Admin", "desc": "Master Key: Overrides all checks"},
+        PERM_VIEW_AUDIT: {"label": "View Audit Logs", "desc": "Access the administrative action tracking log"},
         PERM_MANAGE_ROLES: {"label": "Manage Roles", "desc": "Can modify user permissions"},
         PERM_MANAGE_SETTINGS: {"label": "Manage Settings", "desc": "Edit global configurations"},
         PERM_MANAGE_INFRA: {"label": "Manage Infra", "desc": "Modify DNS/Host Mappings"},
@@ -105,6 +112,8 @@ RBAC_SCHEMA = {
     "User Administration": {
         PERM_APPROVE_USERS: {"label": "Approve Registrations", "desc": "Review and approve new users"},
         PERM_RENAME_USERS: {"label": "Rename Avatars", "desc": "Change first and last names"},
+        PERM_UPDATE_EMAIL: {"label": "Update Emails", "desc": "Force update a user's contact email"},
+        PERM_FORCE_PWRESET: {"label": "Force Password Reset", "desc": "Dispatch a secure reset link to a user"},
         PERM_DELETE_USER: {"label": "Delete User", "desc": "Erase avatar from the grid"},
     },
     "Communications & Assets": {

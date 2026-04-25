@@ -1,4 +1,4 @@
-name: Build and Publish RPM
+name: openSUSE RPM Build
 
 on:
   release:

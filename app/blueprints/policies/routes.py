@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from app.utils.db import get_pariah_db, get_dynamic_config
 from app.utils.auth_helpers import rbac_required, has_permission
 from app.utils.schema import *
+from app.utils.audit import log_audit_action
 
 policies_bp = Blueprint('policies', __name__)
 
@@ -117,6 +118,7 @@ def edit_policy(slug):
                     INSERT INTO config (config_key, config_value) VALUES ('global_policy_version', %s) 
                     ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
                 """, (new_version,))
+                log_audit_action("Policies", f"Updated the global policies to version '{new_version}'")
                 flash(f"Policy updated. Global version bumped to {new_version}.", "success")
             else:
                 flash("Document updated silently.", "success")
@@ -138,6 +140,7 @@ def delete_policy(slug):
         with pariah_conn.cursor() as cursor:
             cursor.execute("DELETE FROM policies WHERE slug = %s", (slug,))
         pariah_conn.commit()
+        log_audit_action("Policies", f"Deleted the policy for '{slug}'")
         flash(f"Document '{slug}' permanently deleted.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete policy {slug}: {e}")

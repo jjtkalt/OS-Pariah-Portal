@@ -3,7 +3,11 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.auth_helpers import rbac_required, has_permission
 from app.utils.schema import *
-from app.utils.robust_api import set_user_level, update_robust_name
+from app.utils.robust_api import set_user_level, update_robust_name, update_robust_email
+import time
+import secrets
+from app.utils.notifications import send_password_reset_email
+from app.utils.audit import log_audit_action
 
 user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 
@@ -18,6 +22,7 @@ def gatekeeper_lookup():
         return render_template('admin/lookup.html', results=None, search_type=search_type, query="")
 
     pariah_conn = get_pariah_db()
+    robust_conn = get_robust_db()
     uuids = set()
 
     table_map = {
@@ -54,57 +59,82 @@ def gatekeeper_lookup():
             elif search_type == 'uuid':
                 uuids.add(query_raw)
 
+        # 1B. Search Robust UserAccounts (Catches users who have never logged in)
+        with robust_conn.cursor() as r_cursor:
+            if search_type == 'username':
+                r_cursor.execute("SELECT PrincipalID FROM useraccounts WHERE CONCAT(FirstName, ' ', LastName) LIKE %s", (f"%{query_raw}%",))
+                uuids.update([row['PrincipalID'] for row in r_cursor.fetchall()])
+                
+            elif search_type == 'exact_username':
+                r_cursor.execute("SELECT PrincipalID FROM useraccounts WHERE CONCAT(FirstName, ' ', LastName) = %s", (query_raw,))
+                uuids.update([row['PrincipalID'] for row in r_cursor.fetchall()])
+                
+            elif search_type == 'uuid':
+                # Validate that the UUID actually exists in Robust if we are searching explicitly
+                r_cursor.execute("SELECT PrincipalID FROM useraccounts WHERE PrincipalID = %s", (query_raw,))
+                if r_cursor.fetchone():
+                    uuids.add(query_raw)
+
             # Changed sets to dictionaries to hold the timestamps
-            results = {'ips': {}, 'macs': {}, 'host_ids': {}}
+            results = {'usernames': set(), 'ips': {}, 'macs': {}, 'host_ids': {}}
             uuid_info = {}
             
             if uuids:
                 format_strings = ','.join(['%s'] * len(uuids))
                 uuid_tuple = tuple(uuids)
 
-                # Map user_uuid to the associated user_name
-                cursor.execute(f"SELECT user_uuid, MAX(user_name) as u_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
-                uuid_names = {row['user_uuid']: row['u_name'] for row in cursor.fetchall()}
+                with pariah_conn.cursor() as cursor:
+                    # Fetch Gatekeeper Usernames
+                    cursor.execute(f"SELECT DISTINCT user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
+                    results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
 
-                # Fetch IPs, group by IP, get most recent date, and sort!
-                cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
-                results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
+                    # Fetch IPs, MACs, HostIDs
+                    cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
+                    results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
 
-                # Fetch MACs
-                cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
-                results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
+                    cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
+                    results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
 
-                # Fetch Host IDs
-                cursor.execute(f"SELECT user_host_id, MAX(date_time) as last_seen FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings}) GROUP BY user_host_id ORDER BY last_seen DESC", uuid_tuple)
-                results['host_ids'] = {r['user_host_id']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_host_id']}
+                    cursor.execute(f"SELECT user_host_id, MAX(date_time) as last_seen FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings}) GROUP BY user_host_id ORDER BY last_seen DESC", uuid_tuple)
+                    results['host_ids'] = {r['user_host_id']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_host_id']}
 
-                # Fetch Hypergrid Origin Information & Timestamp
-                cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
-                grid_data = {row['user_uuid']: {'from': row['grid_from'], 'last_seen': format_dt(row['last_seen'])} for row in cursor.fetchall()}
+                    # Fetch Hypergrid Origin Information
+                    cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
+                    grid_data = {row['user_uuid']: {'from': row['grid_from'], 'last_seen': format_dt(row['last_seen'])} for row in cursor.fetchall()}
 
-                grid_domain = str(get_dynamic_config('domain')).strip().lower()
+                # Fetch Robust Data (Names, Email, Level) mapped by PrincipalID
+                robust_data = {}
+                with robust_conn.cursor() as r_cursor:
+                    r_cursor.execute(f"SELECT PrincipalID, FirstName, LastName, Email, userLevel FROM useraccounts WHERE PrincipalID IN ({format_strings})", uuid_tuple)
+                    for r in r_cursor.fetchall():
+                        robust_data[r['PrincipalID']] = r
+                        results['usernames'].add(f"{r['FirstName']} {r['LastName']}")
+
+                grid_fqdn = str(f"{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}").strip().lower()
 
                 for u in uuids:
                     g_data = grid_data.get(u, {})
                     origin = str(g_data.get('from', '')).strip()
-                    last_seen = g_data.get('last_seen', 'Unknown')
-                    
-                    avatar_name = uuid_names.get(u, 'Unknown Avatar')
-                    
-                    # --- UPDATED LOCAL LOGIC ---
+                    last_seen = g_data.get('last_seen', 'Never Logged In')
+
                     is_local = False
                     origin_lower = origin.lower()
                     
-                    if not origin or origin == "None" or "127.0.0.1" in origin_lower or "localhost" in origin_lower:
-                        is_local = True
-                    elif grid_domain and grid_domain != "none" and grid_domain in origin_lower:
+                    if not origin or origin == "None" or "127.0.0.1" in origin_lower or "localhost" in origin_lower or grid_fqdn in origin_lower:
                         is_local = True
                     
+                    # Grab the specific Robust data for this UUID (or empty dict if HG visitor)
+                    r_data = robust_data.get(u, {})
+                    
                     uuid_info[u] = {
-                        'avatar_name': avatar_name,
                         'grid_from': "Local Grid" if is_local else origin,
                         'is_local': is_local,
-                        'last_seen': last_seen
+                        'last_seen': last_seen,
+                        'avatar_name': f"{r_data.get('FirstName', 'Unknown')} {r_data.get('LastName', 'User')}".strip(),
+                        'first_name': r_data.get('FirstName', ''),
+                        'last_name': r_data.get('LastName', ''),
+                        'current_email': r_data.get('Email', ''),
+                        'current_level': r_data.get('userLevel', '')
                     }
 
     except Exception as e:
@@ -327,10 +357,7 @@ def update_user_level(uuid):
 @user_mgmt_bp.route('/<uuid>/rename', methods=['POST'])
 @rbac_required(PERM_RENAME_USERS)
 def rename_user(uuid):
-    """Allows Level 200+ Admins to rename a user's avatar."""
-    if int(session.get('user_level', 0)) < 200:
-        flash("Unauthorized: Requires Level 200+.", "error")
-        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+    """Allows Admins to rename a user's avatar."""
 
     new_first = request.form.get('first_name', '').strip()
     new_last = request.form.get('last_name', '').strip()
@@ -347,13 +374,14 @@ def rename_user(uuid):
 
     return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
 
-user_mgmt_bp.route('/<uuid>/roles', methods=['GET', 'POST'])
+@user_mgmt_bp.route('/<uuid>/roles', methods=['GET', 'POST'])
 @rbac_required(PERM_MANAGE_ROLES)
 def manage_roles(uuid):
+    """Admin interface for assigning granular bitwise permissions to a user."""
     pariah_conn = get_pariah_db()
     robust_conn = get_robust_db()
     
-    # 1. Fetch user's real name from Robust
+    # 1. Fetch user's real name from Robust for the UI header
     with robust_conn.cursor() as r_cursor:
         r_cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (uuid,))
         account = r_cursor.fetchone()
@@ -365,27 +393,27 @@ def manage_roles(uuid):
     avatar_name = f"{account['FirstName']} {account['LastName']}"
 
     if request.method == 'POST':
-        # Get list of checked values from the form (returns strings)
+        # 2. Get list of checked values from the form (returns as strings)
         selected_bits = request.form.getlist('permissions')
         
-        # Calculate the new combined bitmask
+        # 3. Calculate the new combined bitmask using Bitwise OR (|=)
         new_bitmask = 0
         for bit_str in selected_bits:
             try:
-                new_bitmask |= int(bit_str) # Bitwise OR combines them!
+                new_bitmask |= int(bit_str) 
             except ValueError:
                 pass
                 
         try:
             with pariah_conn.cursor() as cursor:
-                # Upsert the new permissions
                 cursor.execute("""
                     INSERT INTO user_rbac (user_uuid, permissions) 
                     VALUES (%s, %s)
                     ON DUPLICATE KEY UPDATE permissions = VALUES(permissions)
                 """, (uuid, new_bitmask))
             pariah_conn.commit()
-            
+
+            log_audit_action("Update Roles", f"Changed bitmask to {new_bitmask}", target_uuid=uuid)
             flash(f"Permissions successfully updated for {avatar_name}.", "success")
         except Exception as e:
             current_app.logger.error(f"Failed to update roles for {uuid}: {e}")
@@ -393,7 +421,7 @@ def manage_roles(uuid):
             
         return redirect(url_for('user_mgmt.manage_roles', uuid=uuid))
 
-    # 3. GET Request: Fetch current permissions to populate the checkboxes
+    # 4. GET Request: Fetch current permissions to populate the checkboxes
     current_permissions = 0
     with pariah_conn.cursor() as cursor:
         cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (uuid,))
@@ -405,3 +433,55 @@ def manage_roles(uuid):
                            target_uuid=uuid, 
                            avatar_name=avatar_name, 
                            current_permissions=current_permissions)
+
+@user_mgmt_bp.route('/<uuid>/update_email', methods=['POST'])
+@rbac_required(PERM_UPDATE_EMAIL)
+def admin_update_email(uuid):
+    """Allows authorized admins to manually correct a user's email address."""
+    new_email = request.form.get('new_email', '').strip()
+    
+    if not new_email:
+        flash("Email address cannot be blank.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
+
+    if update_robust_email(uuid, new_email):
+        log_audit_action("Update Email", f"Changed email to {new_email}", target_uuid=uuid)
+        flash(f"User's email successfully updated to {new_email}.", "success")
+    else:
+        flash("Failed to update email via Robust API.", "error")
+
+    return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
+
+@user_mgmt_bp.route('/<uuid>/force_password_reset', methods=['POST'])
+@rbac_required(PERM_FORCE_PWRESET)
+def admin_force_password_reset(uuid):
+    """Generates a secure password reset link and emails it to the user."""
+    robust_conn = get_robust_db()
+    with robust_conn.cursor() as r_cursor:
+        r_cursor.execute("SELECT Email FROM useraccounts WHERE PrincipalID = %s", (uuid,))
+        account = r_cursor.fetchone()
+
+    if not account or not account['Email']:
+        flash("Cannot send reset link: This user has no email address on file in the grid.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
+
+    token = secrets.token_urlsafe(32)
+    expires_at = int(time.time()) + 3600 # 1 hour
+
+    pariah_conn = get_pariah_db()
+    try:
+        with pariah_conn.cursor() as p_cursor:
+            p_cursor.execute(
+                "INSERT INTO password_resets (token, user_uuid, expires_at) VALUES (%s, %s, %s)",
+                (token, uuid, expires_at)
+            )
+        pariah_conn.commit()
+
+        send_password_reset_email(account['Email'], token)
+        log_audit_action("Force Password Reset", f"Forced a password reset", target_uuid=uuid)
+        flash(f"A secure password reset link has been dispatched to {account['Email']}.", "success")
+    except Exception as e:
+        current_app.logger.error(f"Failed to generate admin password reset for {uuid}: {e}")
+        flash("A database error occurred while generating the reset token.", "error")
+
+    return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))

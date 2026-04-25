@@ -62,7 +62,8 @@ def create_app(config_class='app.config.Config'):
             'custom_css_path': get_dynamic_config('custom_css_path'),
             'has_permission': auth_helpers.has_permission,
             'PERMS': auth_helpers, # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML
-            'RBAC_SCHEMA': RBAC_SCHEMA # Allows us to build the categorized UI!
+            'RBAC_SCHEMA': RBAC_SCHEMA,
+            'check_bit': lambda mask, bit: bool(mask & bit)
         }
 
     from .blueprints.auth.routes import auth_bp

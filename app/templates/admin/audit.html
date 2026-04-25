@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Audit Log - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="flex-between flex-wrap gap-10 mb-20">
+    <div>
+        <h1 class="text-primary m-0">System Audit Log</h1>
+        <p class="text-muted mt-5 m-0">Immutable record of administrative actions.</p>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin.audit_log') }}" class="d-flex gap-10 m-0">
+        <input type="text" name="q" placeholder="Search logs..." value="{{ search }}" class="m-0">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if search %}
+            <a href="{{ url_for('admin.audit_log') }}" class="btn m-0">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card p-0" style="overflow-x: auto;">
+    <table class="m-0 w-100" style="min-width: 800px;">
+        <thead>
+            <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Administrator</th>
+                <th>Action</th>
+                <th>Target / Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="text-sm text-muted" style="white-space: nowrap;">
+                    {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                </td>
+                <td>
+                    <strong class="d-block text-main">{{ log.admin_name }}</strong>
+                    <span class="text-sm text-muted" style="font-family: monospace;">{{ log.ip_address }}</span>
+                </td>
+                <td>
+                    <span class="text-sm fw-bold" style="background: var(--info-bg); color: var(--info); padding: 4px 8px; border-radius: 4px;">
+                        {{ log.action }}
+                    </span>
+                </td>
+                <td>
+                    {% if log.target_uuid %}
+                        <span class="text-sm text-muted d-block mb-5" style="font-family: monospace;">Target: {{ log.target_uuid }}</span>
+                    {% endif %}
+                    <span class="text-sm" style="line-height: 1.4;">{{ log.details }}</span>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center text-muted" style="padding: 40px;">
+                    No audit records found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="flex-between mt-20">
+    {% if page > 1 %}
+        <a href="{{ url_for('admin.audit_log', page=page-1, q=search) }}" class="btn">&larr; Newer</a>
+    {% else %}
+        <div></div> 
+    {% endif %}
+
+    <span class="text-muted">Page {{ page }}</span>
+
+    {% if logs|length == 100 %}
+        <a href="{{ url_for('admin.audit_log', page=page+1, q=search) }}" class="btn">Older &rarr;</a>
+    {% else %}
+        <div></div> 
+    {% endif %}
+</div>
+{% endblock %}

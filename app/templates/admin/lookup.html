@@ -64,7 +64,7 @@
                                 <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='exact_username', q=info.avatar_name) }}" class="text-primary fw-bold text-lg" style="text-decoration: none;">
                                     {{ info.avatar_name }}
                                 </a>
-                                <span class="uuid text-right d-block">({{ info.last_seen }})</span>
+                                <span class="date">({{ info.last_seen }})</span>
                                 
                             </div>
                             <div class="uuid d-block">
@@ -78,32 +78,53 @@
                                     🛸 HG: {{ info.grid_from }}
                                 {% endif %}
                             </div>
-                            <div class="flex-between flex-wrap gap-5">
+                            <div class="pt-10 flex-between gap-5">
                                 <a href="{{ url_for('user_mgmt.create_ban', uuid=u, type='account') }}" class="btn btn-danger text-sm p-0">Ban UUID</a>
                                 <a href="{{ url_for('admin.texture_gallery', uuid=u) }}" class="btn text-sm p-0">View Textures</a>
                                 <a href="{{ url_for('user_mgmt.user_notes', uuid=u) }}" class="btn btn-info text-sm p-0">Staff Notes</a>
                             </div>
-                            {% if info.is_local %}
-                                {% if session.get('user_level', 0)|int >= 250 %}
-                                    <div>
-                                        <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="w-100">
-                                            <div class="flex-between gap-5">
-                                                <input type="number" name="new_level" placeholder="Level (e.g. 200)" required>
-                                                <button type="submit" class="btn-warning text-sm" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
-                                                <a href="{{ url_for('user_mgmt.manage_roles', uuid=u) }}" class="btn btn-warning text-sm">Manage Roles</a>
+                                {% if info.is_local %}
+                                    <div class="mt-10 w-100 pb-10" style="border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                                        {% if has_permission(PERMS.PERM_MANAGE_ROLES) %}
+                                        <form method="POST" action="{{ url_for('user_mgmt.update_user_level', uuid=u) }}" class="w-100 mb-10">
+                                            <div>
+                                                <input type="number" name="new_level" value="{{ info.current_level }}" placeholder="Level (e.g. 200)" required>
+                                                <div class="flex-between gap-5">
+                                                    <button type="submit" class="btn-warning p-0 text-sm w-100" onclick="return confirm('Are you sure you want to change this user\'s access level?');">Set Level</button>
+                                                    <a href="{{ url_for('user_mgmt.manage_roles', uuid=u) }}" class="btn btn-warning text-sm p-0 w-100">Manage Roles</a>
+                                                </div>
                                             </div>
                                         </form>
-                                        <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="w-100">
+                                        {% endif %}
+                                        
+                                        {% if has_permission(PERMS.PERM_RENAME_USERS) %}
+                                        <form method="POST" action="{{ url_for('user_mgmt.rename_user', uuid=u) }}" class="w-100 mb-10">
                                             <div class="flex-between gap-5">
-                                                <input type="text" name="first_name" placeholder="New First Name" required>
-                                                <input type="text" name="last_name" placeholder="New Last Name" required>
-                                                <button type="submit" class="btn-info text-sm" onclick="return confirm('Rename this avatar?');">Rename</button>
+                                                <input type="text" name="first_name" value="{{ info.first_name }}" placeholder="New First Name" required>
+                                                <input type="text" name="last_name" value="{{ info.last_name }}" placeholder="New Last Name" required>
+                                            </div>
+                                            <button type="submit" class="btn-info p-0 text-sm w-100" onclick="return confirm('Rename this avatar?');">Rename</button>
+                                        </form>
+                                        {% endif %}
+
+                                        {% if has_permission(PERMS.PERM_UPDATE_EMAIL) %}
+                                        <form method="POST" action="{{ url_for('user_mgmt.admin_update_email', uuid=u) }}" class="w-100 mb-10">
+                                            <div>
+                                                <input type="email" name="new_email" value="{{ info.current_email }}" placeholder="New Email Address" required>
+                                            </div>
+                                            <div>
+                                                <button type="submit" class="btn-success p-0 text-sm w-100" onclick="return confirm('Change this user\'s email address?');">Update Email</button>
                                             </div>
                                         </form>
+                                        {% endif %}
+
+                                        {% if has_permission(PERMS.PERM_FORCE_PWRESET) %}
+                                        <form method="POST" action="{{ url_for('user_mgmt.admin_force_password_reset', uuid=u) }}" class="w-100">
+                                            <button type="submit" class="btn-warning p-0 fw-bold text-sm w-100" onclick="return confirm('Generate a secure password reset link and email it to the user?');">📧 Send Password Reset Email</button>
+                                        </form>
+                                        {% endif %}
                                     </div>
                                 {% endif %}
-                            {% endif %}
-
                         </li>
                     {% endfor %}
                 </ul>
@@ -115,8 +136,8 @@
                     {% for ip, last_seen in results.ips.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" class="text-main">{{ ip }}</a>
-                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban IP</a>
+                            <span class="date">({{ last_seen }})</span>
+                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban IP</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -128,8 +149,8 @@
                     {% for mac, last_seen in results.macs.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" class="text-main">{{ mac }}</a>
-                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban MAC</a>
+                            <span class="date">({{ last_seen }})</span>
+                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban MAC</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -141,8 +162,8 @@
                     {% for hid, last_seen in results.host_ids.items() %}
                         <li class="mb-10">
                             <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" class="text-main">{{ hid }}</a>
-                            <span class="text-muted text-sm" style="font-family: sans-serif; margin-left: 8px;">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban ID</a>
+                            <span class="date">({{ last_seen }})</span>
+                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban ID</a>
                         </li>
                     {% endfor %}
                 </ul>

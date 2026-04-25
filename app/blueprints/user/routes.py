@@ -2,12 +2,13 @@ import os
 import uuid
 import subprocess
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory
-from app.utils.db import get_pariah_db, get_dynamic_config
+from app.utils.db import get_pariah_db, get_dynamic_config, get_robust_db
 from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password
 from app.utils.notifications import send_verification_email, send_email_change_verification
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
 
+@user_bp.route('/profile', methods=['GET'])
 @user_bp.route('/profile', methods=['GET'])
 def profile():
     if not session.get('uuid'):
@@ -18,7 +19,19 @@ def profile():
         cursor.execute("SELECT status, requested_at, file_path FROM iar_backups WHERE user_uuid = %s ORDER BY requested_at DESC LIMIT 5", (session['uuid'],))
         backups = cursor.fetchall()
         
-    return render_template('user/profile.html', backups=backups)
+    # --- NEW: Fetch current email from Robust ---
+    current_email = "Unknown"
+    robust_conn = get_robust_db()
+    try:
+        with robust_conn.cursor() as r_cursor:
+            r_cursor.execute("SELECT Email FROM useraccounts WHERE PrincipalID = %s", (session['uuid'],))
+            account = r_cursor.fetchone()
+            if account and account['Email']:
+                current_email = account['Email']
+    except Exception as e:
+        current_app.logger.error(f"Failed to fetch email for profile: {e}")
+
+    return render_template('user/profile.html', backups=backups, current_email=current_email)
 
 @user_bp.route('/profile/password', methods=['POST'])
 def update_password():

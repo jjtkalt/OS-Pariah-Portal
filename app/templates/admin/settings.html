@@ -3,66 +3,72 @@
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
     <h1 class="text-primary m-0 mb-5">System Configuration</h1>
-    <p class="text-muted mb-20 mt-0">Manage global setting.</p>
+    <p class="text-muted mb-20 mt-0">Manage global settings. Changes save automatically.</p>
 
-    <form action="{{ url_for('admin.system_settings') }}" method="POST" class="m-0">
+    {% for category, fields in schema.items() %}
+    <fieldset class="card p-0 mb-20">
+        <legend>{{ category }}</legend>
+        <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+            {% for key, meta in fields.items() %}
+                {% set current_val = db_settings.get(key, meta.default) %}
+                {% set is_overridden = key in db_settings and db_settings[key] != (meta.default | string) %}
 
-        {% for category, fields in schema.items() %}
-        <fieldset class="card p-0 mb-20">
-            <legend>{{ category }}</legend>
-            <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
-                {% for key, meta in fields.items() %}
-                    {% set current_val = db_settings.get(key, meta.default) %}
-                    <div class="mb-10 relative" style="position: relative;">
-                        <div class="flex-between mb-5">
-                            <label for="cfg_{{ key }}" class="fw-bold m-0">
-                                {{ meta.label }}
-                                <span class="text-muted text-sm" style="font-weight: normal; margin-left: 5px;">(Default: {{ meta.default }})</span>
-                            </label>
+                <div class="mb-10 relative">
+                    <div class="flex-between mb-5">
+                        <label for="cfg_{{ key }}" class="fw-bold m-0 d-flex gap-5" style="align-items: center;">
+                            {{ meta.label }}
                             
-                            {% if key in db_settings %}
-                                <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Revert to Default" onclick="deleteSetting('{{ key }}')">Reset</button>
-                            {% else %}
-                                <button type="button" class="btn-disabled text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Already Set to Default" disabled>Already default</button>
+                            <span id="status_{{ key }}" style="display: none; font-size: 1rem;"></span>
+                            <div id="spinner_{{ key }}" class="spinner m-0" style="display: none; border-top-color: var(--primary); width: 12px; height: 12px;"></div>
+                        </label>
+                        
+                        <div id="ctrl_{{ key }}">
+                            {% if not meta.no_reset %}
+                                {% if is_overridden %}
+                                    <span class="text-muted text-sm" style="margin-right: 5px;">(Default: {{ meta.default }})</span>
+                                    <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Revert to Default" onclick="resetToDefault('{{ key }}', '{{ meta.default }}')">Reset</button>
+                                {% else %}
+                                    <span class="text-muted text-sm">(Already default)</span>
+                                {% endif %}
                             {% endif %}
                         </div>
-
-                        {% if meta.type == 'boolean' %}
-                            <select id="cfg_{{ key }}" name="cfg_{{ key }}" class="w-100 mb-0">
-                                <option value="true" {% if current_val == 'true' %}selected{% endif %}>Yes / Enabled</option>
-                                <option value="false" {% if current_val == 'false' %}selected{% endif %}>No / Disabled</option>
-                            </select>
-                        {% else %}
-                            <input type="{{ meta.type }}" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ current_val }}" class="w-100 mb-0">
-                        {% endif %}
                     </div>
-                {% endfor %}
-            </div>
-        </fieldset>
-        {% endfor %}
 
-        {% if custom_settings %}
-        <fieldset class="card p-0 mb-20" style="border-color: var(--text-muted);">
-            <legend class="text-muted">Custom Variables</legend>
-            <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
-                {% for key, val in custom_settings.items() %}
-                <div class="mb-10">
-                    <div class="flex-between mb-5">
-                        <label for="cfg_{{ key }}" class="fw-bold m-0" style="font-family: monospace;">{{ key }}</label>
-                        <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Delete Variable" onclick="deleteSetting('{{ key }}')">Delete</button>
-                    </div>
-                    <input type="text" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ val }}" class="w-100 mb-0">
+                    {% if meta.type == 'boolean' %}
+                        <select id="cfg_{{ key }}" name="cfg_{{ key }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">
+                            <option value="true" {% if current_val == 'true' %}selected{% endif %}>Yes / Enabled</option>
+                            <option value="false" {% if current_val == 'false' %}selected{% endif %}>No / Disabled</option>
+                        </select>
+                    {% else %}
+                        <input type="{{ meta.type }}" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ current_val }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">
+                    {% endif %}
                 </div>
-                {% endfor %}
-            </div>
-        </fieldset>
-        {% endif %}
-
-        <div class="text-right mt-20">
-            <button type="submit" class="btn-success text-lg" style="padding: 10px 30px;">Save All Configurations</button>
+            {% endfor %}
         </div>
-    </form>
-    
+    </fieldset>
+    {% endfor %}
+
+    {% if custom_settings %}
+    <fieldset class="card p-0 mb-20" style="border-color: var(--text-muted);">
+        <legend class="text-muted">Custom Variables</legend>
+        <div class="grid-cards" style="grid-template-columns: 1fr 1fr;">
+            {% for key, val in custom_settings.items() %}
+            <div class="mb-10">
+                <div class="flex-between mb-5">
+                    <label for="cfg_{{ key }}" class="fw-bold m-0 d-flex gap-5" style="font-family: monospace; align-items: center;">
+                        {{ key }}
+                        <span id="status_{{ key }}" style="display: none; font-size: 1rem;"></span>
+                        <div id="spinner_{{ key }}" class="spinner m-0" style="display: none; border-top-color: var(--primary); width: 12px; height: 12px;"></div>
+                    </label>
+                    <button type="button" class="btn-danger text-sm m-0 p-0" style="padding: 2px 6px; font-size: 0.7rem;" title="Delete Variable" onclick="deleteSetting('{{ key }}')">Delete</button>
+                </div>
+                <input type="text" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ val }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">
+            </div>
+            {% endfor %}
+        </div>
+    </fieldset>
+    {% endif %}
+
     <fieldset class="mt-20" style="background: var(--success-bg); border-color: var(--success);">
         <legend class="fw-bold text-success" >Advanced: Add Custom Setting</legend>
         <p class="text-sm text-muted mt-0">
@@ -90,6 +96,72 @@
 
 {% block scripts %}
 <script>
+    function saveSetting(key, value) {
+        const spinner = document.getElementById('spinner_' + key);
+        const statusIcon = document.getElementById('status_' + key);
+        const ctrlBox = document.getElementById('ctrl_' + key);
+
+        // Show spinner
+        spinner.style.display = 'inline-block';
+        statusIcon.style.display = 'none';
+
+        const formData = new URLSearchParams();
+        formData.append('key', key);
+        formData.append('value', value);
+
+        fetch('{{ url_for("admin.update_single_setting") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(response => response.json())
+        .then(data => {
+            spinner.style.display = 'none';
+            statusIcon.style.display = 'inline-block';
+
+            if (data.status === 'success') {
+                statusIcon.innerHTML = '✅';
+                
+                // Update the UI if it's a known setting
+                if(ctrlBox) {
+                    // Extract the default value we stored in the HTML implicitly or grab it via a data attribute if needed, 
+                    // but for simplicity, we let a reload handle full UI reconstruction if they want to see the "Already Default" string perfectly, 
+                    // OR we just leave the green checkmark which is enough confirmation.
+                }
+            } else {
+                statusIcon.innerHTML = '❌';
+                statusIcon.title = data.message;
+            }
+
+            // Hide the checkmark after 3 seconds
+            setTimeout(() => {
+                statusIcon.style.display = 'none';
+            }, 3000);
+        })
+        .catch(err => {
+            spinner.style.display = 'none';
+            statusIcon.style.display = 'inline-block';
+            statusIcon.innerHTML = '❌';
+            console.error(err);
+        });
+    }
+
+    function resetToDefault(key, defaultVal) {
+        // Find the input element and revert its value
+        const inputEl = document.getElementById('cfg_' + key);
+        if(inputEl) {
+            inputEl.value = defaultVal;
+            // Trigger the save dynamically
+            saveSetting(key, defaultVal);
+            
+            // Instantly update the label to feel responsive
+            const ctrlBox = document.getElementById('ctrl_' + key);
+            if(ctrlBox) {
+                ctrlBox.innerHTML = `<span class="text-muted text-sm">(Already default: ${defaultVal})</span>`;
+            }
+        }
+    }
+
     function deleteSetting(key) {
         if(confirm(`Are you sure you want to remove the database override for '${key}'?`)) {
             document.getElementById('deleteTargetKey').value = key;

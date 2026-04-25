@@ -1,7 +1,7 @@
 # OS-Pariah
 An OpenSimulator administration and user portal.
 
-[![Automated Tests](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/ci-tests.yml) [![Latest RPM Build](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/release-rpm.yml/badge.svg)](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/release-rpm.yml)
+[![Automated Tests](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/ci-tests.yml) [![openSUSE RPM Build](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/release-rpm.yml/badge.svg)](https://github.com/jjtkalt/OS-Pariah-Portal/actions/workflows/release-rpm.yml)
 
 ## Overview
 The OS Pariah Portal is the living core of the OS-Pariah environment.  Building on the strong groundwork of the OS-Pariah Installation and System platform, the Portal gives a fundamentally user-focused platform giving users and administrators a functional and supportive platform for all parts of an active and thriving OpenSimulator Grid.
@@ -25,7 +25,8 @@ Pariah was built to be enterprise-grade, capable of handling high-traffic OpenSi
 * **Policy, Rules, and Documentation:** Pariah tracks user's acceptance of system policies, keeping everyone up to date while allowing administrators to easily edit and publish documentation.
 * **Dynamic Helpdesk System:** Guests and members alike have a central location to get the help they need.  Administrators can get updates on Discord or Matrix.  Abuse is limited by Cloudflare&copy;'s Turnstyle&trade; CAPTCHA system.
 * **System and Region Configuration:** All of the various parts of running a grid are accessible to users and administrators in Pariah's centralized system.
-* **Viewer Welcome/Splash page:** a dynamic page for users of the grid when they are logging in. (Set the Welcome page in Robust.ini to point to https://portal.example.com/comms/splash)
+* **Viewer Welcome/Splash page:** A dynamic page for users of the grid when they are logging in. (Set the Welcome page in Robust.ini to point to https://portal.example.com/comms/splash)
+* **Role Based Access Control:** Functions of the Pariah Portal are assignable reguardless of a users in-world permissions.  Grid-wide God powers are not required to access functionality in the portal
 
 ## Philosophical Reasoning
 For all the various reasons that one thing or another was chosen, or to learn more about the industry best practices that were intended to be followed, refer to [Philosophy](PHILOSOPHY.md).

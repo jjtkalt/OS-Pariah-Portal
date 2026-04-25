@@ -18,7 +18,7 @@
         
         <div class="alert info mb-20 flex-between">
             <span><strong>Current Bitmask Value:</strong> {{ current_permissions }}</span>
-            {% if (current_permissions b-and PERMS.PERM_SUPER_ADMIN) %}
+            {% if check_bit(current_permissions, PERMS.PERM_SUPER_ADMIN) %}
                 <span class="text-danger fw-bold">MASTER KEY ACTIVE</span>
             {% endif %}
         </div>
@@ -31,9 +31,9 @@
                     
                     {# Loop through the specific permissions in this category #}
                     {% for bit_val, details in perms.items() %}
-                        
-                        {# Jinja Bitwise AND: Checks if the user holds this specific bit #}
-                        {% set has_bit = (current_permissions b-and bit_val) %}
+
+                        {# Jinja Bitwise AND Workaround #}
+                        {% set has_bit = check_bit(current_permissions, bit_val) %}
 
                         <div class="card m-0" style="padding: 12px; {% if has_bit %}border-left: 4px solid var(--success); background: var(--success-bg);{% else %}border-left: 4px solid var(--border-color);{% endif %}">
                             <label class="radio fw-bold m-0 d-flex" style="align-items: center; gap: 10px; cursor: pointer;">

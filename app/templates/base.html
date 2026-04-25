@@ -45,6 +45,10 @@
                                     {% if has_permission(PERMS.PERM_MANAGE_SETTINGS) %}
                                         <a href="{{ url_for('admin.system_settings') }}">System Settings</a>
                                     {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_VIEW_AUDIT) %}
+                                        <a href="{{ url_for('admin.audit_log') }}">Audit Log</a>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endif %}

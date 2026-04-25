@@ -3,6 +3,7 @@ import urllib.parse
 from flask import current_app
 from app import cache
 from app.utils.db import get_robust_db, get_dynamic_config
+from app.utils.audit import log_audit_action
 
 def call_robust_api(namespace, method, payload):
     """
@@ -10,14 +11,10 @@ def call_robust_api(namespace, method, payload):
     Returns the raw text response or None on failure.
     """
     # Force to string, strip whitespace
-    base_url = str(get_dynamic_config('ROBUST_PRIVATE_URL')).strip()
+    base_url = str(get_dynamic_config('private_robust_url')).strip()
     
     # Strip any trailing slashes
     base_url = base_url.rstrip('/')
-    
-    # Critical: If the admin put the old /accounts path in the config, strip it out!
-    if base_url.endswith('/accounts'):
-        base_url = base_url[:-9]
 
     # Now safely append the specific namespace
     # We remove any leading slashes from the namespace to ensure exactly one slash
@@ -49,6 +46,7 @@ def create_robust_user(first_name, last_name, password, email):
         # Extract the UUID from the XML response
         match = re.search(r'<PrincipalID>(.*?)</PrincipalID>', response_text)
         if match:
+            log_audit_action("User created", f"Created user '{first_name}' '{last_name}' with Email '{email}'", target_uuid=match.group(1))
             return match.group(1)
             
     return None
@@ -60,6 +58,7 @@ def set_user_level(uuid, level):
         'UserLevel': level
     }
     response_text = call_robust_api('accounts', 'setaccount', payload)
+    log_audit_action("User Level", f"Changed to level '{level}'", target_uuid=uuid)
     return response_text and 'true' in response_text.lower()
 
 def update_robust_name(uuid, first_name, last_name):
@@ -70,6 +69,7 @@ def update_robust_name(uuid, first_name, last_name):
         'LastName': last_name
     }
     response_text = call_robust_api('accounts', 'setaccount', payload)
+    log_audit_action("User Name", f"Changed to '{first_name}' '{last_name}'", target_uuid=uuid)
     return response_text and 'true' in response_text.lower()
 
 def update_robust_email(uuid, email):
@@ -79,6 +79,7 @@ def update_robust_email(uuid, email):
         'Email': email
     }
     response_text = call_robust_api('accounts', 'setaccount', payload)
+    log_audit_action("User Email", f"Changed to '{email}'", target_uuid=uuid)
     return response_text and 'true' in response_text.lower()
 
 def update_user_password(user_uuid, new_password):
@@ -87,6 +88,7 @@ def update_user_password(user_uuid, new_password):
         'PRINCIPAL': user_uuid,
         'PASSWORD': new_password
     }
+    log_audit_action("User Password", f"Changed", target_uuid=user_uuid)
     response_text = call_robust_api('auth/plain', 'setpassword', payload)
     
     # If the API crashed or timed out, it's an immediate failure

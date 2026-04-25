@@ -35,6 +35,9 @@
         <form method="POST" action="{{ url_for('user.request_email_change') }}" onsubmit="showLoading('emailSpinner', 'emailBtn')">
             <fieldset class="group m-0 mt-20">
                 <legend>Update Email Address</legend>
+                
+                <p class="text-sm fw-bold text-main mt-0 mb-10">Current Email: <span class="text-primary">{{ current_email }}</span></p>
+                
                 <p class="text-sm text-muted mt-0">
                     You will need to click a verification link sent to the new address.
                 </p>

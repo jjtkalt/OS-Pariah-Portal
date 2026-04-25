@@ -21,7 +21,22 @@ def get_pariah_db():
 
 def get_dynamic_config(key, default=None):
     from app.utils.schema import KNOWN_SETTINGS
-    
+
+    # --- META-VARIABLE INTERCEPTS ---
+    # These keys don't exist in the DB or Schema directly; they are built on the fly!
+    if key == 'portal_url':
+        # Result: https://portal.example.com
+        return f"https://{get_dynamic_config('portal_subdomain')}.{get_dynamic_config('grid_domain')}"
+        
+    elif key == 'public_robust_url':
+        # Result: http://robust.example.com:8002
+        return f"{get_dynamic_config('robust_protocol')}://{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}:{get_dynamic_config('robust_public_port')}"
+        
+    elif key == 'private_robust_url':
+        # Result: http://robust.example.com:8003
+        return f"{get_dynamic_config('robust_protocol')}://{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}:{get_dynamic_config('robust_private_port')}"
+    # --------------------------------
+
     # 1. Try to get it from the live database first
     conn = get_pariah_db()
     with conn.cursor() as cursor:

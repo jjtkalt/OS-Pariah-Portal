@@ -208,7 +208,6 @@ input[type="text"], input[type="password"], input[type="email"], input[type="num
   box-sizing: border-box;
   color: var(--text-main);
   font-family: inherit;
-  margin-bottom: 16px;
   padding: 10px;
   transition: border-color 0.2s;
   width: 100%;
@@ -295,7 +294,7 @@ tr:hover {
 .date {
   color: var(--text-muted);
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.5rem;
 }
 .uuid {
   color: var(--text-muted);

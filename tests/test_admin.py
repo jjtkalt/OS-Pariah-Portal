@@ -18,27 +18,31 @@ def test_settings_unauthorized(client):
 
 
 # -------------------------------------------------------------------
-# Test 2: Successful Settings Update (Authorized Admin)
+# Test 2: Successful Settings Update (Authorized Admin via AJAX)
 # -------------------------------------------------------------------
 def test_settings_update_success(client, db_cursor):
-    """Proves an Admin with PERM_MANAGE_SETTINGS can UPSERT new settings."""
+    """Proves an Admin with PERM_MANAGE_SETTINGS can UPSERT new settings via the AJAX endpoint."""
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
         sess['permissions'] = PERM_MANAGE_SETTINGS # Inject the exact right bit!
 
-    response = client.post('/admin/settings', data={
-        'cfg_grid_name': 'My Awesome Test Grid',
-        'cfg_smtp_port': '2525'
+    # Target the NEW atomic AJAX endpoint
+    response = client.post('/admin/settings/update_single', data={
+        'key': 'cfg_grid_name',
+        'value': 'My Awesome Test Grid'
     }, follow_redirects=True)
 
+    # 1. Verify the database was touched
     assert db_cursor.execute.called, "Database cursor execute was not called."
     
+    # 2. Verify the exact UPSERT query was executed
     sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
     upsert_query_found = any("INSERT INTO config" in q for q in sql_queries)
     assert upsert_query_found, "Did not attempt to save settings to the database."
 
-    assert b"System settings saved" in response.data
+    # 3. Verify the JSON success response (AJAX returns JSON now, not HTML flash messages)
+    assert b"success" in response.data
 
 
 # -------------------------------------------------------------------
