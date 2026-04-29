@@ -5,7 +5,7 @@
 {% block content %}
 <div class="nav-bar flex-between" style="border-bottom: none;">
     <h2 class="m-0">Grid News & Announcements</h2>
-    {% if session.get('is_admin') %}
+    {% if has_permission(PERMS.PERM_POST_NEWS) %}
         <a href="{{ url_for('comms.post_news') }}" class="btn btn-success">+ Post Update</a>
     {% endif %}
 </div>
@@ -33,10 +33,10 @@
                 <div class="text-sm text-muted flex-between pt-10" style="border-top: 1px dashed var(--border-color);">
                     <div>Posted by: <strong class="text-main">{{ item.author_name }}</strong></div>
 
-                    {% if session.get('user_level', 0)|int >= 250 %}
-                    <form action="{{ url_for('comms.delete_news', news_id=item.id) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this announcement?');">
-                        <button type="submit" class="btn-danger text-sm p-0" style="padding: 2px 8px;">Delete</button>
-                    </form>
+                    {% if has_permission(PERMS.PERM_DELETE_NEWS) %}
+                        <form action="{{ url_for('comms.delete_news', news_id=item.id) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this announcement?');">
+                            <button type="submit" class="btn-danger text-sm p-0" style="padding: 2px 8px;">Delete</button>
+                        </form>
                     {% endif %}
                 </div>
 

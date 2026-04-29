@@ -10,7 +10,7 @@ While the portal *may* work with standard OpenSimulator Core or other forks, we 
 
 | OS Pariah Portal | NGC-Tranquility | Status | Notes |
 | :--- | :--- | :--- | :--- |
-| **v0.10.0** | 🟢`v0.9.3.3333` | 🟢Active | Current Development Beta Release. |
+| **v0.10.0** | 🟢`v0.9.3.9333` | 🟢Active | Current Development Beta Release. |
 | **v0.9.4** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
 | **v0.9.3** | 🔴 | 🔴 Abandoned | Critically failed release testing, dropped. |
 | **v0.9.2** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |

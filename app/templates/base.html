@@ -38,7 +38,7 @@
                                         <a href="{{ url_for('regions.manage_regions') }}">Region Configs</a>
                                     {% endif %}
 
-                                    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %}
+                                    {% if (has_permission(PERMS.PERM_MANAGE_POLICIES) or has_permission(PERMS.PERM_MANAGE_GUIDES) or has_permission(PERMS.PERM_MANAGE_RESOURCES)) %}
                                         <a href="{{ url_for('policies.manage_policies') }}">Grid Policies</a>
                                     {% endif %}
 

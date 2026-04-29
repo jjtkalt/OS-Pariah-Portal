@@ -22,15 +22,17 @@
             <label class="radio m-0">
                 <input type="radio" name="type" value="username" {% if search_type == 'username' or not search_type %}checked{% endif %}> Partial Username
             </label>
-            <label class="radio m-0">
-                <input type="radio" name="type" value="ip" {% if search_type == 'ip' %}checked{% endif %}> IP Address
-            </label>
-            <label class="radio m-0">
-                <input type="radio" name="type" value="mac" {% if search_type == 'mac' %}checked{% endif %}> MAC Address
-            </label>
-            <label class="radio m-0">
-                <input type="radio" name="type" value="host_id" {% if search_type == 'host_id' %}checked{% endif %}> Host ID
-            </label>
+            {% if has_permission(PERMS.PERM_VIEW_PPI) %}
+                <label class="radio m-0">
+                    <input type="radio" name="type" value="ip" {% if search_type == 'ip' %}checked{% endif %}> IP Address
+                </label>
+                <label class="radio m-0">
+                    <input type="radio" name="type" value="mac" {% if search_type == 'mac' %}checked{% endif %}> MAC Address
+                </label>
+                <label class="radio m-0">
+                    <input type="radio" name="type" value="host_id" {% if search_type == 'host_id' %}checked{% endif %}> Host ID
+                </label>
+            {% endif %}
             <label class="radio m-0">
                 <input type="radio" name="type" value="uuid" {% if search_type == 'uuid' %}checked{% endif %}> UUID
             </label>
@@ -130,44 +132,46 @@
                 </ul>
             </div>
 
-            <div class="group m-0" style="max-height: 400px;">
-                <h2 class="mt-0">Known IPs</h2>
-                <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
-                    {% for ip, last_seen in results.ips.items() %}
-                        <li class="mb-10">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" class="text-main">{{ ip }}</a>
-                            <span class="date">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban IP</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+            {% if has_permission(PERMS.PERM_VIEW_PPI) %}
+                <div class="group m-0" style="overflow-y: auto; max-height: 400px;">
+                    <h2 class="mt-0">Known IPs</h2>
+                    <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
+                        {% for ip, last_seen in results.ips.items() %}
+                            <li class="mb-10">
+                                <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='ip', q=ip) }}" class="text-main">{{ ip }}</a>
+                                <span class="date">({{ last_seen }})</span>
+                                <a href="{{ url_for('user_mgmt.create_ban', ip=ip, type='ip') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban IP</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
 
-            <div class="group m-0" style="max-height: 400px;">
-                <h2 class="mt-0">Known MAC Addresses</h2>
-                <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
-                    {% for mac, last_seen in results.macs.items() %}
-                        <li class="mb-10">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" class="text-main">{{ mac }}</a>
-                            <span class="date">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban MAC</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+                <div class="group m-0" style="overflow-y: auto; max-height: 400px;">
+                    <h2 class="mt-0">Known MAC Addresses</h2>
+                    <ul class="m-0" style="padding-left: 20px; font-family: monospace;">
+                        {% for mac, last_seen in results.macs.items() %}
+                            <li class="mb-10">
+                                <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='mac', q=mac) }}" class="text-main">{{ mac }}</a>
+                                <span class="date">({{ last_seen }})</span>
+                                <a href="{{ url_for('user_mgmt.create_ban', mac=mac, type='mac') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban MAC</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
 
-            <div class="group m-0" style="max-height: 400px;">
-                <h2 class="mt-0">Known Host IDs</h2>
-                <ul class="m-0" style="padding-left: 20px; font-family: monospace; word-break: break-all;">
-                    {% for hid, last_seen in results.host_ids.items() %}
-                        <li class="mb-10">
-                            <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" class="text-main">{{ hid }}</a>
-                            <span class="date">({{ last_seen }})</span>
-                            <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban ID</a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
+                <div class="group m-0" style="overflow-y: auto; max-height: 400px;">
+                    <h2 class="mt-0">Known Host IDs</h2>
+                    <ul class="m-0" style="padding-left: 20px; font-family: monospace; word-break: break-all;">
+                        {% for hid, last_seen in results.host_ids.items() %}
+                            <li class="mb-10">
+                                <a href="{{ url_for('user_mgmt.gatekeeper_lookup', type='host_id', q=hid) }}" class="text-main">{{ hid }}</a>
+                                <span class="date">({{ last_seen }})</span>
+                                <a href="{{ url_for('user_mgmt.create_ban', hostid=hid, type='hostid') }}" class="btn btn-danger text-sm" style="float: right; font-family: sans-serif; padding: 2px 6px; text-decoration: none;">Ban ID</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
 
         </div>
     {% endif %}

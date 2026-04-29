@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from app.utils.schema import PERM_MANAGE_GUIDES
 
 # UPDATED: Point to the exact module where get_dynamic_config lives
 @patch('app.utils.db.get_dynamic_config')
@@ -28,3 +29,32 @@ def test_policy_bouncer_intercept(mock_config, app, client, db_cursor):
 
     # 3. RESTORE IMMUNITY for the rest of the tests
     app.config['TESTING'] = True
+
+# Cross-Category Edit Blocked
+def test_cross_category_edit_blocked(client, db_cursor):
+    """Proves a Guide Manager cannot hijack a Legal Policy."""
+    
+    # 1. Tell the DB the document being requested is a Legal Policy
+    # FIX: Use side_effect so get_dynamic_config doesn't crash during template render
+    db_cursor.fetchone.side_effect = [{
+        'slug': 'tos', 'title': 'Terms of Service', 'category': 'Policy', 'requires_login': 0
+    }] + [None] * 20
+    
+    # 2. Simulate a user who only manages Guides
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'guide-manager-uuid'
+        sess['permissions'] = PERM_MANAGE_GUIDES
+        
+    # 3. Attempt to POST an edit to the 'tos' slug
+    response = client.post('/policies/admin/edit/tos', data={
+        'title': 'Hacked TOS',
+        'body': 'You owe me all your lindens.',
+        'category': 'Guide' # Trying to change the category to bypass
+    }, follow_redirects=True)
+    
+    # 4. Assert the bouncer stopped them
+    assert b"Unauthorized or document not found" in response.data
+    
+    # Verify no UPDATE was attempted
+    sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
+    assert not any("UPDATE policies" in q for q in sql_queries)

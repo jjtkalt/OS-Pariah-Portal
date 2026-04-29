@@ -32,7 +32,7 @@
             </td>
             <td class="text-muted text-sm">{{ policy.updated_at.strftime('%Y-%m-%d') }}</td>
             <td class="d-flex gap-10" style="justify-content: flex-end;">
-                <a href="{{ url_for('policies.view_policy', slug=policy.slug) }}" class="btn btn-info text-sm p-0" style="padding: 4px 8px;" target="_blank">View</a>
+                <a href="{{ url_for('policies.view_policy', slug=policy.slug) }}" class="btn btn-info text-sm p-0" style="padding: 4px 8px;">View</a>
                 <a href="{{ url_for('policies.edit_policy', slug=policy.slug) }}" class="btn text-sm p-0" style="padding: 4px 8px;">Edit</a>
                 <form action="{{ url_for('policies.delete_policy', slug=policy.slug) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this document?');">
                     <button type="submit" class="btn-danger text-sm p-0" style="padding: 4px 8px;">Delete</button>

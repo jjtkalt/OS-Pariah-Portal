@@ -15,9 +15,15 @@
             <div style="flex: 1;">
                 <label>Category</label>
                 <select name="category" id="catSelector" required>
-                    <option value="Policy" {% if policy.category == 'Policy' %}selected{% endif %}>Grid Policy / Rules</option>
-                    <option value="Guide" {% if policy.category == 'Guide' %}selected{% endif %}>Viewer Setup / Guide</option>
-                    <option value="Resource" {% if policy.category == 'Resource' %}selected{% endif %}>Creator Resource</option>
+                    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %} 
+                        <option value="Policy" {% if policy.category == 'Policy' %}selected{% endif %}>Grid Policy / Rules</option>
+                    {% endif %}
+                    {% if has_permission(PERMS.PERM_MANAGE_GUIDES) %}
+                        <option value="Guide" {% if policy.category == 'Guide' %}selected{% endif %}>Viewer Setup / Guide</option>
+                    {% endif %}
+                    {% if has_permission(PERMS.PERM_MANAGE_RESOURCES) %}
+                        <option value="Resource" {% if policy.category == 'Resource' %}selected{% endif %}>Creator Resource</option>
+                    {% endif %}
                 </select>
             </div>
             <div style="flex: 2;">
@@ -36,25 +42,27 @@
         <textarea name="body" rows="15" style="font-family: monospace;" required>{{ policy.body }}</textarea>
     </fieldset>
 
-    <fieldset id="versionBlock" class="group m-0 mb-20" style="background: var(--info-bg); {% if policy.category != 'Policy' %}display: none;{% endif %}">
-        <legend style="background: transparent;">Versioning & Enforcement</legend>
-        <p class="text-sm text-muted mt-0">
-            Changing the version number will immediately force all logged-in users to re-agree to the grid policies before they can access the portal.
-        </p>
+    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %}
+        <fieldset id="versionBlock" class="group m-0 mb-20" style="background: var(--info-bg); {% if policy.category != 'Policy' %}display: none;{% endif %}">
+            <legend style="background: transparent;">Versioning & Enforcement</legend>
+            <p class="text-sm text-muted mt-0">
+                Changing the version number will immediately force all logged-in users to re-agree to the grid policies before they can access the portal.
+            </p>
 
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="none" checked>
-            <strong>No change</strong> (Typo fixes, minor formatting. Users will not be interrupted.)
-        </label>
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="minor">
-            <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
-        </label>
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="major">
-            <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
-        </label>
-    </fieldset>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="none" checked>
+                <strong>No change</strong> (Typo fixes, minor formatting. Users will not be interrupted.)
+            </label>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="minor">
+                <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
+            </label>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="major">
+                <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
+            </label>
+        </fieldset>
+    {% endif %}
 
     <button type="submit" class="w-100">Save Document</button>
 </form>

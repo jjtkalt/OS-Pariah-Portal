@@ -7,12 +7,26 @@ from app.utils.audit import log_audit_action
 
 policies_bp = Blueprint('policies', __name__)
 
+# Mapping for Category-to-Permission enforcement
+CAT_PERM_MAP = {
+    'Policy': PERM_MANAGE_POLICIES,
+    'Guide': PERM_MANAGE_GUIDES,
+    'Resource': PERM_MANAGE_RESOURCES
+}
+
+def can_manage_category(category):
+    """Returns True if the current user holds the bit for the specific category."""
+    required_bit = CAT_PERM_MAP.get(category)
+    if not required_bit:
+        return False
+    return has_permission(required_bit)
+
 @policies_bp.route('/<slug>', methods=['GET'])
 def view_policy(slug):
     """Publicly viewable policy with version and timestamp."""
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT title, body, updated_at, requires_login FROM policies WHERE slug = %s", (slug,))
+        cursor.execute("SELECT title, body, category, updated_at, requires_login FROM policies WHERE slug = %s", (slug,))
         policy = cursor.fetchone()
 
     if not policy:
@@ -29,30 +43,41 @@ def view_policy(slug):
     return render_template('policies/view.html', policy=policy, version=current_version)
 
 @policies_bp.route('/admin/manage', methods=['GET'])
-@rbac_required(PERM_MANAGE_POLICIES)
 def manage_policies():
-    """Admin dashboard for policies."""
+    if not (has_permission(PERM_MANAGE_POLICIES) or 
+            has_permission(PERM_MANAGE_GUIDES) or 
+            has_permission(PERM_MANAGE_RESOURCES)):
+        flash("Unauthorized", "error")
+        return redirect(url_for('comms.news_feed'))
+
     pariah_conn = get_pariah_db()
     current_version = get_dynamic_config('global_policy_version')
     
     with pariah_conn.cursor() as cursor:
         cursor.execute("SELECT slug, title, category, requires_login, updated_at FROM policies ORDER BY category ASC, title ASC")
-        policies = cursor.fetchall()
+        all_policies = cursor.fetchall()
         
-    return render_template('policies/manage.html', policies=policies, current_version=current_version)
+    manageable_policies = [p for p in all_policies if can_manage_category(p['category'])]
+        
+    return render_template('policies/manage.html', policies=manageable_policies, current_version=current_version)
 
 @policies_bp.route('/admin/create', methods=['GET', 'POST'])
-@rbac_required(PERM_MANAGE_POLICIES)
 def create_policy():
     """Creates a new document."""
     if request.method == 'POST':
+        category = request.form.get('category', 'Policy')
+
+        # STOP: Check permission for the specific category being created
+        if not can_manage_category(category):
+            flash(f"You do not have permission to create {category} documents.", "error")
+            return redirect(url_for('policies.manage_policies'))
+
         raw_slug = request.form.get('slug', '').strip().lower()
         slug = re.sub(r'[^a-z0-9-_]', '-', raw_slug)
         title = request.form.get('title')
         body = request.form.get('body')
-        category = request.form.get('category', 'Policy')
         requires_login = request.form.get('requires_login') == 'on'
-        
+
         # STRICT ENFORCEMENT: Only Policies can bump the version
         version_action = request.form.get('version_action') if category == 'Policy' else 'none'
 
@@ -88,17 +113,30 @@ def create_policy():
     return render_template('policies/create.html')
 
 @policies_bp.route('/admin/edit/<slug>', methods=['GET', 'POST'])
-@rbac_required(PERM_MANAGE_POLICIES)
 def edit_policy(slug):
     """Edits an existing document."""
     pariah_conn = get_pariah_db()
 
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM policies WHERE slug = %s", (slug,))
+        policy = cursor.fetchone()
+
+    if not policy or not can_manage_category(policy['category']):
+        flash("Unauthorized or document not found.", "error")
+        return redirect(url_for('policies.manage_policies'))
+
     if request.method == 'POST':
+        category = request.form.get('category', policy['category'])
+        
+        # PREVENT ESCALATION: Can't move a Guide to a Policy if you don't own Policy bits
+        if not can_manage_category(category):
+            flash("Unauthorized: You cannot change this document to that category.", "error")
+            return redirect(url_for('policies.manage_policies'))
+
         title = request.form.get('title')
         body = request.form.get('body')
-        category = request.form.get('category', 'Policy')
         requires_login = request.form.get('requires_login') == 'on'
-        
+
         # STRICT ENFORCEMENT: Only Policies can bump the version
         version_action = request.form.get('version_action') if category == 'Policy' else 'none'
 
@@ -133,9 +171,17 @@ def edit_policy(slug):
     return render_template('policies/edit.html', policy=policy)
 
 @policies_bp.route('/admin/delete/<slug>', methods=['POST'])
-@rbac_required(PERM_MANAGE_POLICIES)
 def delete_policy(slug):
     pariah_conn = get_pariah_db()
+
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM policies WHERE slug = %s", (slug,))
+        policy = cursor.fetchone()
+
+    if not policy or not can_manage_category(policy['category']):
+        flash("Unauthorized or document not found.", "error")
+        return redirect(url_for('policies.manage_policies'))
+
     try:
         with pariah_conn.cursor() as cursor:
             cursor.execute("DELETE FROM policies WHERE slug = %s", (slug,))

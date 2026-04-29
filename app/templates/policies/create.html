@@ -15,9 +15,15 @@
             <div style="flex: 1; min-width: 200px;">
                 <label>Category</label>
                 <select name="category" id="catSelector" required>
-                    <option value="Policy">Grid Policy / Rules</option>
-                    <option value="Guide">Viewer Setup / Guide</option>
-                    <option value="Resource">Creator Resource</option>
+                    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %} 
+                        <option value="Policy">Grid Policy / Rules</option>
+                    {% endif %}
+                    {% if has_permission(PERMS.PERM_MANAGE_GUIDES) %}
+                        <option value="Guide">Viewer Setup / Guide</option>
+                    {% endif %}
+                    {% if has_permission(PERMS.PERM_MANAGE_RESOURCES) %}
+                        <option value="Resource">Creator Resource</option>
+                    {% endif %}
                 </select>
             </div>
             <div style="flex: 1; min-width: 200px;">
@@ -42,25 +48,27 @@
         <textarea name="body" rows="15" style="font-family: monospace;" required placeholder="Type the contents here..."></textarea>
     </fieldset>
 
-    <fieldset id="versionBlock" class="group m-0 mb-20" style="background: var(--info-bg);">
-        <legend style="background: transparent;">Versioning & Enforcement</legend>
-        <p class="text-sm text-muted mt-0">
-            If you are adding a major new grid requirement, you should bump the version to force all existing users to read and agree to it.
-        </p>
+    {% if has_permission(PERMS.PERM_MANAGE_POLICIES) %}
+        <fieldset id="versionBlock" class="group m-0 mb-20" style="background: var(--info-bg);">
+            <legend style="background: transparent;">Versioning & Enforcement</legend>
+            <p class="text-sm text-muted mt-0">
+                If you are adding a major new grid requirement, you should bump the version to force all existing users to read and agree to it.
+            </p>
 
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="none" checked>
-            <strong>No change</strong> (Silent addition. Active users will not be interrupted.)
-        </label>
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="minor">
-            <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
-        </label>
-        <label class="radio d-block mb-10">
-            <input type="radio" name="version_action" value="major">
-            <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
-        </label>
-    </fieldset>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="none" checked>
+                <strong>No change</strong> (Silent addition. Active users will not be interrupted.)
+            </label>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="minor">
+                <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
+            </label>
+            <label class="radio d-block mb-10">
+                <input type="radio" name="version_action" value="major">
+                <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
+            </label>
+        </fieldset>
+    {% endif %}
 
     <button type="submit" class="w-100">Save Document</button>
 </form>

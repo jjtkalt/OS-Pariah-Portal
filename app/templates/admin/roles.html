@@ -15,7 +15,6 @@
     </div>
 
     <form method="POST" action="{{ url_for('user_mgmt.manage_roles', uuid=target_uuid) }}" class="m-0">
-        
         <div class="alert info mb-20 flex-between">
             <span><strong>Current Bitmask Value:</strong> {{ current_permissions }}</span>
             {% if check_bit(current_permissions, PERMS.PERM_SUPER_ADMIN) %}
@@ -28,27 +27,25 @@
             <fieldset class="card p-0 mb-20">
                 <legend>{{ category }}</legend>
                 <div class="grid-2cards">
-                    
                     {# Loop through the specific permissions in this category #}
                     {% for bit_val, details in perms.items() %}
-
-                        {# Jinja Bitwise AND Workaround #}
-                        {% set has_bit = check_bit(current_permissions, bit_val) %}
-
-                        <div class="card m-0" style="padding: 12px; {% if has_bit %}border-left: 4px solid var(--success); background: var(--success-bg);{% else %}border-left: 4px solid var(--border-color);{% endif %}">
-                            <label class="radio fw-bold m-0 d-flex" style="align-items: center; gap: 10px; cursor: pointer;">
-                                
-                                <input type="checkbox" name="permissions" value="{{ bit_val }}" {% if has_bit %}checked{% endif %} style="width: auto; margin: 0;">
-                                
-                                <div>
-                                    <span class="{% if has_bit %}text-success{% else %}text-primary{% endif %}">{{ details.label }}</span><br>
-                                    <span class="text-sm text-muted" style="font-weight: normal;">{{ details.desc }}</span>
-                                </div>
-                                
-                            </label>
-                        </div>
+                        {# Only show if: bit is standard OR current admin is super #}
+                        {% if not details.super_only or is_super %}
+                            {% set has_bit = check_bit(current_permissions, bit_val) %}
+                            <div class="card m-0" style="padding: 12px; {% if has_bit %}border-left: 4px solid var(--success); background: var(--success-bg);{% else %}border-left: 4px solid var(--border-color);{% endif %}">
+                                <label class="radio fw-bold m-0 d-flex" style="align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" name="permissions" value="{{ bit_val }}" {% if has_bit %}checked{% endif %}>
+                                    {% if details.super_only %}
+                                        <span class="text-danger fw-bold text-sm">[SETTABLE BY SUPER ADMIN ONLY]</span>
+                                    {% endif %}
+                                    <div>
+                                        <span class="{% if has_bit %}text-success{% else %}text-primary{% endif %}">{{ details.label }}</span><br>
+                                        <span class="text-sm text-muted" style="font-weight: normal;">{{ details.desc }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                        {% endif %}
                     {% endfor %}
-                    
                 </div>
             </fieldset>
         {% endfor %}
