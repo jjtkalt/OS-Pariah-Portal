@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ grid_name }} Portal{% endblock %}</title>
     <link rel="stylesheet" href="{{ custom_css_path }}">
+    <style>:root { --portal-background-image: url({{ portal_background_image | tojson }}); }</style>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>

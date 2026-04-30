@@ -8,6 +8,7 @@ import time
 import secrets
 from app.utils.notifications import send_password_reset_email
 from app.utils.audit import log_audit_action
+from app.utils.password_resets import create_password_reset_token
 
 user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 
@@ -521,17 +522,9 @@ def admin_force_password_reset(uuid):
         flash("Cannot send reset link: This user has no email address on file in the grid.", "error")
         return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
 
-    token = secrets.token_urlsafe(32)
-    expires_at = int(time.time()) + 3600 # 1 hour
-
     pariah_conn = get_pariah_db()
     try:
-        with pariah_conn.cursor() as p_cursor:
-            p_cursor.execute(
-                "INSERT INTO password_resets (token, user_uuid, expires_at) VALUES (%s, %s, %s)",
-                (token, uuid, expires_at)
-            )
-        pariah_conn.commit()
+        token, _expires_at = create_password_reset_token(pariah_conn, uuid, ttl_seconds=3600)
 
         send_password_reset_email(account['Email'], token)
         log_audit_action("Force Password Reset", f"Forced a password reset", target_uuid=uuid)

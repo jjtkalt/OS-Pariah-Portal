@@ -53,13 +53,18 @@ def create_app(config_class='app.config.Config'):
     def inject_globals():
         from app.utils.db import get_dynamic_config
         from app.utils import auth_helpers
-        from app.utils.schema import RBAC_SCHEMA
+        from app.utils.schema import KNOWN_SETTINGS, RBAC_SCHEMA
+
+        portal_background_image = (get_dynamic_config('portal_background_image') or '').strip()
+        if not portal_background_image:
+            portal_background_image = KNOWN_SETTINGS["Grid Identity"]["portal_background_image"]["default"]
 
         return {
             'grid_name': get_dynamic_config('grid_name'),
             'grid_website_url': get_dynamic_config('grid_website_url'),
             'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY'),
             'custom_css_path': get_dynamic_config('custom_css_path'),
+            'portal_background_image': portal_background_image,
             'has_permission': auth_helpers.has_permission,
             'PERMS': auth_helpers, # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML
             'RBAC_SCHEMA': RBAC_SCHEMA,

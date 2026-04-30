@@ -25,10 +25,10 @@
     <thead>
         <tr>
             <th>Region Name</th>
-            <th>Type & Status</th>
+            <th>Status</th>
             <th>Network</th>
             <th class="text-right">Configuration</th>
-            <th class="text-center">Active Controls</th>
+            <th class="text-center">Controls</th>
         </tr>
     </thead>
     <tbody>
@@ -37,24 +37,27 @@
             <tr {% if not region.is_active and region.is_managed or not region.is_managed %}style="opacity: 0.50;"{% endif %}>
 
                 <td class="fw-bold">
-                    {{ region.regionName }}
-                </td>
-
-                <td>
+                    <div>
+                        {{ region.regionName }}
+                    </div>
                     {% if region.is_managed %}
-                        <span class="text-success fw-bold text-sm">● Managed (WebXML)</span>
+                        <span class="text-success text-sm">● Enabled</span>
                         {% if not region.is_active %}
-                            <span class="btn-warning text-sm fw-bold" style="padding: 2px 5px; border-radius: 4px; margin-left: 5px; vertical-align: top;">DISABLED</span>
+                            <span class="btn-warning text-sm">&#8856; Disabled</span>
                         {% endif %}
                     {% else %}
                         <span class="text-muted text-sm" style="font-style: italic;">External / Manual</span>
                     {% endif %}
-                    <br>
+                </td>
+
+                <td>
                     {% if region.is_online %}
-                        <span class="text-info fw-bold" style="font-size: 0.75rem;">Status: ONLINE</span>
+                        <span class="text-info text-sm fw-bold" style="font-size: 0.75rem;">Status: ONLINE</span>
                         
                         {% if region.uptime and region.uptime not in ['N/A', 'External'] %}
-                            <span class="text-muted" style="font-size: 0.75rem; margin-left: 5px; font-style: italic;">(Up: {{ region.uptime }})</span>
+                            <div class="text-muted text-sm">
+                                (Up: {{ region.uptime }})
+                            </div>
                         {% endif %}
 
                     {% else %}
@@ -63,16 +66,21 @@
                 </td>
 
                 <td class="text-muted text-sm" style="font-family: monospace;">
-                    {{ region.serverIP }}:{{ region.serverPort }}
+                    <div>{{ region.serverIP }}:{{ region.serverPort }}</div>
+                    {% if region.dns_mapping_warning %}
+                    <div class="text-warning text-sm fw-bold mt-5" style="font-family: 'Inter', Arial, sans-serif;" title="Add this host (or its external DNS name) under DNS Mappings so WebXML and HUD checks stay aligned with Robust.">
+                        &#9888; No DNS mapping for this network host
+                    </div>
+                    {% endif %}
                 </td>
 
                 <td class="text-right">
                     {% if region.is_managed %}
-                        <a href="{{ url_for('regions.edit_region', region_uuid=region.uuid) }}" class="btn text-sm" style="padding: 6px 10px;">Edit Config</a>
+                        <a href="{{ url_for('regions.edit_region', region_uuid=region.uuid) }}" class="btn btn-info">Edit Config</a>
                     {% else %}
                         {% if region.is_online %}
                         <form action="{{ url_for('regions.import_region', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                            <button type="submit" class="btn-success text-sm" style="padding: 6px 10px;">Import to Portal</button>
+                            <button type="submit" class="btn-success text-sm">Import to Portal</button>
                         </form>
                         {% endif %}
                     {% endif %}
@@ -86,22 +94,22 @@
                             {% if not region.is_online %}
                                 {% if region.is_active %}
                                     <form action="{{ url_for('regions.control_region', action='start', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                        <button type="submit" class="btn-success" style="padding: 4px 8px; font-size: 0.75rem;" title="Start Region">&#9654; Start</button>
+                                        <button type="submit" class="btn-success p-2 text-sm" title="Start Region">&#9654; Start</button>
                                     </form>
                                 {% else %}
-                                    <span class="text-muted" style="font-size: 0.75rem; font-style: italic; padding: 4px 0;">Enable to Start</span>
+                                    <span class="text-muted p-2 text-sm">Enable to Start</span>
                                 {% endif %}
                             {% else %}
                                 <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" title="Stop Region">&#9209; Stop</button>
+                                    <button type="submit" class="btn-danger p-2 text-sm"title="Stop Region">&#9209; Stop</button>
                                 </form>
 
                                 <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-info" style="padding: 4px 8px; font-size: 0.75rem;" title="Restart Region">&#10227; Restart</button>
+                                    <button type="submit" class="btn-info p-2 text-sm" title="Restart Region">&#10227; Restart</button>
                                 </form>
 
                                 <form action="{{ url_for('regions.control_region', action='oar', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn" style="background: #8b5cf6; padding: 4px 8px; font-size: 0.75rem;" title="Save OAR Backup">&#128190; OAR</button>
+                                    <button type="submit" class="btn-muted p-2 text-sm" title="Save OAR Backup">&#128190; OAR</button>
                                 </form>
                             {% endif %}
                         </div>
@@ -111,16 +119,26 @@
                             {% if session.get('user_level', 0)|int >= 200 %}
                                 <form action="{{ url_for('regions.toggle_state', region_uuid=region.uuid) }}" method="POST" class="m-0">
                                     {% if region.is_active %}
-                                        <button type="submit" class="btn-warning" style="padding: 2px 6px; font-size: 0.7rem;" title="Take region offline">&#8856; Disable Region</button>
+                                        <button type="submit" class="btn-warning p-2 text-sm" title="Disable region">&#8856; Disable</button>
                                     {% else %}
-                                        <button type="submit" class="btn-success" style="padding: 2px 6px; font-size: 0.7rem;" title="Bring region online">&#8858; Enable Region</button>
+                                        <button type="submit" class="btn-success p-2 text-sm" title="Enable region">&#8858; Enable</button>
+                                    {% endif %}
+                                </form>
+                            {% endif %}
+
+                            {% if session.get('user_level', 0)|int >= 200 %}
+                                <form action="{{ url_for('regions.toggle_hud_list', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                    {% if region.hud_list_users %}
+                                        <button type="submit" class="btn-success p-2 text-sm" title="Change to Users Are Unlisted on HUD">&#128065; Listed</button>
+                                    {% else %}
+                                        <button type="submit" class="btn-muted p-2 text-sm" title="Change to Users Are Listed on HUD">&#128269; Unlisted</button>
                                     {% endif %}
                                 </form>
                             {% endif %}
 
                             {% if not region.is_active and session.get('user_level', 0)|int >= 250 %}
                                 <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration permanently. Proceed?');">
-                                    <button type="submit" class="btn-danger" style="padding: 2px 6px; font-size: 0.7rem;">&#8855; Delete from DB</button>
+                                    <button type="submit" class="btn-danger p-2 text-sm">&#8855; Delete from DB</button>
                                 </form>
                             {% endif %}
 

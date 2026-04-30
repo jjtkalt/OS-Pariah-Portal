@@ -1,7 +1,7 @@
 import re
 from flask import Blueprint, request, session, current_app
 from app import cache
-from app.utils.db import get_robust_db, get_pariah_db, get_dynamic_config
+from app.utils.db import get_robust_db, get_pariah_db
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -14,16 +14,20 @@ def has_admin_view_access():
     if session.get('uuid') and session.get('is_admin'):
         return True
 
-    # Condition 2: Request comes from an authorized Region Host IP AND the UUID belongs to an Admin
+    # Condition 2: Request comes from an IP listed in Region DNS Mappings AND the UUID belongs to an Admin
     # X-Forwarded-For is safe to use here because we configured ProxyFix in __init__.py
-    client_ip = request.remote_addr 
+    client_ip = request.remote_addr
     owner_uuid = request.headers.get('X-Secondlife-Owner-Key')
-    
-    # Fetch configured region host IPs from OS_Pariah config
-    region_hosts_str = get_dynamic_config('region_host_ips')
-    authorized_ips = [ip.strip() for ip in region_hosts_str.split(',') if ip.strip()]
 
-    if client_ip in authorized_ips and owner_uuid:
+    if owner_uuid:
+        pariah_conn = get_pariah_db()
+        with pariah_conn.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,))
+            host_mapped = cursor.fetchone()
+        if not host_mapped:
+            owner_uuid = None
+
+    if owner_uuid:
         # Verify if the owner_uuid has admin view access
         robust_conn = get_robust_db()
         with robust_conn.cursor() as cursor:
@@ -86,6 +90,31 @@ def fetch_all_online_users():
     return sorted(users_online, key=lambda k: k['name'])
 
 
+def _hud_listable_region_names():
+    """
+    Region names where avatars may appear on the public HUD (/api/online).
+    Only managed portal regions with hud_list_users=1 and is_active=1.
+    Default for new regions is unlisted (hud_list_users=0).
+    """
+    names = set()
+    try:
+        pariah_conn = get_pariah_db()
+        with pariah_conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT region_name
+                FROM region_configs
+                WHERE hud_list_users = 1 AND is_active = 1
+                """
+            )
+            for row in cursor.fetchall():
+                if row.get("region_name"):
+                    names.add(row["region_name"].strip().lower())
+    except Exception as e:
+        current_app.logger.error(f"Error fetching HUD-listable region names: {e}")
+    return names
+
+
 @api_bp.route('/online', methods=['GET'])
 def online_lister():
     """
@@ -102,13 +131,9 @@ def online_lister():
     if show_all:
         filtered_users = all_users
     else:
-        # Fetch the list of allowed public regions from OS_Pariah DB
-        # Replaces the hardcoded ["Sandbox", "Sea ", "Welcome"] list
-        listable_str = get_dynamic_config('listable_regions')
-        listable_regions = [r.strip().lower() for r in listable_str.split(',') if r.strip()]
-        
+        listable_regions = _hud_listable_region_names()
         for user in all_users:
-            if user['region'].lower() in listable_regions:
+            if user["region"].lower() in listable_regions:
                 filtered_users.append(user)
 
     # 4. Format Output exactly as the HUD expects (for now):

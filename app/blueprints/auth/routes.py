@@ -11,8 +11,9 @@ from cryptography.hazmat.primitives import serialization
 from functools import wraps
 from flask import Blueprint, request, session, redirect, url_for, flash, current_app, render_template, jsonify
 from app.utils.db import get_robust_db, get_pariah_db, get_dynamic_config
-from app.utils.robust_api import call_robust_api
+from app.utils.robust_api import update_user_password
 from app.utils.notifications import send_password_reset_email
+from app.utils.password_resets import create_password_reset_token, purge_expired_password_reset_tokens
 from app.utils.schema import *
 
 auth_bp = Blueprint('auth', __name__)
@@ -368,16 +369,8 @@ def forgot_password():
                 if account and account['Email']:
                     user_uuid = account['PrincipalID']
                     email = account['Email']
-                    token = secrets.token_urlsafe(32)
-                    expires_at = int(time.time()) + 3600 # 1 hour expiration
-
                     pariah_conn = get_pariah_db()
-                    with pariah_conn.cursor() as p_cursor:
-                        p_cursor.execute(
-                            "INSERT INTO password_resets (token, user_uuid, expires_at) VALUES (%s, %s, %s)",
-                            (token, user_uuid, expires_at)
-                        )
-                    pariah_conn.commit()
+                    token, _expires_at = create_password_reset_token(pariah_conn, user_uuid, ttl_seconds=3600)
 
                     send_password_reset_email(email, token)
 
@@ -393,6 +386,7 @@ def forgot_password():
 @auth_bp.route('/reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     pariah_conn = get_pariah_db()
+    purge_expired_password_reset_tokens(pariah_conn)
 
     # 1. Verify the token is valid and hasn't expired
     with pariah_conn.cursor() as cursor:
@@ -413,17 +407,10 @@ def reset_password(token):
             flash('Passwords do not match.', 'error')
             return redirect(url_for('auth.reset_password', token=token))
 
-        # 2. Update the password safely via Robust API
-        payload = {
-            'PrincipalID': user_uuid,
-            'Password': new_password
-        }
-        response_text = call_robust_api('setaccount', payload)
-
-        if response_text and 'True' in response_text:
-            # 3. Burn the token so it cannot be reused
+        if update_user_password(user_uuid, new_password):
+            # 3. Burn all outstanding tokens for this user (cleans up duplicates)
             with pariah_conn.cursor() as cursor:
-                cursor.execute("DELETE FROM password_resets WHERE token = %s", (token,))
+                cursor.execute("DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,))
             pariah_conn.commit()
 
             flash('Your password has been successfully updated. You may now log in.', 'success')

@@ -89,23 +89,36 @@ def test_delete_region_success(mock_db, client):
 
 # --- WEBXML DELIVERY TESTS ---
 
-@patch('app.blueprints.regions.routes.get_dynamic_config')
 @patch('app.blueprints.regions.routes.get_pariah_db')
-def test_webxml_blocks_disabled_region(mock_db, mock_get_config, client):
+def test_webxml_blocks_disabled_region(mock_db, client):
     """Ensure WebXML returns a 403 Forbidden if the simulator requests a disabled config."""
-    # Whitelist the local test IP
-    mock_get_config.return_value = '127.0.0.1' 
-    
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
     mock_db.return_value = mock_conn
     mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-    
-    # Mock the region as explicitly DISABLED
-    mock_cursor.fetchone.return_value = {'is_active': 0, 'region_name': 'TestRegion'}
-    
-    # Simulate an incoming request from the simulator
+
+    mock_cursor.fetchone.side_effect = [
+        {'external_hostname': 'sim.example.com'},
+        {'is_active': 0, 'region_name': 'TestRegion'},
+    ]
+    mock_cursor.fetchall.return_value = []
+
     response = client.get('/regions/api/config/test-uuid.xml', environ_base={'REMOTE_ADDR': '127.0.0.1'})
-    
+
     assert response.status_code == 403
     assert b"Region Disabled By Administrator" in response.data
+
+
+@patch('app.blueprints.regions.routes.get_pariah_db')
+def test_webxml_rejects_ip_without_dns_mapping(mock_db, client):
+    """WebXML must refuse callers whose IP is not listed in region_hosts."""
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_db.return_value = mock_conn
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+    mock_cursor.fetchone.return_value = None
+
+    response = client.get('/regions/api/config/test-uuid.xml', environ_base={'REMOTE_ADDR': '10.0.0.99'})
+
+    assert response.status_code == 403
+    assert b"Unauthorized" in response.data

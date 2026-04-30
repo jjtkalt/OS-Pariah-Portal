@@ -25,7 +25,14 @@ def register():
         # Fetch the dynamic policy links
         pariah_conn = get_pariah_db()
         with pariah_conn.cursor() as cursor:
-            cursor.execute("SELECT slug, title FROM policies ORDER BY title ASC")
+            cursor.execute(
+                """
+                SELECT slug, title
+                FROM policies
+                WHERE category = 'Policy' AND requires_login = 0
+                ORDER BY title ASC
+                """
+            )
             active_policies = cursor.fetchall()
 
         return render_template(

@@ -1,6 +1,7 @@
 import subprocess
 import os
 import time
+import ipaddress
 from flask import Blueprint, render_template, request, Response, flash, redirect, url_for, current_app, session
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.auth_helpers import rbac_required, has_permission
@@ -8,6 +9,59 @@ from app.utils.schema import *
 
 
 regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
+
+_MANAGED_NETWORK_PLACEHOLDER = 'Managed (See DNS Mapping)'
+
+
+def _strip_ipv6_brackets(addr):
+    addr = (addr or '').strip()
+    if addr.startswith('[') and ']' in addr:
+        return addr[1:addr.index(']')]
+    return addr
+
+
+def _canonical_ip_string(addr):
+    raw = _strip_ipv6_brackets(addr)
+    if not raw:
+        return None
+    try:
+        return str(ipaddress.ip_address(raw))
+    except ValueError:
+        return None
+
+
+def _dns_mapping_lookup_sets(host_rows):
+    """Build lookup sets from region_hosts rows for matching Robust serverIP (managed or external)."""
+    ips_lower = set()
+    ips_canonical = set()
+    externals_lower = set()
+    for row in host_rows or []:
+        hip = (row.get('host_ip') or '').strip()
+        if hip:
+            ips_lower.add(hip.lower())
+            canon = _canonical_ip_string(hip)
+            if canon:
+                ips_canonical.add(canon)
+        ext = (row.get('external_hostname') or '').strip()
+        if ext:
+            externals_lower.add(ext.lower())
+    return ips_lower, ips_canonical, externals_lower
+
+
+def _robust_server_has_dns_mapping(server_ip, ips_lower, ips_canonical, externals_lower):
+    """True if server_ip matches host_ip or external_hostname in region_hosts."""
+    ident = (server_ip or '').strip()
+    if not ident or ident == _MANAGED_NETWORK_PLACEHOLDER:
+        return True
+    if ident.lower() in ips_lower:
+        return True
+    canon = _canonical_ip_string(ident)
+    if canon and canon in ips_canonical:
+        return True
+    if ident.lower() in externals_lower:
+        return True
+    return False
+
 
 def format_uptime(seconds):
     """Converts raw seconds into a clean human-readable string like '2d 4h' or '45m'."""
@@ -27,38 +81,35 @@ def format_uptime(seconds):
 @regions_bp.route('/api/config/<region_uuid>.xml', methods=['GET'])
 def get_region_xml(region_uuid):
     client_ip = request.remote_addr
-    region_hosts_str = get_dynamic_config('region_host_ips')
-    authorized_ips = [ip.strip() for ip in region_hosts_str.split(',') if ip.strip()]
-
-    if client_ip not in authorized_ips:
-        current_app.logger.warning(f"Unauthorized WebXML request from {client_ip} for region {region_uuid}")
-        return Response("<error>Unauthorized</error>", status=403, mimetype='application/xml')
-
     pariah_conn = get_pariah_db()
     try:
         with pariah_conn.cursor() as cursor:
-            # UPDATED: Fetch the is_active flag
+            cursor.execute(
+                "SELECT external_hostname FROM region_hosts WHERE host_ip = %s",
+                (client_ip,),
+            )
+            mapping = cursor.fetchone()
+            if not mapping:
+                current_app.logger.warning(
+                    f"Unauthorized WebXML request from {client_ip} for region {region_uuid}: "
+                    "no DNS mapping for this host IP"
+                )
+                return Response("<error>Unauthorized</error>", status=403, mimetype='application/xml')
+
+            external_host_name = (mapping.get('external_hostname') or '').strip() or "SYSTEMIP"
+
             cursor.execute("SELECT region_name, is_active FROM region_configs WHERE region_uuid = %s", (region_uuid,))
             region_info = cursor.fetchone()
 
             if not region_info:
                 return Response("<error>Region Not Found</error>", status=404, mimetype='application/xml')
-            
-            # UPDATED: Reject the request if the region is disabled
+
             if region_info['is_active'] == 0:
                 current_app.logger.info(f"Rejected WebXML request for DISABLED region: {region_info['region_name']}")
                 return Response("<error>Region Disabled By Administrator</error>", status=403, mimetype='application/xml')
 
             cursor.execute("SELECT setting_key, setting_value FROM region_settings WHERE region_uuid = %s", (region_uuid,))
             settings = cursor.fetchall()
-
-            cursor.execute("SELECT external_hostname FROM region_hosts WHERE host_ip = %s", (client_ip,))
-            host_mapping = cursor.fetchone()
-
-            if host_mapping and host_mapping.get('external_hostname'):
-                external_host_name = host_mapping['external_hostname']
-            else:
-                external_host_name = "SYSTEMIP"
 
         xml_output = [f'<Nini>\n  <Section Name="{region_info["region_name"]}">']
         xml_output.append(f'    <Key Name="RegionUUID" Value="{region_uuid}" />')
@@ -82,7 +133,7 @@ def get_region_xml(region_uuid):
         return Response("<error>Internal Server Error</error>", status=500, mimetype='application/xml')
 
 @regions_bp.route('/manage', methods=['GET'])
-@rbac_required(PERM_MANAGE_REGIONS)
+@rbac_required(PERM_VIEW_REGIONS)
 def manage_regions():
     combined_regions = {}
 
@@ -90,22 +141,24 @@ def manage_regions():
         conn_pariah = get_pariah_db()
         with conn_pariah.cursor() as cursor:
             cursor.execute("""
-                SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active,
+                SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active, c.hud_list_users,
                        MAX(IF(s.setting_key = 'InternalPort', s.setting_value, NULL)) AS serverPort
                 FROM region_configs c
                 LEFT JOIN region_settings s ON c.region_uuid = s.region_uuid
-                GROUP BY c.region_uuid, c.region_name, c.is_active
+                GROUP BY c.region_uuid, c.region_name, c.is_active, c.hud_list_users
             """)
             for r in cursor.fetchall():
                 combined_regions[r['uuid']] = {
                     'uuid': r['uuid'],
                     'regionName': r['regionName'],
-                    'serverIP': 'Managed (See DNS Mapping)',
+                    'serverIP': _MANAGED_NETWORK_PLACEHOLDER,
                     'serverPort': r['serverPort'] or 'Unknown',
                     'is_managed': True,
                     'is_active': bool(r['is_active']),
+                    'hud_list_users': bool(r['hud_list_users']),
                     'is_online': False,
-                    'uptime': 'N/A'
+                    'uptime': 'N/A',
+                    'dns_mapping_warning': False,
                 }
 
         conn_robust = get_robust_db()
@@ -124,9 +177,20 @@ def manage_regions():
                         'serverPort': r['serverPort'],
                         'is_managed': False,
                         'is_active': True,
+                        'hud_list_users': False,
                         'is_online': True,
-                        'uptime': 'External' # We can't fetch uptime for remote/unmanaged regions
+                        'uptime': 'External', # We can't fetch uptime for remote/unmanaged regions
+                        'dns_mapping_warning': False,
                     }
+
+        with conn_pariah.cursor() as cursor:
+            cursor.execute("SELECT host_ip, external_hostname FROM region_hosts")
+            host_rows = cursor.fetchall()
+        ips_lower, ips_canonical, externals_lower = _dns_mapping_lookup_sets(host_rows)
+        for r in combined_regions.values():
+            r['dns_mapping_warning'] = not _robust_server_has_dns_mapping(
+                r.get('serverIP'), ips_lower, ips_canonical, externals_lower
+            )
 
         # --- SYSTEMD UPTIME FETCHING ---
         managed_safe_names = [r['regionName'].replace(" ", "_") for r in combined_regions.values() if r['is_managed']]
@@ -321,6 +385,41 @@ def toggle_state(region_uuid):
         flash("A database error occurred.", "error")
 
     return redirect(url_for('regions.manage_regions'))
+
+
+@regions_bp.route('/toggle_hud_list/<region_uuid>', methods=['POST'])
+@rbac_required(PERM_MANAGE_REGIONS)
+def toggle_hud_list(region_uuid):
+    """Flips public HUD listing for avatars in this region (Users Listed (1)/ Users Unlisted (0))."""
+    pariah_conn = get_pariah_db()
+    try:
+        with pariah_conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT hud_list_users, region_name FROM region_configs WHERE region_uuid = %s",
+                (region_uuid,),
+            )
+            region = cursor.fetchone()
+
+            if not region:
+                flash("Region not found in the Portal Database.", "error")
+                return redirect(url_for('regions.manage_regions'))
+
+            new_val = 0 if region["hud_list_users"] == 1 else 1
+            cursor.execute(
+                "UPDATE region_configs SET hud_list_users = %s WHERE region_uuid = %s",
+                (new_val, region_uuid),
+            )
+            pariah_conn.commit()
+
+            state = "Users Listed" if new_val == 1 else "Users Unlisted"
+            flash(f"Public HUD visibility for '{region['region_name']}': {state}.", "success")
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to toggle HUD listing: {e}")
+        flash("A database error occurred.", "error")
+
+    return redirect(url_for('regions.manage_regions'))
+
 
 @regions_bp.route('/delete/<region_uuid>', methods=['POST'])
 @rbac_required(PERM_MANAGE_REGIONS)

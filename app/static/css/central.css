@@ -49,7 +49,7 @@ html, body {
 
 /* --- Layout & Containers --- */
 .background {
-  background-image: url('/static/images/background.png'); /* Ensure this path is correct! */
+  background-image: var(--portal-background-image, url('/static/images/background.png'));
   background-repeat: no-repeat;
   background-position: center;
   background-attachment: fixed;
@@ -403,6 +403,7 @@ tr:hover {
 .mb-10 { margin-bottom: 10px; }
 .mb-20 { margin-bottom: 20px; }
 .p-0 { padding: 0; }
+.p-2 { padding: 2px; }
 
 /* Text & Alignment */
 .text-center { text-align: center; }

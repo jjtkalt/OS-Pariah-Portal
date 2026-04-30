@@ -11,6 +11,7 @@ KNOWN_SETTINGS = {
         "robust_public_port": {"label": "Robust Public Port", "type": "number", "default": "8002"},
         "robust_private_port": {"label": "Robust Private Port", "type": "number", "default": "8003"},
         "custom_css_path": {"label": "Custom CSS Path (For Theming)", "type": "text", "default": "/static/css/central.css"},
+        "portal_background_image": {"label": "Portal Background Image URL or Path", "type": "text", "default": "/static/images/background.png"},
     },
     "Registration & Captcha": {
         "require_admin_approval": {"label": "Require Admin Approval for New Accounts", "type": "boolean", "default": "true"},
@@ -45,8 +46,6 @@ KNOWN_SETTINGS = {
     "Region & Grid Defaults": {
         "default_max_agents": {"label": "Default Max Agents per Region", "type": "number", "default": "100"},
         "max_region_size_multiplier": {"label": "Max Region Size Multiplier", "type": "number", "default": "4"},
-        "listable_regions": {"label": "Publicly Listable Regions", "type": "text", "default": "Welcome, Sandbox"},
-        "region_host_ips": {"label": "Valid Region Host IPs (eg: 127.0.0.1, 192.168.1.50)", "type": "text", "default": "", "no_reset": True},
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
@@ -90,6 +89,7 @@ PERM_VIEW_AUDIT       = 1 << 22 # 4194304 - Security: View Audit Logs
 PERM_MANAGE_GUIDES    = 1 << 23 # Viewer Setup / Technical
 PERM_MANAGE_RESOURCES = 1 << 24 # Creator / Member resources
 PERM_VIEW_PPI         = 1 << 25 # View Users's PII
+PERM_VIEW_REGIONS     = 1 << 26 # 67108864 - View list of Regions
 
 # --- UNIFIED RBAC UI SCHEMA ---
 RBAC_SCHEMA = {
@@ -101,8 +101,9 @@ RBAC_SCHEMA = {
         PERM_SUPER_ADMIN: {"label": "Super Admin", "desc": "Master Key: Overrides all checks", "super_only": True},
     },
     "Grid Operations": {
-        PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions"},
-        PERM_MANAGE_REGIONS: {"label": "Manage Regions", "desc": "Edit WebXML configs & limits", "super_only": True},
+        PERM_VIEW_REGIONS: {"label": "View Regions", "desc": "View the list of regions"},
+        PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions (Required View Regions)"},
+        PERM_MANAGE_REGIONS: {"label": "Manage Regions", "desc": "Edit WebXML configs & limits (Required View Regions and Region Control)", "super_only": True},
     },
     "Moderation & Support": {
         PERM_STAFF_TICKETS: {"label": "Helpdesk Access", "desc": "View, assign, and reply to tickets"},
