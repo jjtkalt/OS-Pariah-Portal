@@ -18,6 +18,16 @@ def gatekeeper_lookup():
     search_type = request.args.get('type', 'username')
     query_raw = request.args.get('q', '').strip()
 
+    # Determine if this admin has clearance to view Protected Personal Information
+    has_ppi_access = has_permission(PERM_VIEW_PPI)
+
+    # ---------------------------------------------------------
+    # SECURITY INTERCEPT: Block unauthorized PPI searches
+    # ---------------------------------------------------------
+    if query_raw and not has_ppi_access and search_type in ['ip', 'mac', 'host_id']:
+        flash("Unauthorized: You do not have clearance to search by connection PPI.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
     if not query_raw:
         return render_template('admin/lookup.html', results=None, search_type=search_type, query="")
 
@@ -88,19 +98,21 @@ def gatekeeper_lookup():
                     cursor.execute(f"SELECT DISTINCT user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
                     results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
 
-                    # Fetch IPs, MACs, HostIDs
-                    cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
-                    results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
-
-                    cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
-                    results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
-
-                    cursor.execute(f"SELECT user_host_id, MAX(date_time) as last_seen FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings}) GROUP BY user_host_id ORDER BY last_seen DESC", uuid_tuple)
-                    results['host_ids'] = {r['user_host_id']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_host_id']}
-
                     # Fetch Hypergrid Origin Information
                     cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
                     grid_data = {row['user_uuid']: {'from': row['grid_from'], 'last_seen': format_dt(row['last_seen'])} for row in cursor.fetchall()}
+
+                    # ISOLATED PPI FETCH: Only hits the DB if they have clearance
+                    if has_ppi_access:
+                        # Fetch IPs, MACs, HostIDs
+                        cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
+                        results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
+
+                        cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
+                        results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
+
+                        cursor.execute(f"SELECT user_host_id, MAX(date_time) as last_seen FROM gatekeeper_host_id WHERE user_uuid IN ({format_strings}) GROUP BY user_host_id ORDER BY last_seen DESC", uuid_tuple)
+                        results['host_ids'] = {r['user_host_id']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_host_id']}
 
                 # Fetch Robust Data (Names, Email, Level) mapped by PrincipalID
                 robust_data = {}
@@ -109,6 +121,22 @@ def gatekeeper_lookup():
                     for r in r_cursor.fetchall():
                         robust_data[r['PrincipalID']] = r
                         results['usernames'].add(f"{r['FirstName']} {r['LastName']}")
+
+                with pariah_conn.cursor() as cursor:
+                    # We grab the most recent name captured in our logs for these UUIDs
+                    cursor.execute(f"SELECT DISTINCT user_uuid, user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
+                    for r in cursor.fetchall():
+                        # If Robust didn't know them, but our logs do, add them to the display results
+                        if r['user_name'] and r['user_name'] != "Unknown":
+                            if r['user_uuid'] not in robust_data:
+                                results['usernames'].add(r['user_name'])
+                                # Create a stub for the template so it doesn't show "Unknown User"
+                                robust_data[r['user_uuid']] = {
+                                    'FirstName': r['user_name'],
+                                    'LastName': '(HG/Visitor)',
+                                    'Email': 'N/A',
+                                    'userLevel': 'N/A'
+                                }
 
                 grid_fqdn = str(f"{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}").strip().lower()
 
@@ -136,6 +164,8 @@ def gatekeeper_lookup():
                         'current_email': r_data.get('Email', ''),
                         'current_level': r_data.get('userLevel', '')
                     }
+
+                    uuid_info = dict(sorted(uuid_info.items(), key=lambda item: item[1]['avatar_name'].lower()))
 
     except Exception as e:
         current_app.logger.error(f"Gatekeeper lookup error: {e}")
@@ -339,6 +369,10 @@ def delete_ban(ban_id):
 @rbac_required(PERM_MANAGE_ROLES)
 def update_user_level(uuid):
     """Allows Super Admins to manually adjust a user's level (e.g., Promotions)."""
+    is_super = has_permission(PERM_SUPER_ADMIN)
+    if not is_super and uuid == session.get('uuid'):
+        flash("Security Violation: You cannot modify your own permissions.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
 
     new_level = request.form.get('new_level')
     
@@ -377,33 +411,62 @@ def rename_user(uuid):
 @user_mgmt_bp.route('/<uuid>/roles', methods=['GET', 'POST'])
 @rbac_required(PERM_MANAGE_ROLES)
 def manage_roles(uuid):
-    """Admin interface for assigning granular bitwise permissions to a user."""
+    # Prevent self-modification
+    is_super = has_permission(PERM_SUPER_ADMIN)
+    if not is_super and uuid == session.get('uuid'):
+        flash("Security Violation: You cannot modify your own permissions.", "error")
+        return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
+
     pariah_conn = get_pariah_db()
     robust_conn = get_robust_db()
     
-    # 1. Fetch user's real name from Robust for the UI header
+    
+    # 1. Fetch user's real name from Robust
     with robust_conn.cursor() as r_cursor:
         r_cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (uuid,))
         account = r_cursor.fetchone()
         
     if not account:
-        flash("User not found in the grid database.", "error")
+        flash("User not found.", "error")
         return redirect(url_for('user_mgmt.gatekeeper_lookup'))
         
     avatar_name = f"{account['FirstName']} {account['LastName']}"
 
+    # 2. Fetch current permissions for the target
+    current_permissions = 0
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (uuid,))
+        row = cursor.fetchone()
+        if row:
+            current_permissions = row['permissions']
+
     if request.method == 'POST':
-        # 2. Get list of checked values from the form (returns as strings)
         selected_bits = request.form.getlist('permissions')
-        
-        # 3. Calculate the new combined bitmask using Bitwise OR (|=)
         new_bitmask = 0
+        
+        # Calculate new bits from form input
         for bit_str in selected_bits:
             try:
-                new_bitmask |= int(bit_str) 
+                bit_val = int(bit_str)
+                # Only allow adding this bit if it's not super_only OR if the admin is a Super Admin
+                is_this_bit_super = False
+                for cat, perms in RBAC_SCHEMA.items():
+                    if bit_val in perms and perms[bit_val].get('super_only'):
+                        is_this_bit_super = True
+                        break
+                
+                if not is_this_bit_super or is_super:
+                    new_bitmask |= bit_val
             except ValueError:
                 pass
-                
+        
+        # If the admin is NOT a super-user, we MUST preserve any existing super_only bits that were already on the target user.
+        if not is_super:
+            for cat, perms in RBAC_SCHEMA.items():
+                for bit_val, details in perms.items():
+                    if details.get('super_only') and (current_permissions & bit_val):
+                        new_bitmask |= bit_val
+
         try:
             with pariah_conn.cursor() as cursor:
                 cursor.execute("""
@@ -414,25 +477,18 @@ def manage_roles(uuid):
             pariah_conn.commit()
 
             log_audit_action("Update Roles", f"Changed bitmask to {new_bitmask}", target_uuid=uuid)
-            flash(f"Permissions successfully updated for {avatar_name}.", "success")
+            flash(f"Permissions updated for {avatar_name}.", "success")
         except Exception as e:
-            current_app.logger.error(f"Failed to update roles for {uuid}: {e}")
-            flash("A database error occurred.", "error")
+            current_app.logger.error(f"Update roles error: {e}")
+            flash("Database error.", "error")
             
         return redirect(url_for('user_mgmt.manage_roles', uuid=uuid))
-
-    # 4. GET Request: Fetch current permissions to populate the checkboxes
-    current_permissions = 0
-    with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (uuid,))
-        row = cursor.fetchone()
-        if row:
-            current_permissions = row['permissions']
 
     return render_template('admin/roles.html', 
                            target_uuid=uuid, 
                            avatar_name=avatar_name, 
-                           current_permissions=current_permissions)
+                           current_permissions=current_permissions,
+                           is_super=is_super)
 
 @user_mgmt_bp.route('/<uuid>/update_email', methods=['POST'])
 @rbac_required(PERM_UPDATE_EMAIL)
