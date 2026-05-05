@@ -3,6 +3,9 @@
 {% block title %}Region Configurations - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
+{% set can_manage = has_permission(PERMS.PERM_MANAGE_REGIONS) %}
+{% set can_control = has_permission(PERMS.PERM_REGION_CONTROL) %}
+{% set can_infra = has_permission(PERMS.PERM_MANAGE_INFRA) %}
 <div class="flex-between mb-20" style="align-items: center;">
     <div>
         <h1 class="text-primary m-0">Region Configurations</h1>
@@ -10,10 +13,12 @@
     </div>
 
     <div class="d-flex gap-10">
+        {% if can_manage %}
         <a href="{{ url_for('regions.add_region') }}" class="btn btn-success">
             + Add Region
         </a>
-        {% if session.get('user_level', 0)|int >= 250 %}
+        {% endif %}
+        {% if can_infra %}
         <a href="{{ url_for('regions.manage_hosts') }}" class="btn btn-info">
             DNS Mappings
         </a>
@@ -76,9 +81,11 @@
 
                 <td class="text-right">
                     {% if region.is_managed %}
+                        {% if can_manage %}
                         <a href="{{ url_for('regions.edit_region', region_uuid=region.uuid) }}" class="btn btn-info">Edit Config</a>
+                        {% endif %}
                     {% else %}
-                        {% if region.is_online %}
+                        {% if region.is_online and can_manage %}
                         <form action="{{ url_for('regions.import_region', region_uuid=region.uuid) }}" method="POST" class="m-0">
                             <button type="submit" class="btn-success text-sm">Import to Portal</button>
                         </form>
@@ -90,6 +97,7 @@
                     {% if region.is_managed %}
                     <div class="flex-column gap-10" style="align-items: center;">
 
+                        {% if can_control %}
                         <div class="d-flex gap-5 flex-center">
                             {% if not region.is_online %}
                                 {% if region.is_active %}
@@ -101,7 +109,7 @@
                                 {% endif %}
                             {% else %}
                                 <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-danger p-2 text-sm"title="Stop Region">&#9209; Stop</button>
+                                    <button type="submit" class="btn-danger p-2 text-sm" title="Stop Region">&#9209; Stop</button>
                                 </form>
 
                                 <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" class="m-0">
@@ -113,10 +121,11 @@
                                 </form>
                             {% endif %}
                         </div>
+                        {% endif %}
 
-                        <div class="d-flex gap-5 flex-center pt-10 w-100" style="border-top: 1px dashed var(--border-color);">
+                        {% if can_manage %}
+                        <div class="d-flex gap-5 flex-center w-100{% if can_control %} pt-10{% endif %}"{% if can_control %} style="border-top: 1px dashed var(--border-color);"{% endif %}>
 
-                            {% if session.get('user_level', 0)|int >= 200 %}
                                 <form action="{{ url_for('regions.toggle_state', region_uuid=region.uuid) }}" method="POST" class="m-0">
                                     {% if region.is_active %}
                                         <button type="submit" class="btn-warning p-2 text-sm" title="Disable region">&#8856; Disable</button>
@@ -124,9 +133,7 @@
                                         <button type="submit" class="btn-success p-2 text-sm" title="Enable region">&#8858; Enable</button>
                                     {% endif %}
                                 </form>
-                            {% endif %}
 
-                            {% if session.get('user_level', 0)|int >= 200 %}
                                 <form action="{{ url_for('regions.toggle_hud_list', region_uuid=region.uuid) }}" method="POST" class="m-0">
                                     {% if region.hud_list_users %}
                                         <button type="submit" class="btn-success p-2 text-sm" title="Change to Users Are Unlisted on HUD">&#128065; Listed</button>
@@ -134,15 +141,15 @@
                                         <button type="submit" class="btn-muted p-2 text-sm" title="Change to Users Are Listed on HUD">&#128269; Unlisted</button>
                                     {% endif %}
                                 </form>
-                            {% endif %}
 
-                            {% if not region.is_active and session.get('user_level', 0)|int >= 250 %}
+                            {% if not region.is_active %}
                                 <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration permanently. Proceed?');">
                                     <button type="submit" class="btn-danger p-2 text-sm">&#8855; Delete from DB</button>
                                 </form>
                             {% endif %}
 
                         </div>
+                        {% endif %}
 
                     </div>
                     {% else %}

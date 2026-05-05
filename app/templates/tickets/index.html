@@ -3,6 +3,7 @@
 {% block title %}Helpdesk - {{ grid_name }} Portal{% endblock %}
 
 {% block content %}
+{% set is_ticket_staff = has_permission(PERMS.PERM_STAFF_TICKETS) %}
 <div class="flex-between mb-20">
     <div>
         <h1 class="m-0 text-primary">Helpdesk Tickets</h1>
@@ -35,7 +36,7 @@
             <th>Ticket #</th>
             <th>Subject</th>
             <th>Status</th>
-            {% if session.get('is_admin') %}<th>Assigned To</th>{% endif %}
+            {% if is_ticket_staff %}<th>Assigned To</th>{% endif %}
             <th>Last Updated</th>
             <th>Action</th>
         </tr>
@@ -55,7 +56,7 @@
                         {{ ticket.status }}
                     </span>
                 </td>
-                {% if session.get('is_admin') %}
+                {% if is_ticket_staff %}
                     <td class="text-muted text-sm">{{ ticket.assigned_to_name or 'Unassigned' }}</td>
                 {% endif %}
                 <td class="text-muted">{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') if ticket.updated_at else '' }}</td>
@@ -66,7 +67,7 @@
             {% endfor %}
         {% else %}
             <tr>
-                <td colspan="6" class="text-center text-muted" style="padding: 40px;">
+                <td colspan="{{ 6 if is_ticket_staff else 5 }}" class="text-center text-muted" style="padding: 40px;">
                     No tickets found. You're all caught up!
                 </td>
             </tr>

@@ -422,9 +422,9 @@ def manage_roles(uuid):
     robust_conn = get_robust_db()
     
     
-    # 1. Fetch user's real name from Robust
+    # 1. Fetch user's real name and level from Robust
     with robust_conn.cursor() as r_cursor:
-        r_cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (uuid,))
+        r_cursor.execute("SELECT FirstName, LastName, userLevel FROM useraccounts WHERE PrincipalID = %s", (uuid,))
         account = r_cursor.fetchone()
         
     if not account:
@@ -469,13 +469,36 @@ def manage_roles(uuid):
                         new_bitmask |= bit_val
 
         try:
+            # NOTE: We intentionally treat userLevel=200 as "in-world admin, no portal RBAC"
+            # and userLevel=201 as "in-world admin that should load portal RBAC on login".
+            raw_level = account.get('userLevel', 0)
+            try:
+                current_level = int(raw_level)
+            except (TypeError, ValueError):
+                current_level = 0
+
             with pariah_conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO user_rbac (user_uuid, permissions) 
-                    VALUES (%s, %s)
-                    ON DUPLICATE KEY UPDATE permissions = VALUES(permissions)
-                """, (uuid, new_bitmask))
+                if new_bitmask == 0:
+                    cursor.execute("DELETE FROM user_rbac WHERE user_uuid = %s", (uuid,))
+                else:
+                    cursor.execute("""
+                        INSERT INTO user_rbac (user_uuid, permissions) 
+                        VALUES (%s, %s)
+                        ON DUPLICATE KEY UPDATE permissions = VALUES(permissions)
+                    """, (uuid, new_bitmask))
             pariah_conn.commit()
+
+            # Normalize Robust level tiers when RBAC is cleared/applied.
+            if new_bitmask == 0:
+                if current_level == 1:
+                    set_user_level(uuid, 0)
+                elif current_level == 201:
+                    set_user_level(uuid, 200)
+            else:
+                if current_level == 0:
+                    set_user_level(uuid, 1)
+                elif current_level == 200:
+                    set_user_level(uuid, 201)
 
             log_audit_action("Update Roles", f"Changed bitmask to {new_bitmask}", target_uuid=uuid)
             flash(f"Permissions updated for {avatar_name}.", "success")

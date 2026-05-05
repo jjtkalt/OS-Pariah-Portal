@@ -66,6 +66,7 @@ def create_app(config_class='app.config.Config'):
             'custom_css_path': get_dynamic_config('custom_css_path'),
             'portal_background_image': portal_background_image,
             'has_permission': auth_helpers.has_permission,
+            'has_any_permissions': auth_helpers.has_any_permissions,
             'PERMS': auth_helpers, # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML
             'RBAC_SCHEMA': RBAC_SCHEMA,
             'check_bit': lambda mask, bit: bool(mask & bit)

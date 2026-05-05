@@ -49,6 +49,15 @@ def has_permission(required_bit):
     # Bitwise AND comparison
     return bool(user_perms & required_bit)
 
+
+def has_any_permissions():
+    """True when session RBAC mask is non-zero (any portal permission bits assigned)."""
+    try:
+        return int(session.get('permissions', 0)) != 0
+    except (TypeError, ValueError):
+        return False
+
+
 def rbac_required(permission):
     """Decorator for Flask routes."""
     def decorator(f):

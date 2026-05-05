@@ -92,8 +92,18 @@ def login():
                     session['is_admin'] = account['userLevel'] >= 200
 
                     # --- OPTIMIZED RBAC HYDRATION ---
-                    # Skip the DB hit entirely for standard Level 0 users
-                    if account['userLevel'] > 0:
+                    # Convention:
+                    # - userLevel 0: normal user, never checks portal RBAC
+                    # - userLevel 200: in-world admin WITHOUT portal RBAC (skip RBAC lookup)
+                    # - userLevel 201: in-world admin that SHOULD load portal RBAC
+                    # - other >0 staff tiers: load portal RBAC
+                    ul_int = 0
+                    try:
+                        ul_int = int(account['userLevel'])
+                    except (TypeError, ValueError):
+                        ul_int = 0
+
+                    if ul_int > 0 and ul_int != 200:
                         pariah_conn = get_pariah_db()
                         with pariah_conn.cursor() as p_cursor:
                             p_cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (user_uuid,))
@@ -106,7 +116,7 @@ def login():
                                 # If they have no RBAC record, but OpenSim says they are a Grid Owner (Specifically 250+)
                                 # The logic here is to allow a grid owner to setup their account that first time into portal so they don't have to edit the database directly or run scripts.
                                 # Note: This WILL NOT allow "recovering access" in the portal without the extra step of deleting the RBAC entry for their UUID first.
-                                if account['userLevel'] >= 250:
+                                if ul_int >= 250:
                                     p_cursor.execute("INSERT INTO user_rbac (user_uuid, permissions) VALUES (%s, %s)", (user_uuid, PERM_SUPER_ADMIN))
                                     pariah_conn.commit()
                                     session['permissions'] = PERM_SUPER_ADMIN
