@@ -41,8 +41,10 @@
         <button type="submit" class="btn-success text-lg mt-10">I Agree - Continue to Portal</button>
     </form>
 
-    <div class="text-center mt-20">
-        <a href="{{ url_for('auth.logout') }}" class="text-muted text-sm" style="text-decoration: none;">I do not agree (Logout)</a>
-    </div>
+    <form method="POST" action="{{ url_for('user.policy_agreement') }}" class="text-center mt-20">
+        <input type="hidden" name="policy_action" value="decline">
+        <button type="submit" class="btn-danger text-sm">I do not agree — lock my account</button>
+        <p class="text-muted text-sm mt-10 mb-0">Your Robust user level will be set to the configured policy-decline tier until you log in and agree.</p>
+    </form>
 </div>
 {% endblock %}

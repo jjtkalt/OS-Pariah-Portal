@@ -3,7 +3,8 @@ import uuid
 import subprocess
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory
 from app.utils.db import get_pariah_db, get_dynamic_config, get_robust_db
-from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password
+from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password, set_user_level
+from app.utils.auth_helpers import get_policy_decline_level
 from app.utils.notifications import send_verification_email, send_email_change_verification
 
 user_bp = Blueprint('user', __name__, url_prefix='/user')
@@ -139,17 +140,50 @@ def policy_agreement():
     pariah_conn = get_pariah_db()
 
     if request.method == 'POST':
+        if request.form.get('policy_action') == 'decline':
+            lock_level = get_policy_decline_level()
+            if set_user_level(session['uuid'], lock_level):
+                session['user_level'] = lock_level
+                session['is_admin'] = False
+                session['permissions'] = 0
+                flash(
+                    'Your account has been set to the policy non-agreement tier in Robust. '
+                    'You can log in again to review the policies when you are ready.',
+                    'warning',
+                )
+            else:
+                flash('Could not update your account level in the grid. Please contact support.', 'error')
+            return redirect(url_for('auth.logout'))
+
         if request.form.get('agree') == 'yes':
+            rbac_row = None
+            with pariah_conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
+                    (session['uuid'],),
+                )
+                rbac_row = cursor.fetchone()
+
+            target_level = 1 if rbac_row else 0
+            if not set_user_level(session['uuid'], target_level):
+                flash('The grid could not restore your user level. Your agreement was not saved. Please contact support.', 'error')
+                return redirect(url_for('user.policy_agreement'))
+
             with pariah_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT IGNORE INTO policy_agreements (user_uuid, policy_version) VALUES (%s, %s)",
-                    (session['uuid'], current_version)
+                    (session['uuid'], current_version),
                 )
             pariah_conn.commit()
+
+            session['user_level'] = target_level
+            session['is_admin'] = target_level >= 200
+            session['permissions'] = rbac_row['permissions'] if rbac_row else 0
+
             flash('Thank you for agreeing to the updated grid policies.', 'success')
             return redirect(url_for('comms.news_feed'))
-        else:
-            flash('You must agree to the policies to access the portal.', 'error')
+
+        flash('You must agree to the policies to access the portal.', 'error')
 
     last_agreed = None
     with pariah_conn.cursor() as cursor:

@@ -101,9 +101,17 @@ def create_app(config_class='app.config.Config'):
         # -------------------------
         
         from app.utils.db import get_pariah_db, get_dynamic_config
+        from app.utils.auth_helpers import is_policy_decline_session
         
         if 'uuid' not in session:
             return
+
+        # Account is at the configurable "declined policies" Robust tier: only auth, API, policy bouncer, and policy document views
+        if is_policy_decline_session():
+            if request.blueprint in ['auth', 'api'] or request.endpoint in ['static', 'user.policy_agreement', 'policies.view_policy']:
+                return
+            flash("You must review and agree to the grid policies to restore access.", "info")
+            return redirect(url_for('user.policy_agreement'))
             
         exempt_blueprints = ['auth', 'api']
         if request.blueprint in exempt_blueprints or request.endpoint in ['static', 'user.policy_agreement', 'policies.view_policy']:

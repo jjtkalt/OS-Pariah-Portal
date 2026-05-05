@@ -12,6 +12,7 @@ from functools import wraps
 from flask import Blueprint, request, session, redirect, url_for, flash, current_app, render_template, jsonify
 from app.utils.db import get_robust_db, get_pariah_db, get_dynamic_config
 from app.utils.robust_api import update_user_password
+from app.utils.auth_helpers import get_policy_decline_level
 from app.utils.notifications import send_password_reset_email
 from app.utils.password_resets import create_password_reset_token, purge_expired_password_reset_tokens
 from app.utils.schema import *
@@ -78,7 +79,9 @@ def login():
                 if final_hash == auth_data['passwordHash']:
 
                     # --- THE GATEKEEPER / BOUNCER ---
-                    if account['userLevel'] < 0:
+                    decline_level = get_policy_decline_level()
+                    ul = account['userLevel']
+                    if ul < 0 and ul != decline_level:
                         flash('Your account is currently locked, pending approval, or banned.', 'error')
                         return redirect(url_for('auth.login'))
                     # --------------------------------
@@ -120,6 +123,10 @@ def login():
                     if 'next' in session:
                         next_url = session.pop('next')
                         return redirect(next_url)
+
+                    if ul == decline_level:
+                        flash('Your grid access is paused until you agree to the current policies.', 'info')
+                        return redirect(url_for('user.policy_agreement'))
 
                     flash('Login successful!', 'success')
                     return redirect(url_for('comms.news_feed'))
@@ -216,6 +223,11 @@ def authorize():
         # Save the authorize request URL so we can bounce them back here after login
         session['next'] = request.url
         return redirect(url_for('auth.login'))
+
+    from app.utils.auth_helpers import is_policy_decline_session
+    if is_policy_decline_session():
+        flash('You must agree to the current grid policies before using external applications.', 'info')
+        return redirect(url_for('user.policy_agreement'))
 
     auth_code = secrets.token_urlsafe(32)
     pariah_conn = get_pariah_db()

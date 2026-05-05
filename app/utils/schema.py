@@ -23,6 +23,7 @@ KNOWN_SETTINGS = {
     "User Access & Policies": {
         "global_policy_version": {"label": "Global Policy Version", "type": "text", "default": "0.0", "no_reset": True},
         "rejected_user_level": {"label": "Rejected User Level", "type": "number", "default": "-5"},
+        "policy_decline_user_level": {"label": "Policy Decline User Level (non-agreement lock)", "type": "number", "default": "-4"},
         "ban_level_account": {"label": "Account Ban User Level", "type": "number", "default": "-10"},
         "ban_level_ip": {"label": "IP Ban User Level", "type": "number", "default": "-11"},
         "ban_level_mac": {"label": "MAC Ban User Level", "type": "number", "default": "-12"},
