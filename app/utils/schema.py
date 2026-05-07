@@ -47,6 +47,11 @@ KNOWN_SETTINGS = {
     "Region & Grid Defaults": {
         "default_max_agents": {"label": "Default Max Agents per Region", "type": "number", "default": "100"},
         "max_region_size_multiplier": {"label": "Max Region Size Multiplier", "type": "number", "default": "4"},
+        "region_owner_control_level": {
+            "label": "Region Owner/Estate Manager Controls",
+            "type": "text",
+            "default": "no"
+        },
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
@@ -103,7 +108,7 @@ RBAC_SCHEMA = {
     },
     "Grid Operations": {
         PERM_VIEW_REGIONS: {"label": "View Regions", "desc": "View the list of regions"},
-        PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions (Required View Regions)"},
+        PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions and HUD listed/unlisted toggle (Required View Regions)"},
         PERM_MANAGE_REGIONS: {"label": "Manage Regions", "desc": "Edit WebXML configs & limits (Required View Regions and Region Control)", "super_only": True},
     },
     "Moderation & Support": {

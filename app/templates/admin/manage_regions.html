@@ -4,7 +4,7 @@
 
 {% block content %}
 {% set can_manage = has_permission(PERMS.PERM_MANAGE_REGIONS) %}
-{% set can_control = has_permission(PERMS.PERM_REGION_CONTROL) %}
+{% set can_control = has_permission(PERMS.PERM_REGION_CONTROL) or owner_can_control %}
 {% set can_infra = has_permission(PERMS.PERM_MANAGE_INFRA) %}
 <div class="flex-between mb-20" style="align-items: center;">
     <div>
@@ -42,16 +42,48 @@
             <tr {% if not region.is_active and region.is_managed or not region.is_managed %}style="opacity: 0.50;"{% endif %}>
 
                 <td class="fw-bold">
-                    <div>
-                        {{ region.regionName }}
+                    <div class="d-flex gap-10" style="align-items: baseline; flex-wrap: wrap;">
+                        <span>{{ region.regionName }}</span>
+                        {% if region.is_managed and not region.is_active %}
+                            <span class="btn-warning text-sm" style="padding: 2px 8px; border-radius: 999px;">Disabled</span>
+                        {% endif %}
+                        {% if not region.is_managed %}
+                            <span class="text-muted text-sm fw-normal" style="font-style: italic;">External</span>
+                        {% endif %}
                     </div>
                     {% if region.is_managed %}
-                        <span class="text-success text-sm">● Enabled</span>
-                        {% if not region.is_active %}
-                            <span class="btn-warning text-sm">&#8856; Disabled</span>
+                        {% if can_manage %}
+                        <div class="d-flex gap-5 flex-wrap mt-5" style="align-items: center;">
+                            <form action="{{ url_for('regions.toggle_state', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                {% if region.is_active %}
+                                <button type="submit" class="btn-success text-sm" style="padding: 4px 10px; border-radius: 999px;" title="Disable region in portal">Enabled</button>
+                                {% else %}
+                                <button type="submit" class="btn-warning text-sm" style="padding: 4px 10px; border-radius: 999px;" title="Enable region in portal">Disabled</button>
+                                {% endif %}
+                            </form>
+                            {% if not region.is_active and not region.is_online %}
+                            <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration permanently. Proceed?');">
+                                <button type="submit" class="btn-danger text-sm" style="padding: 4px 10px; border-radius: 999px;" title="Delete disabled + stopped region">&#8855; Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="mt-5 text-sm fw-normal">
+                            {% if region.is_active %}
+                            <span class="text-success">Enabled</span>
+                            {% else %}
+                            <span class="text-warning">&#8856; Disabled</span>
+                            {% endif %}
+                        </div>
                         {% endif %}
                     {% else %}
-                        <span class="text-muted text-sm" style="font-style: italic;">External / Manual</span>
+                        <div class="d-flex gap-5 flex-wrap mt-5" style="align-items: center;">
+                            {% if region.is_online and can_manage %}
+                            <form action="{{ url_for('regions.import_region', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                <button type="submit" class="btn-success text-sm" style="padding: 4px 10px; border-radius: 999px;">Import</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </td>
 
@@ -80,80 +112,57 @@
                 </td>
 
                 <td class="text-right">
-                    {% if region.is_managed %}
-                        {% if can_manage %}
-                        <a href="{{ url_for('regions.edit_region', region_uuid=region.uuid) }}" class="btn btn-info">Edit Config</a>
-                        {% endif %}
-                    {% else %}
-                        {% if region.is_online and can_manage %}
-                        <form action="{{ url_for('regions.import_region', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                            <button type="submit" class="btn-success text-sm">Import to Portal</button>
-                        </form>
-                        {% endif %}
+                    {% if region.is_managed and can_manage %}
+                    <a href="{{ url_for('regions.edit_region', region_uuid=region.uuid) }}" class="btn btn-info">Edit Config</a>
                     {% endif %}
                 </td>
 
                 <td class="text-center" style="vertical-align: middle;">
                     {% if region.is_managed %}
-                    <div class="flex-column gap-10" style="align-items: center;">
-
-                        {% if can_control %}
-                        <div class="d-flex gap-5 flex-center">
-                            {% if not region.is_online %}
-                                {% if region.is_active %}
+                        {% set show_runtime = can_control %}
+                        {% set show_hud = can_control %}
+                        {% if show_runtime or show_hud %}
+                        <div class="flex-column gap-10" style="align-items: center;">
+                            {% if show_runtime %}
+                            <div class="d-flex gap-5 flex-center flex-wrap">
+                                {% if not region.is_online %}
+                                    {% if region.is_active %}
                                     <form action="{{ url_for('regions.control_region', action='start', region_uuid=region.uuid) }}" method="POST" class="m-0">
                                         <button type="submit" class="btn-success p-2 text-sm" title="Start Region">&#9654; Start</button>
                                     </form>
-                                {% else %}
-                                    <span class="text-muted p-2 text-sm">Enable to Start</span>
-                                {% endif %}
-                            {% else %}
-                                <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-danger p-2 text-sm" title="Stop Region">&#9209; Stop</button>
-                                </form>
-
-                                <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-info p-2 text-sm" title="Restart Region">&#10227; Restart</button>
-                                </form>
-
-                                <form action="{{ url_for('regions.control_region', action='oar', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    <button type="submit" class="btn-muted p-2 text-sm" title="Save OAR Backup">&#128190; OAR</button>
-                                </form>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {% if can_manage %}
-                        <div class="d-flex gap-5 flex-center w-100{% if can_control %} pt-10{% endif %}"{% if can_control %} style="border-top: 1px dashed var(--border-color);"{% endif %}>
-
-                                <form action="{{ url_for('regions.toggle_state', region_uuid=region.uuid) }}" method="POST" class="m-0">
-                                    {% if region.is_active %}
-                                        <button type="submit" class="btn-warning p-2 text-sm" title="Disable region">&#8856; Disable</button>
                                     {% else %}
-                                        <button type="submit" class="btn-success p-2 text-sm" title="Enable region">&#8858; Enable</button>
+                                    <span class="text-muted p-2 text-sm">{% if can_manage %}Enable under Region Name to start{% else %}Portal disabled — admin enable required{% endif %}</span>
                                     {% endif %}
-                                </form>
-
+                                {% else %}
+                                    <form action="{{ url_for('regions.control_region', action='stop', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                        <button type="submit" class="btn-danger p-2 text-sm" title="Stop Region">&#9209; Stop</button>
+                                    </form>
+                                    <form action="{{ url_for('regions.control_region', action='restart', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                        <button type="submit" class="btn-info p-2 text-sm" title="Restart Region">&#10227; Restart</button>
+                                    </form>
+                                    <form action="{{ url_for('regions.control_region', action='oar', region_uuid=region.uuid) }}" method="POST" class="m-0">
+                                        <button type="submit" class="btn-muted p-2 text-sm" title="Save OAR Backup">&#128190; OAR</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if show_hud %}
+                            <div class="d-flex gap-5 flex-center flex-wrap w-100{% if show_runtime %} pt-10{% endif %}"{% if show_runtime %} style="border-top: 1px dashed var(--border-color);"{% endif %}>
                                 <form action="{{ url_for('regions.toggle_hud_list', region_uuid=region.uuid) }}" method="POST" class="m-0">
                                     {% if region.hud_list_users %}
-                                        <button type="submit" class="btn-success p-2 text-sm" title="Change to Users Are Unlisted on HUD">&#128065; Listed</button>
+                                    <button type="submit" class="btn-success p-2 text-sm" title="Change to Users Are Unlisted on HUD">&#128065; Listed</button>
                                     {% else %}
-                                        <button type="submit" class="btn-muted p-2 text-sm" title="Change to Users Are Listed on HUD">&#128269; Unlisted</button>
+                                    <button type="submit" class="btn-muted p-2 text-sm" title="Change to Users Are Listed on HUD">&#128269; Unlisted</button>
                                     {% endif %}
                                 </form>
-
-                            {% if not region.is_active %}
-                                <form action="{{ url_for('regions.delete_region', region_uuid=region.uuid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Deleting this will remove its WebXML configuration permanently. Proceed?');">
-                                    <button type="submit" class="btn-danger p-2 text-sm">&#8855; Delete from DB</button>
-                                </form>
+                            </div>
                             {% endif %}
-
                         </div>
+                        {% else %}
+                        <span class="text-sm text-muted">&mdash;</span>
                         {% endif %}
-
-                    </div>
                     {% else %}
-                        <span class="text-sm text-muted">Import to enable</span>
+                    <span class="text-sm text-muted">&mdash;</span>
                     {% endif %}
                 </td>
             </tr>

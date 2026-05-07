@@ -4,13 +4,100 @@ import time
 import ipaddress
 from flask import Blueprint, render_template, request, Response, flash, redirect, url_for, current_app, session
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
-from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.auth_helpers import rbac_required, has_permission, require_active_user
 from app.utils.schema import *
 
 
 regions_bp = Blueprint('regions', __name__, url_prefix='/regions')
 
 _MANAGED_NETWORK_PLACEHOLDER = 'Managed (See DNS Mapping)'
+
+def _owner_control_level():
+    """
+    System setting controlling whether region owners/managers can control their sims.
+    Values (case-insensitive): no | owners | owners_managers
+    """
+    raw = (get_dynamic_config('region_owner_control_level') or '').strip().lower()
+    if raw in ('no', 'none', 'disabled', 'false', '0', ''):
+        return 'no'
+    if raw in ('owners', 'owner'):
+        return 'owners'
+    if raw in ('owners_managers', 'owners+managers', 'owners_and_managers', 'owners managers', 'owner_manager'):
+        return 'owners_managers'
+    # Fail safe: unknown value means disabled
+    return 'no'
+
+def _robust_has_table(cursor, table_name: str) -> bool:
+    cursor.execute("SHOW TABLES LIKE %s", (table_name,))
+    return bool(cursor.fetchone())
+
+def _user_owned_region_uuids(user_uuid: str, include_managers: bool) -> set[str]:
+    """
+    Returns Robust region UUIDs for which the user is Estate Owner (and optionally Estate Manager).
+    Uses OpenSim's typical Robust schema: estate_settings, estate_map, estate_managers.
+    """
+    if not user_uuid:
+        return set()
+
+    robust_conn = get_robust_db()
+    uuids: set[str] = set()
+    try:
+        with robust_conn.cursor() as cursor:
+            if not (_robust_has_table(cursor, 'estate_settings') and _robust_has_table(cursor, 'estate_map')):
+                return set()
+
+            # Owners
+            cursor.execute(
+                """
+                SELECT em.RegionID AS uuid
+                FROM estate_map em
+                JOIN estate_settings es ON es.EstateID = em.EstateID
+                WHERE es.EstateOwner = %s
+                """,
+                (user_uuid,),
+            )
+            for row in cursor.fetchall() or []:
+                if row and row.get('uuid'):
+                    uuids.add(row['uuid'])
+
+            # Managers (optional)
+            if include_managers and _robust_has_table(cursor, 'estate_managers'):
+                cursor.execute(
+                    """
+                    SELECT em.RegionID AS uuid
+                    FROM estate_map em
+                    JOIN estate_managers m ON m.EstateID = em.EstateID
+                    WHERE m.uuid = %s
+                    """,
+                    (user_uuid,),
+                )
+                for row in cursor.fetchall() or []:
+                    if row and row.get('uuid'):
+                        uuids.add(row['uuid'])
+    except Exception as e:
+        current_app.logger.warning(f"Owner/manager region lookup failed: {e}")
+        return set()
+
+    return uuids
+
+def _user_can_control_region(region_uuid: str) -> bool:
+    """
+    True when the current session user can start/stop/restart/OAR + toggle HUD
+    for the specific region_uuid.
+    """
+    if has_permission(PERM_REGION_CONTROL):
+        return True
+
+    level = _owner_control_level()
+    if level == 'no':
+        return False
+
+    user_uuid = session.get('uuid')
+    if not user_uuid:
+        return False
+
+    allowed = _user_owned_region_uuids(user_uuid, include_managers=(level == 'owners_managers'))
+    return region_uuid in allowed
 
 
 def _strip_ipv6_brackets(addr):
@@ -133,9 +220,27 @@ def get_region_xml(region_uuid):
         return Response("<error>Internal Server Error</error>", status=500, mimetype='application/xml')
 
 @regions_bp.route('/manage', methods=['GET'])
-@rbac_required(PERM_VIEW_REGIONS)
+@require_active_user
 def manage_regions():
     combined_regions = {}
+
+    # Access gate: admins with View Regions can see everything; otherwise (optionally) allow owners/managers.
+    user_uuid = session.get('uuid')
+    owner_level = _owner_control_level()
+    can_view_all = has_permission(PERM_VIEW_REGIONS)
+    owner_allowed_uuids: set[str] = set()
+
+    if not can_view_all:
+        if owner_level == 'no':
+            flash("Unauthorized: You lack the required portal permissions.", "error")
+            return redirect(url_for('comms.news_feed'))
+
+        owner_allowed_uuids = _user_owned_region_uuids(
+            user_uuid, include_managers=(owner_level == 'owners_managers')
+        )
+        if not owner_allowed_uuids:
+            flash("Unauthorized: You lack the required portal permissions.", "error")
+            return redirect(url_for('comms.news_feed'))
 
     try:
         conn_pariah = get_pariah_db()
@@ -251,11 +356,18 @@ def manage_regions():
         flash(f"Database sync failed: {e}", "error")
 
     final_list = sorted(combined_regions.values(), key=lambda x: x['regionName'])
-    return render_template('admin/manage_regions.html', regions=final_list)
+    if not can_view_all:
+        final_list = [r for r in final_list if r.get('uuid') in owner_allowed_uuids]
+    owner_can_control = (not can_view_all) and bool(owner_allowed_uuids)
+    return render_template('admin/manage_regions.html', regions=final_list, owner_can_control=owner_can_control)
 
 @regions_bp.route('/control/<action>/<region_uuid>', methods=['POST'])
-@rbac_required(PERM_REGION_CONTROL)
+@require_active_user
 def control_region(action, region_uuid):
+    if not _user_can_control_region(region_uuid):
+        flash('Unauthorized: You lack the required portal permissions.', 'error')
+        return redirect(url_for('comms.news_feed'))
+
     allowed_actions = ['start', 'stop', 'restart', 'oar']
     if action not in allowed_actions:
         return redirect(url_for('regions.manage_regions'))
@@ -388,8 +500,12 @@ def toggle_state(region_uuid):
 
 
 @regions_bp.route('/toggle_hud_list/<region_uuid>', methods=['POST'])
-@rbac_required(PERM_MANAGE_REGIONS)
+@require_active_user
 def toggle_hud_list(region_uuid):
+    if not _user_can_control_region(region_uuid):
+        flash('Unauthorized: You lack the required portal permissions.', 'error')
+        return redirect(url_for('comms.news_feed'))
+
     """Flips public HUD listing for avatars in this region (Users Listed (1)/ Users Unlisted (0))."""
     pariah_conn = get_pariah_db()
     try:
