@@ -64,6 +64,11 @@ KNOWN_SETTINGS = {
         "PERMANENT_SESSION_LIFETIME": {"label": "Session Lifetime (Seconds)", "type": "number", "default": "28800"},
         "fsassets_path": {"label": "FSAssets Directory Location", "type": "text", "default": "/home/opensim/FSAssets/data"},
         "texture_cache_path": {"label": "Cache Directory Location", "type": "text", "default": "/home/opensim/FSAssets/pariahcache"},
+        "robust_main_ini_path": {
+            "label": "Robust main.ini Path (MAC ban sync)",
+            "type": "text",
+            "default": "/home/opensim/Configs/Robust/main",
+        },
     }
 }
 

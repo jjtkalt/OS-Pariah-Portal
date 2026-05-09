@@ -1,3 +1,4 @@
+import os
 import subprocess
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
@@ -251,19 +252,46 @@ def manage_bans():
 def trigger_system_sync_workers(ban_id="Manual/Unknown"):
     """Triggers the secure background scripts to sync firewalld and Robust."""
     current_app.logger.info(f"Triggering system synchronizations for Ban ID {ban_id}...")
+    sync_log = "/var/log/os_pariah/sync_workers.log"
+    log_out = None
     try:
-        # 1. Fire the IP/HostID Firewall Sync
-        subprocess.Popen(
-            ["/usr/bin/sudo", "/opt/os_pariah/venv/bin/python", "/opt/os_pariah/scripts/sync_firewall.py"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
-        )
-        # 2. Fire the Robust MAC Sync
-        subprocess.Popen(
-            ["/usr/bin/sudo", "/opt/os_pariah/venv/bin/python", "/opt/os_pariah/scripts/sync_robust.py"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
-        )
+        os.makedirs(os.path.dirname(sync_log), exist_ok=True)
+        log_out = open(sync_log, "ab", buffering=0)
+    except OSError:
+        pass
+
+    try:
+        cmds = [
+            [
+                "/usr/bin/sudo",
+                "/opt/os_pariah/venv/bin/python",
+                "/opt/os_pariah/scripts/sync_firewall.py",
+            ],
+            [
+                "/usr/bin/sudo",
+                "/opt/os_pariah/venv/bin/python",
+                "/opt/os_pariah/scripts/sync_robust.py",
+            ],
+        ]
+        for cmd in cmds:
+            kwargs = dict(start_new_session=True)
+            if log_out is not None:
+                kwargs["stdout"] = log_out
+                kwargs["stderr"] = subprocess.STDOUT
+            else:
+                kwargs["stdout"] = subprocess.DEVNULL
+                kwargs["stderr"] = subprocess.DEVNULL
+            subprocess.Popen(cmd, **kwargs)
+        if log_out is not None:
+            current_app.logger.info(
+                "Sync worker output appended to %s (scripts also log failures there).",
+                sync_log,
+            )
     except Exception as e:
         current_app.logger.error(f"Failed to trigger sync workers: {e}")
+    finally:
+        if log_out is not None:
+            log_out.close()
 
 def _safe_fetchall(cursor):
     try:

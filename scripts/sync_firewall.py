@@ -1,82 +1,124 @@
 #!/usr/bin/env python3
 import os
-import sys
 import subprocess
-import configparser
-import pymysql
+import sys
 
-def get_db_connection():
-    # Fallback to dev paths if not on production server
-    if not config.sections():
-        config.read(os.path.join(os.path.dirname(__file__), '..', '.env'))
+from pariah_env import (
+    configure_sync_logging,
+    get_dynamic_config_for_scripts,
+    get_pariah_db_connection,
+)
 
-    return pymysql.connect(
-        host=config.get('Pariah Database', 'PARIAH_DB_HOST', fallback='127.0.0.1'),
-        user=config.get('Pariah Database', 'PARIAH_DB_USER', fallback='pariah_user'),
-        password=config.get('Pariah Database', 'PARIAH_DB_PASS', fallback=''),
-        database=config.get('Pariah Database', 'PARIAH_DB_NAME', fallback='os_pariah'),
-        cursorclass=pymysql.cursors.DictCursor
-    )
 
-def run_cmd(cmd_list):
-    """Executes a system command and ignores errors (like flushing an empty set)."""
-    subprocess.run(cmd_list, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def run_cmd(logger, cmd_list):
+    """Run a firewall-cmd (or other) command and log failures."""
+    r = subprocess.run(cmd_list, capture_output=True, text=True)
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip()
+        logger.error(
+            "Command failed (exit %s): %s%s",
+            r.returncode,
+            " ".join(cmd_list),
+            (" — " + err) if err else "",
+        )
 
-def sync_firewall():
-    print("Starting Pariah Firewall Synchronization...")
-    config = configparser.ConfigParser()
-    config.read('/etc/os_pariah/os-pariah.conf')
 
-    conn = get_db_connection()
+def sync_firewall(logger):
+    logger.info("Starting Pariah firewall synchronization...")
+    conn = get_pariah_db_connection()
     try:
+        login_port = str(
+            get_dynamic_config_for_scripts(conn, "robust_public_port", default="8002")
+        ).strip()
+        if not login_port:
+            login_port = "8002"
+
         with conn.cursor() as cursor:
-            # 1. Fetch active IPs
             cursor.execute("SELECT ip FROM bans_ip")
-            banned_ips = set(row['ip'] for row in cursor.fetchall())
+            banned_ips = set(row["ip"] for row in cursor.fetchall())
 
-            # 2. Fetch active Host IDs (Id0)
             cursor.execute("SELECT hostid FROM bans_host_id")
-            banned_hosts = set(row['hostid'] for row in cursor.fetchall())
+            banned_hosts = set(row["hostid"] for row in cursor.fetchall())
 
-        # --- SYNC IPSET (IP Bans) ---
-        print(f"Syncing {len(banned_ips)} IP addresses...")
-        # Flush the existing set to ensure we remove deleted bans
-        run_cmd(['firewall-cmd', '--permanent', '--ipset=pariah_banned_ips', '--remove-entries-from-file=/dev/null']) 
-        run_cmd(['firewall-cmd', '--ipset=pariah_banned_ips', '--flush'])
-        
+        logger.info(
+            "Using Robust public port %s from portal settings for HostID rules.",
+            login_port,
+        )
+        logger.info("Syncing %s IP addresses (ipset)...", len(banned_ips))
+        run_cmd(
+            logger,
+            [
+                "firewall-cmd",
+                "--permanent",
+                "--ipset=pariah_banned_ips",
+                "--remove-entries-from-file=/dev/null",
+            ],
+        )
+        run_cmd(logger, ["firewall-cmd", "--ipset=pariah_banned_ips", "--flush"])
+
         for ip in banned_ips:
-            run_cmd(['firewall-cmd', '--permanent', '--ipset=pariah_banned_ips', '--add-entry', ip])
-            run_cmd(['firewall-cmd', '--ipset=pariah_banned_ips', '--add-entry', ip])
+            run_cmd(
+                logger,
+                [
+                    "firewall-cmd",
+                    "--permanent",
+                    "--ipset=pariah_banned_ips",
+                    "--add-entry",
+                    ip,
+                ],
+            )
+            run_cmd(
+                logger,
+                ["firewall-cmd", "--ipset=pariah_banned_ips", "--add-entry", ip],
+            )
 
-        # --- SYNC DIRECT RULES (HostID / Id0 Bans) ---
-        # Note: OpenSim uses port 8002 by default for login. 
-        # Boyer-Moore (bm) algorithm searches the packet payload for the exact HostID string.
-        print(f"Syncing {len(banned_hosts)} Host ID Direct Rules...")
-        
-        # Unfortunately, firewalld doesn't have an easy "flush all direct rules" command that doesn't wipe custom admin rules.
-        # So we remove all known rules first before re-adding them to avoid duplicates.
-        # In a future update, we might track direct rule XMLs, but this is a solid V1 baseline.
+        logger.info("Syncing %s Host ID direct rules...", len(banned_hosts))
+
         for host in banned_hosts:
-            rule_args = ['ipv4', 'filter', 'INPUT', '0', '-p', 'tcp', '--dport', '8002', '-m', 'string', '--algo', 'bm', '--string', host, '-j', 'DROP']
-            
-            # Remove it if it exists
-            run_cmd(['firewall-cmd', '--permanent', '--direct', '--remove-rule'] + rule_args)
-            # Add it back
-            run_cmd(['firewall-cmd', '--permanent', '--direct', '--add-rule'] + rule_args)
+            rule_args = [
+                "ipv4",
+                "filter",
+                "INPUT",
+                "0",
+                "-p",
+                "tcp",
+                "--dport",
+                login_port,
+                "-m",
+                "string",
+                "--algo",
+                "bm",
+                "--string",
+                host,
+                "-j",
+                "DROP",
+            ]
+            run_cmd(
+                logger,
+                ["firewall-cmd", "--permanent", "--direct", "--remove-rule"]
+                + rule_args,
+            )
+            run_cmd(
+                logger,
+                ["firewall-cmd", "--permanent", "--direct", "--add-rule"] + rule_args,
+            )
 
-        # Apply all permanent changes to runtime
-        print("Reloading firewalld to apply changes...")
-        run_cmd(['firewall-cmd', '--reload'])
-        
-        print("Synchronization Complete.")
+        logger.info("Reloading firewalld to apply changes...")
+        run_cmd(logger, ["firewall-cmd", "--reload"])
+
+        logger.info("Firewall synchronization complete.")
 
     finally:
         conn.close()
 
-if __name__ == '__main__':
-    # Ensure this is only run as root (via sudo)
-    if os.geteuid() != 0:
-        print("ERROR: This script must be run as root.")
+
+if __name__ == "__main__":
+    log = configure_sync_logging("sync_firewall")
+    try:
+        if os.name != "nt" and os.geteuid() != 0:
+            log.error("This script must be run as root.")
+            sys.exit(1)
+        sync_firewall(log)
+    except Exception:
+        log.exception("sync_firewall failed")
         sys.exit(1)
-        
-    sync_firewall()
