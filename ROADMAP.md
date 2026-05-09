@@ -7,6 +7,7 @@ So many things to do, so many ways to forget! This is a living document. Priorit
 ## Known Bugs (Next patch version release)
 *Focus: Things that need to be fixed and should already work!  Seed for the issues list.*
 
+* **[ ] Ban data collection:** When a ban is created, we need to collect all of the user info that we can, including notes names, UUIDs mapped to grids, etc.  This includes all IPS, MAC, UUID, and HostIDs.  Even if the ban doesn't address those items, we still need the info for review, reference, and potentially having to increase the ban type.   This includes all associated account information related to the info key to the ban type.  If multiple accounts are included all accounts need to be linked in the ban, and show up when reviewed.  A notes field can contain this collection of data.  And all associated accounts included in the ban need to have user notes added to indicate the relationship to the ban.  And if a ban is removed, those notes need to indicate that they were banned and it was removed.
 
 ## 🚧 Short-Term (Possibly Next Minor version release)
 *Focus: In-line enhancements without base functionality changes.*

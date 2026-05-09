@@ -53,6 +53,7 @@ def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
     # and then return an empty list when the redirect loads the Ban Table UI!
     db_cursor.fetchall.side_effect = [
         [{'uuid': 'bad-guy-uuid'}], 
+        [],  # bans_related_uuid
         []
     ]
 

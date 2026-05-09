@@ -39,9 +39,17 @@
                 </td>
                 <td class="text-muted text-sm" style="font-family: monospace;">
                     {% if ban.uuids %}<strong>UUIDs:</strong> <span style="word-break: break-all;">{{ ban.uuids }}</span><br>{% endif %}
+                    {% if ban.related_uuids %}<strong>Related:</strong> <span style="word-break: break-all;">{{ ban.related_uuids }}</span><br>{% endif %}
                     {% if ban.ips %}<strong>IPs:</strong> <span style="word-break: break-all;">{{ ban.ips }}</span><br>{% endif %}
                     {% if ban.macs %}<strong>MACs:</strong> <span style="word-break: break-all;">{{ ban.macs }}</span><br>{% endif %}
                     {% if ban.hostids %}<strong>Hosts:</strong> <span style="word-break: break-all;">{{ ban.hostids }}</span>{% endif %}
+
+                    {% if ban.notes %}
+                    <details class="mt-10" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">
+                        <summary class="text-muted" style="cursor: pointer;">Evidence snapshot</summary>
+                        <pre class="m-0 mt-10" style="white-space: pre-wrap; word-break: break-word;">{{ ban.notes }}</pre>
+                    </details>
+                    {% endif %}
                 </td>
                 <td class="text-right" style="vertical-align: middle;">
                     <form action="{{ url_for('user_mgmt.delete_ban', ban_id=ban.banid) }}" method="POST" class="m-0" onsubmit="return confirm('WARNING: Are you sure you want to remove this ban and restore these avatars to Level 0?');">

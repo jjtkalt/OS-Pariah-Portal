@@ -9,6 +9,7 @@ import secrets
 from app.utils.notifications import send_password_reset_email
 from app.utils.audit import log_audit_action
 from app.utils.password_resets import create_password_reset_token
+from datetime import datetime, timezone
 
 user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 
@@ -228,13 +229,15 @@ def manage_bans():
     with pariah_conn.cursor() as cursor:
         # Aggregate the linked ban data into a single row per ban
         cursor.execute("""
-            SELECT m.banid, m.date, m.reason, m.type,
+            SELECT m.banid, m.date, m.reason, m.type, m.notes,
                    GROUP_CONCAT(DISTINCT u.uuid SEPARATOR ', ') as uuids,
+                   GROUP_CONCAT(DISTINCT ru.uuid SEPARATOR ', ') as related_uuids,
                    GROUP_CONCAT(DISTINCT i.ip SEPARATOR ', ') as ips,
                    GROUP_CONCAT(DISTINCT mac.mac SEPARATOR ', ') as macs,
                    GROUP_CONCAT(DISTINCT h.hostid SEPARATOR ', ') as hostids
             FROM bans_master m
             LEFT JOIN bans_uuid u ON m.banid = u.banid
+            LEFT JOIN bans_related_uuid ru ON m.banid = ru.banid
             LEFT JOIN bans_ip i ON m.banid = i.banid
             LEFT JOIN bans_mac mac ON m.banid = mac.banid
             LEFT JOIN bans_host_id h ON m.banid = h.banid
@@ -261,6 +264,174 @@ def trigger_system_sync_workers(ban_id="Manual/Unknown"):
         )
     except Exception as e:
         current_app.logger.error(f"Failed to trigger sync workers: {e}")
+
+def _safe_fetchall(cursor):
+    try:
+        rows = cursor.fetchall()
+    except Exception:
+        return []
+    return rows if isinstance(rows, list) else []
+
+def _safe_fetchone(cursor):
+    try:
+        row = cursor.fetchone()
+    except Exception:
+        return None
+    return row if isinstance(row, dict) else None
+
+def _now_utc_iso():
+    return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
+
+def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, seed_macs, seed_hostids, ban_type):
+    """
+    Collects a best-effort snapshot of identifiers + linked accounts for review/reference.
+    Enforcement is handled separately; this is for storage + staff notes.
+    """
+    seed_uuids = {u.strip() for u in (seed_uuids or []) if u and str(u).strip()}
+    seed_ips = {i.strip() for i in (seed_ips or []) if i and str(i).strip()}
+    seed_macs = {m.strip() for m in (seed_macs or []) if m and str(m).strip()}
+    seed_hostids = {h.strip() for h in (seed_hostids or []) if h and str(h).strip()}
+
+    linked_uuids = set(seed_uuids)
+    observed = {
+        "ips": set(seed_ips),
+        "macs": set(seed_macs),
+        "hostids": set(seed_hostids),
+        "grids": {},  # uuid -> inbound_from
+        "names": {},  # uuid -> set(names)
+    }
+
+    def add_names(uuid, name):
+        if not uuid or not name:
+            return
+        observed["names"].setdefault(uuid, set()).add(str(name).strip())
+
+    try:
+        with pariah_conn.cursor() as cursor:
+            # 1) Expand linked UUIDs based on the ban vector(s)
+            if ban_type == "ip" and seed_ips:
+                fmt = ",".join(["%s"] * len(seed_ips))
+                cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_ip WHERE user_ip IN ({fmt})", tuple(seed_ips))
+                linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+            elif ban_type == "mac" and seed_macs:
+                fmt = ",".join(["%s"] * len(seed_macs))
+                cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_mac WHERE user_mac IN ({fmt})", tuple(seed_macs))
+                linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+            elif ban_type == "hostid" and seed_hostids:
+                fmt = ",".join(["%s"] * len(seed_hostids))
+                cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_host_id WHERE user_host_id IN ({fmt})", tuple(seed_hostids))
+                linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+
+            # 2) If this is an account ban, do a single "one hop" expansion:
+            #    seed UUIDs -> identifiers -> other UUIDs sharing those identifiers.
+            if ban_type == "account" and seed_uuids:
+                fmt_u = ",".join(["%s"] * len(seed_uuids))
+                cursor.execute(f"SELECT DISTINCT user_ip FROM gatekeeper_ip WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
+                hop_ips = {r.get("user_ip") for r in _safe_fetchall(cursor) if r.get("user_ip")}
+                cursor.execute(f"SELECT DISTINCT user_mac FROM gatekeeper_mac WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
+                hop_macs = {r.get("user_mac") for r in _safe_fetchall(cursor) if r.get("user_mac")}
+                cursor.execute(f"SELECT DISTINCT user_host_id FROM gatekeeper_host_id WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
+                hop_hosts = {r.get("user_host_id") for r in _safe_fetchall(cursor) if r.get("user_host_id")}
+
+                observed["ips"].update(hop_ips)
+                observed["macs"].update(hop_macs)
+                observed["hostids"].update(hop_hosts)
+
+                if hop_ips:
+                    fmt = ",".join(["%s"] * len(hop_ips))
+                    cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_ip WHERE user_ip IN ({fmt})", tuple(hop_ips))
+                    linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+                if hop_macs:
+                    fmt = ",".join(["%s"] * len(hop_macs))
+                    cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_mac WHERE user_mac IN ({fmt})", tuple(hop_macs))
+                    linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+                if hop_hosts:
+                    fmt = ",".join(["%s"] * len(hop_hosts))
+                    cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_host_id WHERE user_host_id IN ({fmt})", tuple(hop_hosts))
+                    linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
+
+            # 3) Collect identifiers + grid origins + seen names for all linked UUIDs
+            if linked_uuids:
+                fmt_u = ",".join(["%s"] * len(linked_uuids))
+                u_tuple = tuple(linked_uuids)
+
+                cursor.execute(f"SELECT DISTINCT user_uuid, user_ip, user_name FROM gatekeeper_ip WHERE user_uuid IN ({fmt_u})", u_tuple)
+                for r in _safe_fetchall(cursor):
+                    if r.get("user_ip"):
+                        observed["ips"].add(r["user_ip"])
+                    add_names(r.get("user_uuid"), r.get("user_name"))
+
+                cursor.execute(f"SELECT DISTINCT user_uuid, user_mac, user_name FROM gatekeeper_mac WHERE user_uuid IN ({fmt_u})", u_tuple)
+                for r in _safe_fetchall(cursor):
+                    if r.get("user_mac"):
+                        observed["macs"].add(r["user_mac"])
+                    add_names(r.get("user_uuid"), r.get("user_name"))
+
+                cursor.execute(f"SELECT DISTINCT user_uuid, user_host_id, user_name FROM gatekeeper_host_id WHERE user_uuid IN ({fmt_u})", u_tuple)
+                for r in _safe_fetchall(cursor):
+                    if r.get("user_host_id"):
+                        observed["hostids"].add(r["user_host_id"])
+                    add_names(r.get("user_uuid"), r.get("user_name"))
+
+                cursor.execute(f"SELECT user_uuid, MAX(inbound_from) AS inbound_from, MAX(user_name) AS user_name FROM gatekeeper_from WHERE user_uuid IN ({fmt_u}) GROUP BY user_uuid", u_tuple)
+                for r in _safe_fetchall(cursor):
+                    if r.get("user_uuid"):
+                        observed["grids"][r["user_uuid"]] = r.get("inbound_from")
+                    add_names(r.get("user_uuid"), r.get("user_name"))
+
+    except Exception as e:
+        current_app.logger.error(f"Ban evidence collection failed (pariah DB): {e}")
+
+    # 4) Pull Robust names/emails if available (best effort)
+    try:
+        if linked_uuids:
+            with robust_conn.cursor() as r_cursor:
+                fmt_u = ",".join(["%s"] * len(linked_uuids))
+                r_cursor.execute(
+                    f"SELECT PrincipalID, FirstName, LastName, Email FROM useraccounts WHERE PrincipalID IN ({fmt_u})",
+                    tuple(linked_uuids)
+                )
+                for r in _safe_fetchall(r_cursor):
+                    pid = r.get("PrincipalID")
+                    if not pid:
+                        continue
+                    add_names(pid, f"{r.get('FirstName','')} {r.get('LastName','')}".strip())
+    except Exception as e:
+        current_app.logger.debug(f"Ban evidence collection skipped (robust DB): {e}")
+
+    # Final evidence formatting (human-readable text, stored in bans_master.notes)
+    linked_sorted = sorted([u for u in linked_uuids if u], key=lambda x: str(x))
+    ips_sorted = sorted([i for i in observed["ips"] if i], key=lambda x: str(x))
+    macs_sorted = sorted([m for m in observed["macs"] if m], key=lambda x: str(x))
+    host_sorted = sorted([h for h in observed["hostids"] if h], key=lambda x: str(x))
+
+    lines = []
+    lines.append("=== Ban data snapshot ===")
+    lines.append(f"CollectedAt(UTC): {_now_utc_iso()}")
+    lines.append(f"SeedUuids: {', '.join(sorted(seed_uuids)) if seed_uuids else '(none)'}")
+    lines.append(f"SeedIps: {', '.join(sorted(seed_ips)) if seed_ips else '(none)'}")
+    lines.append(f"SeedMacs: {', '.join(sorted(seed_macs)) if seed_macs else '(none)'}")
+    lines.append(f"SeedHostIDs: {', '.join(sorted(seed_hostids)) if seed_hostids else '(none)'}")
+    lines.append("")
+    lines.append(f"LinkedAccounts({len(linked_sorted)}):")
+    for u in linked_sorted:
+        grid = observed["grids"].get(u) or "Unknown/Local"
+        names = sorted(list(observed["names"].get(u, set())))
+        name_str = " | ".join([n for n in names if n]) if names else "Unknown"
+        lines.append(f"- {u} :: {name_str} :: GridFrom={grid}")
+    lines.append("")
+    lines.append(f"ObservedIPs({len(ips_sorted)}): {', '.join(ips_sorted) if ips_sorted else '(none)'}")
+    lines.append(f"ObservedMACs({len(macs_sorted)}): {', '.join(macs_sorted) if macs_sorted else '(none)'}")
+    lines.append(f"ObservedHostIDs({len(host_sorted)}): {', '.join(host_sorted) if host_sorted else '(none)'}")
+
+    return {
+        "linked_uuids": linked_uuids,
+        "observed_ips": observed["ips"],
+        "observed_macs": observed["macs"],
+        "observed_hostids": observed["hostids"],
+        "grid_by_uuid": observed["grids"],
+        "notes_text": "\n".join(lines),
+    }
 
 @user_mgmt_bp.route('/bans/create', methods=['GET', 'POST'])
 @rbac_required(PERM_ISSUE_BANS)
@@ -301,11 +472,25 @@ def create_ban():
         target_level = int(get_dynamic_config('ban_level_ip'))
 
     pariah_conn = get_pariah_db()
+    robust_conn = get_robust_db()
     try:
         with pariah_conn.cursor() as cursor:
             # 1. Master Record
             cursor.execute("INSERT INTO bans_master (reason, type) VALUES (%s, %s)", (reason, ban_type))
             ban_id = cursor.lastrowid
+
+            evidence = _collect_ban_evidence(
+                pariah_conn,
+                robust_conn,
+                seed_uuids=uuids,
+                seed_ips=ips,
+                seed_macs=macs,
+                seed_hostids=hostids,
+                ban_type=ban_type
+            )
+
+            # Persist the evidence snapshot on the ban record (for review and escalation decisions)
+            cursor.execute("UPDATE bans_master SET notes = %s WHERE banid = %s", (evidence["notes_text"], ban_id))
 
             # 2. Cascading Data Inserts
             for ip in ips:
@@ -315,13 +500,35 @@ def create_ban():
             for hostid in hostids:
                 cursor.execute("INSERT INTO bans_host_id (banid, hostid) VALUES (%s, %s)", (ban_id, hostid))
 
-            # 3. Robust Execution
+            # 3. Ban UUID Targets (explicit enforcement targets)
             for uuid in uuids:
-                cursor.execute("INSERT INTO bans_uuid (banid, uuid) VALUES (%s, %s)", (ban_id, uuid))
+                grid_from = evidence["grid_by_uuid"].get(uuid)
+                cursor.execute("INSERT INTO bans_uuid (banid, uuid, grid) VALUES (%s, %s, %s)", (ban_id, uuid, grid_from))
                 
                 # Push the exact tier to Robust
                 set_user_level(uuid, target_level)
                 current_app.logger.info(f"Ban Level {target_level} actively enforced on UUID {uuid}.")
+
+            # 3B. Related UUID Linkage (review/reference + staff notes)
+            for uuid in sorted([u for u in evidence["linked_uuids"] if u and u not in uuids]):
+                grid_from = evidence["grid_by_uuid"].get(uuid)
+                cursor.execute("INSERT INTO bans_related_uuid (banid, uuid, grid) VALUES (%s, %s, %s)", (ban_id, uuid, grid_from))
+
+            # 3C. Staff notes on all associated accounts (including those not actively enforced)
+            admin_uuid = session.get('uuid', 'SYSTEM')
+            note_lines = [
+                f"[BAN #{ban_id}] CreatedAt(UTC)={_now_utc_iso()} Type={ban_type} EnforcedLevel={target_level}",
+                f"Reason: {reason}",
+                f"EnforcedUUIDs: {', '.join(uuids) if uuids else '(none)'}",
+                f"RelatedUUIDs: {', '.join(sorted([u for u in evidence['linked_uuids'] if u and u not in uuids])) or '(none)'}",
+                "Snapshot stored on ban record (Manage Bans)."
+            ]
+            staff_note = "\n".join(note_lines)
+            for uuid in sorted([u for u in evidence["linked_uuids"] if u]):
+                cursor.execute(
+                    "INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)",
+                    (uuid, admin_uuid, staff_note)
+                )
 
         pariah_conn.commit()
 
@@ -329,6 +536,7 @@ def create_ban():
         if ban_type in ['ip', 'mac', 'hostid']:
             trigger_system_sync_workers(ban_id)
 
+        log_audit_action("Create Ban", f"Ban #{ban_id} created (type={ban_type}, level={target_level})")
         flash(f'Severity Level {target_level} Ban created and actively enforced successfully.', 'success')
     except Exception as e:
         current_app.logger.error(f"Ban creation failed: {e}")
@@ -347,8 +555,20 @@ def delete_ban(ban_id):
             cursor.execute("SELECT uuid FROM bans_uuid WHERE banid = %s", (ban_id,))
             banned_uuids = [row['uuid'] for row in cursor.fetchall()]
 
+            cursor.execute("SELECT uuid FROM bans_related_uuid WHERE banid = %s", (ban_id,))
+            related_uuids = [row['uuid'] for row in _safe_fetchall(cursor) if row.get('uuid')]
+
             # Foreign key cascading will delete the child records in bans_ip, bans_mac, etc.
             cursor.execute("DELETE FROM bans_master WHERE banid = %s", (ban_id,))
+
+            # Staff notes: mark ban removed (do this before commit so it stays transactional)
+            admin_uuid = session.get('uuid', 'SYSTEM')
+            removed_note = f"[BAN #{ban_id}] RemovedAt(UTC)={_now_utc_iso()} (Ban record deleted; historic reference note retained)"
+            for uuid in sorted(set(banned_uuids + related_uuids)):
+                cursor.execute(
+                    "INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)",
+                    (uuid, admin_uuid, removed_note)
+                )
         pariah_conn.commit()
 
         # Restore user levels via Robust
@@ -359,6 +579,7 @@ def delete_ban(ban_id):
         trigger_system_sync_workers(ban_id)
         # --------------------------------------
 
+        log_audit_action("Remove Ban", f"Ban #{ban_id} removed; restored {len(banned_uuids)} enforced UUID(s) to level 0.")
         flash(f"Ban removed. {len(banned_uuids)} associated avatars have been restored to Level 0.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete ban {ban_id}: {e}")
