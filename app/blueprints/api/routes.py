@@ -1,42 +1,48 @@
 import re
 from flask import Blueprint, request, session, current_app
 from app import cache
+from app.utils.auth_helpers import has_permission
 from app.utils.db import get_robust_db, get_pariah_db
+from app.utils.schema import PERM_ONLINE_HUD_ALL, PERM_SUPER_ADMIN
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
+
+def _rbac_mask_allows_full_online_list(mask):
+    """Super-admin or explicit Online HUD permission."""
+    try:
+        m = int(mask)
+    except (TypeError, ValueError):
+        return False
+    return bool(m & PERM_SUPER_ADMIN) or bool(m & PERM_ONLINE_HUD_ALL)
+
+
 def has_admin_view_access():
     """
-    Determines if the requester should see ALL regions (ignoring the public listable filter).
-    Replaces the legacy override password.
+    Full /api/online list (all regions) when:
+      - Portal session has PERM_ONLINE_HUD_ALL (super-admin implies all perms), or
+      - Request from a region_host IP with X-Secondlife-Owner-Key set to a UUID whose user_rbac
+        mask includes that permission (or super-admin).
+    Otherwise only HUD-listable regions are shown (region_configs.hud_list_users).
     """
-    # Condition 1: Logged into the portal as an Admin
-    if session.get('uuid') and session.get('is_admin'):
+    if session.get('uuid') and has_permission(PERM_ONLINE_HUD_ALL):
         return True
 
-    # Condition 2: Request comes from an IP listed in Region DNS Mappings AND the UUID belongs to an Admin
-    # X-Forwarded-For is safe to use here because we configured ProxyFix in __init__.py
+    owner_uuid = (request.headers.get('X-Secondlife-Owner-Key') or '').strip()
+    if not owner_uuid:
+        return False
+
     client_ip = request.remote_addr
-    owner_uuid = request.headers.get('X-Secondlife-Owner-Key')
+    pariah_conn = get_pariah_db()
+    with pariah_conn.cursor() as cursor:
+        cursor.execute("SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,))
+        if not cursor.fetchone():
+            return False
+        cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (owner_uuid,))
+        rbac_row = cursor.fetchone()
 
-    if owner_uuid:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,))
-            host_mapped = cursor.fetchone()
-        if not host_mapped:
-            owner_uuid = None
-
-    if owner_uuid:
-        # Verify if the owner_uuid has admin view access
-        robust_conn = get_robust_db()
-        with robust_conn.cursor() as cursor:
-            cursor.execute("SELECT userLevel FROM useraccounts WHERE PrincipalID = %s", (owner_uuid,))
-            account = cursor.fetchone()
-            if account and account['userLevel'] >= 200:
-                return True
-
-    return False
+    perms = rbac_row["permissions"] if rbac_row else 0
+    return _rbac_mask_allows_full_online_list(perms)
 
 @cache.cached(timeout=30, key_prefix='raw_online_users')
 def fetch_all_online_users():

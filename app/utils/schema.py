@@ -106,6 +106,7 @@ PERM_MANAGE_GUIDES    = 1 << 23 # Viewer Setup / Technical
 PERM_MANAGE_RESOURCES = 1 << 24 # Creator / Member resources
 PERM_VIEW_PPI         = 1 << 25 # View Users's PII
 PERM_VIEW_REGIONS     = 1 << 26 # 67108864 - View list of Regions
+PERM_ONLINE_HUD_ALL   = 1 << 27 # 134217728 - /api/online full grid list (portal or in-world HUD)
 
 # --- UNIFIED RBAC UI SCHEMA ---
 RBAC_SCHEMA = {
@@ -120,6 +121,7 @@ RBAC_SCHEMA = {
         PERM_VIEW_REGIONS: {"label": "View Regions", "desc": "View the list of regions"},
         PERM_REGION_CONTROL: {"label": "Region Control", "desc": "Start/Stop/Restart/OAR regions and HUD listed/unlisted toggle (Required View Regions)"},
         PERM_MANAGE_REGIONS: {"label": "Manage Regions", "desc": "Edit WebXML configs & limits (Required View Regions and Region Control)", "super_only": True},
+        PERM_ONLINE_HUD_ALL: {"label": "Online HUD (All Regions)", "desc": "See every region on /api/online (portal session or in-world HUD with region IP + avatar UUID)"},
     },
     "Moderation & Support": {
         PERM_STAFF_TICKETS: {"label": "Helpdesk Access", "desc": "View, assign, and reply to tickets"},
