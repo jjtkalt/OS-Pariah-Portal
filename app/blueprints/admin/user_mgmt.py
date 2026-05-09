@@ -246,8 +246,60 @@ def manage_bans():
             ORDER BY m.date DESC
         """)
         bans = cursor.fetchall()
-        
-    return render_template('admin/manage_bans.html', bans=bans)
+
+    uuid_to_name = {}
+    all_principal_ids = []
+    for row in bans:
+        for key in ("uuids", "related_uuids"):
+            raw = row.get(key)
+            if not raw:
+                continue
+            for part in str(raw).split(","):
+                u = part.strip()
+                if u:
+                    all_principal_ids.append(u)
+    seen_pid = set()
+    unique_ids = []
+    for u in all_principal_ids:
+        if u not in seen_pid:
+            seen_pid.add(u)
+            unique_ids.append(u)
+
+    if unique_ids:
+        robust_conn = get_robust_db()
+        try:
+            fmt = ",".join(["%s"] * len(unique_ids))
+            with robust_conn.cursor() as r_cursor:
+                r_cursor.execute(
+                    f"SELECT PrincipalID, FirstName, LastName FROM useraccounts WHERE PrincipalID IN ({fmt})",
+                    tuple(unique_ids),
+                )
+                for acc in r_cursor.fetchall():
+                    pid = acc["PrincipalID"]
+                    uuid_to_name[pid] = f"{acc['FirstName']} {acc['LastName']}".strip() or pid
+        except Exception as e:
+            current_app.logger.error(f"manage_bans: Robust avatar name lookup failed: {e}")
+
+    for ban in bans:
+        ordered_uuids = []
+        dupe = set()
+        for key in ("uuids", "related_uuids"):
+            raw = ban.get(key)
+            if not raw:
+                continue
+            for part in str(raw).split(","):
+                u = part.strip()
+                if u and u not in dupe:
+                    dupe.add(u)
+                    ordered_uuids.append(u)
+        if ordered_uuids:
+            ban["avatar_names_display"] = ", ".join(
+                uuid_to_name.get(u, u) for u in ordered_uuids
+            )
+        else:
+            ban["avatar_names_display"] = ""
+
+    return render_template("admin/manage_bans.html", bans=bans)
 
 def trigger_system_sync_workers(ban_id="Manual/Unknown"):
     """Triggers the secure background scripts to sync firewalld and Robust."""

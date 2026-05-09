@@ -76,7 +76,7 @@ def sync_macs(logger):
     finally:
         conn.close()
 
-    mac_string = ",".join(macs)
+    mac_string = " ".join(macs)
     logger.info("Syncing %s MAC addresses to %s...", len(macs), robust_conf_path)
 
     with open(robust_conf_path, "r", encoding="utf-8", errors="replace") as f:

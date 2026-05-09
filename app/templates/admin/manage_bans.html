@@ -18,7 +18,7 @@
 <table>
     <thead>
         <tr>
-            <th>Date & Reason</th>
+            <th>Ban summary</th>
             <th>Type</th>
             <th>Enforcement Targets</th>
             <th class="text-right">Action</th>
@@ -28,7 +28,11 @@
         {% if bans %}
             {% for ban in bans %}
             <tr>
-                <td style="max-width: 250px;">
+                <td style="max-width: 320px;">
+                    <strong>Ban #{{ ban.banid }}</strong><br>
+                    {% if ban.avatar_names_display %}
+                    <span class="text-muted text-sm">{{ ban.avatar_names_display }}</span><br>
+                    {% endif %}
                     <strong>{{ ban.date.strftime('%Y-%m-%d %H:%M') }}</strong><br>
                     <span class="text-muted text-sm">{{ ban.reason }}</span>
                 </td>
