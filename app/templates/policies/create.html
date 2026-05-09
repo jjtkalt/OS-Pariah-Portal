@@ -61,11 +61,11 @@
             </label>
             <label class="radio d-block mb-10">
                 <input type="radio" name="version_action" value="minor">
-                <strong>Minor Update</strong> (e.g., bumps 1.0 to 1.1)
+                <strong>Minor Update</strong> (bumps {{ current_version }} to {{ next_minor_version }})
             </label>
             <label class="radio d-block mb-10">
                 <input type="radio" name="version_action" value="major">
-                <strong class="text-danger">Major Update</strong> (e.g., bumps 1.0 to 2.0)
+                <strong class="text-danger">Major Update</strong> (bumps {{ current_version }} to {{ next_major_version }})
             </label>
         </fieldset>
     {% endif %}

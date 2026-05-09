@@ -21,6 +21,19 @@ def can_manage_category(category):
         return False
     return has_permission(required_bit)
 
+def _compute_next_policy_versions(current_version: str):
+    """
+    Returns (current, next_minor, next_major) as strings for UI display.
+    Falls back safely if current_version is unset or malformed.
+    """
+    current_version = (current_version or "").strip()
+    try:
+        major, minor = map(int, current_version.split("."))
+    except Exception:
+        major, minor = 1, 0
+        current_version = f"{major}.{minor}"
+    return current_version, f"{major}.{minor + 1}", f"{major + 1}.0"
+
 @policies_bp.route('/<slug>', methods=['GET'])
 def view_policy(slug):
     """Publicly viewable policy with version and timestamp."""
@@ -110,7 +123,9 @@ def create_policy():
             flash("Failed to create document. That URL slug might already exist.", "error")
             return redirect(url_for('policies.create_policy'))
 
-    return render_template('policies/create.html')
+    current_version = get_dynamic_config('global_policy_version')
+    current_version, next_minor, next_major = _compute_next_policy_versions(current_version)
+    return render_template('policies/create.html', current_version=current_version, next_minor_version=next_minor, next_major_version=next_major)
 
 @policies_bp.route('/admin/edit/<slug>', methods=['GET', 'POST'])
 def edit_policy(slug):
@@ -168,7 +183,15 @@ def edit_policy(slug):
         cursor.execute("SELECT slug, title, body, category, requires_login FROM policies WHERE slug = %s", (slug,))
         policy = cursor.fetchone()
 
-    return render_template('policies/edit.html', policy=policy)
+    current_version = get_dynamic_config('global_policy_version')
+    current_version, next_minor, next_major = _compute_next_policy_versions(current_version)
+    return render_template(
+        'policies/edit.html',
+        policy=policy,
+        current_version=current_version,
+        next_minor_version=next_minor,
+        next_major_version=next_major
+    )
 
 @policies_bp.route('/admin/delete/<slug>', methods=['POST'])
 def delete_policy(slug):
