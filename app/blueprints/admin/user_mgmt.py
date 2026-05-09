@@ -247,7 +247,6 @@ def manage_bans():
         """)
         bans = cursor.fetchall()
 
-    uuid_to_name = {}
     all_principal_ids = []
     for row in bans:
         for key in ("uuids", "related_uuids"):
@@ -265,20 +264,7 @@ def manage_bans():
             seen_pid.add(u)
             unique_ids.append(u)
 
-    if unique_ids:
-        robust_conn = get_robust_db()
-        try:
-            fmt = ",".join(["%s"] * len(unique_ids))
-            with robust_conn.cursor() as r_cursor:
-                r_cursor.execute(
-                    f"SELECT PrincipalID, FirstName, LastName FROM useraccounts WHERE PrincipalID IN ({fmt})",
-                    tuple(unique_ids),
-                )
-                for acc in r_cursor.fetchall():
-                    pid = acc["PrincipalID"]
-                    uuid_to_name[pid] = f"{acc['FirstName']} {acc['LastName']}".strip() or pid
-        except Exception as e:
-            current_app.logger.error(f"manage_bans: Robust avatar name lookup failed: {e}")
+    uuid_to_name = _gatekeeper_latest_display_names(pariah_conn, unique_ids)
 
     for ban in bans:
         ordered_uuids = []
@@ -293,9 +279,14 @@ def manage_bans():
                     dupe.add(u)
                     ordered_uuids.append(u)
         if ordered_uuids:
-            ban["avatar_names_display"] = ", ".join(
-                uuid_to_name.get(u, u) for u in ordered_uuids
-            )
+            labels = []
+            for u in ordered_uuids:
+                nm = uuid_to_name.get(u)
+                if nm and str(nm).strip() and str(nm).strip().lower() != u.lower():
+                    labels.append(str(nm).strip())
+                else:
+                    labels.append(u)
+            ban["avatar_names_display"] = ", ".join(labels)
         else:
             ban["avatar_names_display"] = ""
 
@@ -361,6 +352,59 @@ def _safe_fetchone(cursor):
 
 def _now_utc_iso():
     return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ')
+
+
+def _entered_ts_newer(a, b):
+    """True if DB entered timestamp a should replace b as the newer observation."""
+    if a is None:
+        return False
+    if b is None:
+        return True
+    try:
+        return a > b
+    except TypeError:
+        return False
+
+
+def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
+    """
+    One display name per UUID from gatekeeper_* tables (Hypergrid logins, deleted Robust accounts).
+    Picks the user_name from the row with the greatest `entered` across ip/mac/host_id/from tables.
+    """
+    if not unique_ids:
+        return {}
+    fmt = ",".join(["%s"] * len(unique_ids))
+    tu = tuple(unique_ids)
+    best = {}  # uuid -> (entered, display_name)
+    tables = ("gatekeeper_ip", "gatekeeper_mac", "gatekeeper_host_id", "gatekeeper_from")
+    try:
+        with pariah_conn.cursor() as cursor:
+            for table in tables:
+                cursor.execute(
+                    f"""
+                    SELECT user_uuid, user_name, entered
+                    FROM {table}
+                    WHERE user_uuid IN ({fmt})
+                      AND user_name IS NOT NULL AND TRIM(user_name) <> ''
+                    """,
+                    tu,
+                )
+                for row in cursor.fetchall():
+                    uid = row.get("user_uuid")
+                    nm = str(row.get("user_name") or "").strip()
+                    if not uid or not nm:
+                        continue
+                    ent = row.get("entered")
+                    prev = best.get(uid)
+                    if prev is None:
+                        best[uid] = (ent, nm)
+                    elif _entered_ts_newer(ent, prev[0]):
+                        best[uid] = (ent, nm)
+        return {u: pair[1] for u, pair in best.items()}
+    except Exception as e:
+        current_app.logger.error(f"manage_bans: gatekeeper avatar name lookup failed: {e}")
+        return {}
+
 
 def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, seed_macs, seed_hostids, ban_type):
     """
