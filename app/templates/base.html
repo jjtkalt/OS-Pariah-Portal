@@ -74,6 +74,17 @@
 
             {% block content %}{% endblock %}
             
+            <div class="text-muted text-sm mt-20" style="display:flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08);">
+                <div>
+                    OS Pariah Portal <span style="font-family: monospace;">{{ portal_version }}</span>
+                </div>
+                <div>
+                    {% if session.get('uuid') %}
+                        <span title="Logged in UUID" style="font-family: monospace;">{{ session.get('uuid') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
     </div>
     

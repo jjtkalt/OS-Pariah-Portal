@@ -54,6 +54,7 @@ def create_app(config_class='app.config.Config'):
         from app.utils.db import get_dynamic_config
         from app.utils import auth_helpers
         from app.utils.schema import KNOWN_SETTINGS, RBAC_SCHEMA
+        from app.utils.version import get_portal_version
 
         portal_background_image = (get_dynamic_config('portal_background_image') or '').strip()
         if not portal_background_image:
@@ -65,6 +66,7 @@ def create_app(config_class='app.config.Config'):
             'turnstile_site_key': get_dynamic_config('TURNSTILE_SITE_KEY'),
             'custom_css_path': get_dynamic_config('custom_css_path'),
             'portal_background_image': portal_background_image,
+            'portal_version': get_portal_version(),
             'has_permission': auth_helpers.has_permission,
             'has_any_permissions': auth_helpers.has_any_permissions,
             'PERMS': auth_helpers, # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML

@@ -34,6 +34,18 @@ jobs:
         rpmdev-setuptree
         mkdir -p /tmp/os-pariah-portal-$APP_VERSION
         rsync -a --exclude='.git' --exclude='.github' ./ /tmp/os-pariah-portal-$APP_VERSION/
+
+        # Write the runtime version into the source tree so the portal can display it
+        printf '%s\n' \
+          '"""' \
+          'Single source of truth for the portal version at runtime.' \
+          '' \
+          'This file is auto-generated during RPM builds from the GitHub Release tag.' \
+          '"""' \
+          '' \
+          "__version__ = \"$APP_VERSION\"" \
+          > /tmp/os-pariah-portal-$APP_VERSION/app/version.py
+
         tar -czvf $HOME/rpmbuild/SOURCES/os-pariah-portal-$APP_VERSION.tar.gz -C /tmp os-pariah-portal-$APP_VERSION
         
         # Copy the spec file and dynamically update the Version line
