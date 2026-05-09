@@ -528,27 +528,40 @@ def create_ban():
             for hostid in hostids:
                 cursor.execute("INSERT INTO bans_host_id (banid, hostid) VALUES (%s, %s)", (ban_id, hostid))
 
-            # 3. Ban UUID Targets (explicit enforcement targets)
-            for uuid in uuids:
+            # Every account tied to this ban (seed UUIDs + gatekeeper-linked alts) gets the tier-level ban.
+            enforced_uuids = sorted([u for u in evidence["linked_uuids"] if u])
+            explicit_uuids = set(uuids)
+
+            # 3. bans_uuid + Robust user level for each linked account
+            for uuid in enforced_uuids:
                 grid_from = evidence["grid_by_uuid"].get(uuid)
-                cursor.execute("INSERT INTO bans_uuid (banid, uuid, grid) VALUES (%s, %s, %s)", (ban_id, uuid, grid_from))
-                
-                # Push the exact tier to Robust
+                cursor.execute(
+                    "INSERT INTO bans_uuid (banid, uuid, grid) VALUES (%s, %s, %s)",
+                    (ban_id, uuid, grid_from),
+                )
                 set_user_level(uuid, target_level)
-                current_app.logger.info(f"Ban Level {target_level} actively enforced on UUID {uuid}.")
+                current_app.logger.info(
+                    "Ban level %s enforced on UUID %s (type=%s).",
+                    target_level,
+                    uuid,
+                    ban_type,
+                )
 
-            # 3B. Related UUID Linkage (review/reference + staff notes)
-            for uuid in sorted([u for u in evidence["linked_uuids"] if u and u not in uuids]):
+            # 3B. Related UUID linkage (discovered via lookup — not typed on the form; audit/review)
+            for uuid in sorted([u for u in enforced_uuids if u and u not in explicit_uuids]):
                 grid_from = evidence["grid_by_uuid"].get(uuid)
-                cursor.execute("INSERT INTO bans_related_uuid (banid, uuid, grid) VALUES (%s, %s, %s)", (ban_id, uuid, grid_from))
+                cursor.execute(
+                    "INSERT INTO bans_related_uuid (banid, uuid, grid) VALUES (%s, %s, %s)",
+                    (ban_id, uuid, grid_from),
+                )
 
-            # 3C. Staff notes on all associated accounts (including those not actively enforced)
+            # 3C. Staff notes on all associated accounts
             admin_uuid = session.get('uuid', 'SYSTEM')
             note_lines = [
                 f"[BAN #{ban_id}] CreatedAt(UTC)={_now_utc_iso()} Type={ban_type} EnforcedLevel={target_level}",
                 f"Reason: {reason}",
-                f"EnforcedUUIDs: {', '.join(uuids) if uuids else '(none)'}",
-                f"RelatedUUIDs: {', '.join(sorted([u for u in evidence['linked_uuids'] if u and u not in uuids])) or '(none)'}",
+                f"EnforcedUUIDs: {', '.join(enforced_uuids) if enforced_uuids else '(none)'}",
+                f"RelatedUUIDs: {', '.join(sorted([u for u in enforced_uuids if u and u not in explicit_uuids])) or '(none)'}",
                 "Snapshot stored on ban record (Manage Bans)."
             ]
             staff_note = "\n".join(note_lines)
