@@ -69,6 +69,11 @@ KNOWN_SETTINGS = {
             "type": "text",
             "default": "/home/opensim/Configs/Robust/main",
         },
+        "robust_systemd_service": {
+            "label": "Robust systemd unit to restart after MAC sync (full name, e.g. robust@main.service)",
+            "type": "text",
+            "default": "robust@main.service",
+        },
     }
 }
 
