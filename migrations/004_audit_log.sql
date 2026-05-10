@@ -5,6 +5,5 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
     `action` VARCHAR(100) NOT NULL,
     `target_uuid` CHAR(36) DEFAULT NULL,
     `details` TEXT NOT NULL,
-    `ip_address` VARCHAR(45) NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

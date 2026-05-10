@@ -72,17 +72,6 @@ echo "Installing Python Dependencies..."
 # Lock down permissions
 chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
 
-# Initialize Firewalld Ban Hammer IPSet (If firewalld is running)
-echo "Configuring firewalld rules for Pariah Ban Hammer..."
-if systemctl is-active --quiet firewalld; then
-    firewall-cmd --permanent --new-ipset=pariah_banned_ips --type=hash:net || true
-    firewall-cmd --permanent --add-rich-rule='rule source ipset="pariah_banned_ips" drop' || true
-    firewall-cmd --reload || true
-else
-    echo "WARNING: firewalld is not currently active."
-    echo "The pariah_banned_ips ipset will need to be created manually once the firewall is started."
-fi
-
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
 nginx -t && systemctl reload nginx.service || echo "Need to manually fix and start Nginx"

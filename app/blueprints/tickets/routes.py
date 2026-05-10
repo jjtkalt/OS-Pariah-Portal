@@ -65,8 +65,6 @@ def new_ticket():
 
         user_uuid = session.get('uuid')
         user_name = session.get('name', 'Guest')
-        guest_ip = None
-
         # --- GUEST HANDLING ---
         if not user_uuid:
             turnstile_response = request.form.get('cf-turnstile-response')
@@ -77,16 +75,15 @@ def new_ticket():
                 flash('An email address is required for guest tickets so we can reply to you.', 'error')
                 return redirect(url_for('tickets.new_ticket'))
 
-            guest_ip = request.headers.get('X-Real-IP', request.remote_addr)
-            message = f"[GUEST SUBMISSION - IP: {guest_ip}]\n\n{message}"
+            message = f"[GUEST SUBMISSION]\n\n{message}"
 
         conn = get_pariah_db()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO tickets (user_uuid, user_name, user_email, subject, category, body, status, guest_ip)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'Open', %s)
-                """, (user_uuid, user_name, email, subject, category, message, guest_ip))
+                    INSERT INTO tickets (user_uuid, user_name, user_email, subject, category, body, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Open')
+                """, (user_uuid, user_name, email, subject, category, message))
 
                 ticket_id = cursor.lastrowid
 

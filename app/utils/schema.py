@@ -25,7 +25,6 @@ KNOWN_SETTINGS = {
         "rejected_user_level": {"label": "Rejected User Level", "type": "number", "default": "-5"},
         "policy_decline_user_level": {"label": "Policy Decline User Level (non-agreement lock)", "type": "number", "default": "-4"},
         "ban_level_account": {"label": "Account Ban User Level", "type": "number", "default": "-10"},
-        "ban_level_ip": {"label": "IP Ban User Level", "type": "number", "default": "-11"},
         "ban_level_mac": {"label": "MAC Ban User Level", "type": "number", "default": "-12"},
         "ban_level_host": {"label": "HostID Ban User Level", "type": "number", "default": "-13"},
     },
@@ -125,7 +124,7 @@ RBAC_SCHEMA = {
     },
     "Moderation & Support": {
         PERM_STAFF_TICKETS: {"label": "Helpdesk Access", "desc": "View, assign, and reply to tickets"},
-        PERM_USER_LOOKUP: {"label": "Gatekeeper Lookup", "desc": "Search alt-accounts via IP/MAC"},
+        PERM_USER_LOOKUP: {"label": "Gatekeeper Lookup", "desc": "Search alt-accounts via MAC/Host ID"},
         PERM_VIEW_NOTES: {"label": "View Staff Notes", "desc": "Read internal warnings"},
         PERM_ADD_NOTES: {"label": "Add Staff Notes", "desc": "Attach internal warnings to users"},
         PERM_VIEW_PPI: {"label": "View USE PPI", "desc": "View user's connection Protected Personal Information", "super_only": True},

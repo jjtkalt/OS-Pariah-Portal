@@ -69,7 +69,7 @@ def test_manage_roles_preserves_super_bits(mock_get_robust, client, db_cursor):
 # Test 3: PPI Search Blocked
 # -------------------------------------------------------------------
 def test_ppi_search_blocked_without_permission(client):
-    """Proves admins cannot search by IP without PERM_VIEW_PPI."""
+    """Proves admins cannot search connection PPI (e.g. MAC) without PERM_VIEW_PPI."""
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'standard-admin-uuid'
@@ -77,7 +77,7 @@ def test_ppi_search_blocked_without_permission(client):
         sess['permissions'] = PERM_USER_LOOKUP 
         
     # Malicious direct URL manipulation
-    response = client.get('/admin/users/lookup?type=ip&q=192.168.1.1', follow_redirects=True)
+    response = client.get('/admin/users/lookup?type=mac&q=00:11:22:33:44:55', follow_redirects=True)
     
     # Assert the request was intercepted
     assert b"Unauthorized: You do not have clearance to search by connection PPI" in response.data

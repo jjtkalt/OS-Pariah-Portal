@@ -17,17 +17,21 @@ user_mgmt_bp = Blueprint('user_mgmt', __name__, url_prefix='/admin/users')
 @user_mgmt_bp.route('/lookup', methods=['GET'])
 @rbac_required(PERM_USER_LOOKUP)
 def gatekeeper_lookup():
-    """Cross-references IP, MAC, HostID, and Inbound From to find alt accounts."""
+    """Cross-references MAC, HostID, and inbound origin (Gatekeeper) to find alt accounts."""
     search_type = request.args.get('type', 'username')
     query_raw = request.args.get('q', '').strip()
 
     # Determine if this admin has clearance to view Protected Personal Information
     has_ppi_access = has_permission(PERM_VIEW_PPI)
 
+    if search_type == 'ip':
+        flash('IP-based Gatekeeper lookup is not available.', 'error')
+        return redirect(url_for('user_mgmt.gatekeeper_lookup'))
+
     # ---------------------------------------------------------
     # SECURITY INTERCEPT: Block unauthorized PPI searches
     # ---------------------------------------------------------
-    if query_raw and not has_ppi_access and search_type in ['ip', 'mac', 'host_id']:
+    if query_raw and not has_ppi_access and search_type in ['mac', 'host_id']:
         flash("Unauthorized: You do not have clearance to search by connection PPI.", "error")
         return redirect(url_for('user_mgmt.gatekeeper_lookup'))
 
@@ -39,7 +43,6 @@ def gatekeeper_lookup():
     uuids = set()
 
     table_map = {
-        'ip': ('gatekeeper_ip', 'user_ip'),
         'mac': ('gatekeeper_mac', 'user_mac'),
         'host_id': ('gatekeeper_host_id', 'user_host_id'),
         'from': ('gatekeeper_from', 'inbound_from')
@@ -55,12 +58,12 @@ def gatekeeper_lookup():
         with pariah_conn.cursor() as cursor:
             if search_type == 'username':
                 like_query = f"%{query_raw}%"
-                for table in ['gatekeeper_ip', 'gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
+                for table in ['gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
                     cursor.execute(f"SELECT DISTINCT user_uuid FROM {table} WHERE user_name LIKE %s", (like_query,))
                     uuids.update([row['user_uuid'] for row in cursor.fetchall()])
             
             elif search_type == 'exact_username':
-                for table in ['gatekeeper_ip', 'gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
+                for table in ['gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id']:
                     cursor.execute(f"SELECT DISTINCT user_uuid FROM {table} WHERE user_name = %s", (query_raw,))
                     uuids.update([row['user_uuid'] for row in cursor.fetchall()])
 
@@ -89,7 +92,7 @@ def gatekeeper_lookup():
                     uuids.add(query_raw)
 
             # Changed sets to dictionaries to hold the timestamps
-            results = {'usernames': set(), 'ips': {}, 'macs': {}, 'host_ids': {}}
+            results = {'usernames': set(), 'macs': {}, 'host_ids': {}}
             uuid_info = {}
             
             if uuids:
@@ -97,9 +100,13 @@ def gatekeeper_lookup():
                 uuid_tuple = tuple(uuids)
 
                 with pariah_conn.cursor() as cursor:
-                    # Fetch Gatekeeper Usernames
-                    cursor.execute(f"SELECT DISTINCT user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                    results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
+                    # Fetch Gatekeeper Usernames (from MAC / HostID / inbound — no IP storage)
+                    for gk_table in ('gatekeeper_mac', 'gatekeeper_from', 'gatekeeper_host_id'):
+                        cursor.execute(
+                            f"SELECT DISTINCT user_name FROM {gk_table} WHERE user_uuid IN ({format_strings})",
+                            uuid_tuple,
+                        )
+                        results['usernames'].update([r['user_name'] for r in cursor.fetchall() if r['user_name']])
 
                     # Fetch Hypergrid Origin Information
                     cursor.execute(f"SELECT user_uuid, MAX(inbound_from) as grid_from, MAX(date_time) as last_seen FROM gatekeeper_from WHERE user_uuid IN ({format_strings}) GROUP BY user_uuid", uuid_tuple)
@@ -107,10 +114,6 @@ def gatekeeper_lookup():
 
                     # ISOLATED PPI FETCH: Only hits the DB if they have clearance
                     if has_ppi_access:
-                        # Fetch IPs, MACs, HostIDs
-                        cursor.execute(f"SELECT user_ip, MAX(date_time) as last_seen FROM gatekeeper_ip WHERE user_uuid IN ({format_strings}) GROUP BY user_ip ORDER BY last_seen DESC", uuid_tuple)
-                        results['ips'] = {r['user_ip']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_ip']}
-
                         cursor.execute(f"SELECT user_mac, MAX(date_time) as last_seen FROM gatekeeper_mac WHERE user_uuid IN ({format_strings}) GROUP BY user_mac ORDER BY last_seen DESC", uuid_tuple)
                         results['macs'] = {r['user_mac']: format_dt(r['last_seen']) for r in cursor.fetchall() if r['user_mac']}
 
@@ -126,20 +129,24 @@ def gatekeeper_lookup():
                         results['usernames'].add(f"{r['FirstName']} {r['LastName']}")
 
                 with pariah_conn.cursor() as cursor:
-                    # We grab the most recent name captured in our logs for these UUIDs
-                    cursor.execute(f"SELECT DISTINCT user_uuid, user_name FROM gatekeeper_ip WHERE user_uuid IN ({format_strings})", uuid_tuple)
-                    for r in cursor.fetchall():
-                        # If Robust didn't know them, but our logs do, add them to the display results
-                        if r['user_name'] and r['user_name'] != "Unknown":
-                            if r['user_uuid'] not in robust_data:
-                                results['usernames'].add(r['user_name'])
-                                # Create a stub for the template so it doesn't show "Unknown User"
-                                robust_data[r['user_uuid']] = {
-                                    'FirstName': r['user_name'],
-                                    'LastName': '(HG/Visitor)',
-                                    'Email': 'N/A',
-                                    'userLevel': 'N/A'
-                                }
+                    # Names from logs for UUIDs not present in Robust (e.g. HG visitors)
+                    for gk_table in ('gatekeeper_mac', 'gatekeeper_host_id', 'gatekeeper_from'):
+                        cursor.execute(
+                            f"SELECT DISTINCT user_uuid, user_name FROM {gk_table} WHERE user_uuid IN ({format_strings})",
+                            uuid_tuple,
+                        )
+                        for r in cursor.fetchall():
+                            # If Robust didn't know them, but our logs do, add them to the display results
+                            if r['user_name'] and r['user_name'] != "Unknown":
+                                if r['user_uuid'] not in robust_data:
+                                    results['usernames'].add(r['user_name'])
+                                    # Create a stub for the template so it doesn't show "Unknown User"
+                                    robust_data[r['user_uuid']] = {
+                                        'FirstName': r['user_name'],
+                                        'LastName': '(HG/Visitor)',
+                                        'Email': 'N/A',
+                                        'userLevel': 'N/A'
+                                    }
 
                 grid_fqdn = str(f"{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}").strip().lower()
 
@@ -233,13 +240,11 @@ def manage_bans():
             SELECT m.banid, m.date, m.reason, m.type, m.notes,
                    GROUP_CONCAT(DISTINCT u.uuid SEPARATOR ', ') as uuids,
                    GROUP_CONCAT(DISTINCT ru.uuid SEPARATOR ', ') as related_uuids,
-                   GROUP_CONCAT(DISTINCT i.ip SEPARATOR ', ') as ips,
                    GROUP_CONCAT(DISTINCT mac.mac SEPARATOR ', ') as macs,
                    GROUP_CONCAT(DISTINCT h.hostid SEPARATOR ', ') as hostids
             FROM bans_master m
             LEFT JOIN bans_uuid u ON m.banid = u.banid
             LEFT JOIN bans_related_uuid ru ON m.banid = ru.banid
-            LEFT JOIN bans_ip i ON m.banid = i.banid
             LEFT JOIN bans_mac mac ON m.banid = mac.banid
             LEFT JOIN bans_host_id h ON m.banid = h.banid
             GROUP BY m.banid
@@ -293,7 +298,7 @@ def manage_bans():
     return render_template("admin/manage_bans.html", bans=bans)
 
 def trigger_system_sync_workers(ban_id="Manual/Unknown"):
-    """Triggers the secure background scripts to sync firewalld and Robust."""
+    """Triggers background scripts: firewalld Host-ID string rules and Robust MAC deny list."""
     current_app.logger.info(f"Triggering system synchronizations for Ban ID {ban_id}...")
     sync_log = "/var/log/os_pariah/sync_workers.log"
     log_out = None
@@ -376,7 +381,7 @@ def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
     fmt = ",".join(["%s"] * len(unique_ids))
     tu = tuple(unique_ids)
     best = {}  # uuid -> (entered, display_name)
-    tables = ("gatekeeper_ip", "gatekeeper_mac", "gatekeeper_host_id", "gatekeeper_from")
+    tables = ("gatekeeper_mac", "gatekeeper_host_id", "gatekeeper_from")
     try:
         with pariah_conn.cursor() as cursor:
             for table in tables:
@@ -406,19 +411,18 @@ def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
         return {}
 
 
-def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, seed_macs, seed_hostids, ban_type):
+def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_macs, seed_hostids, ban_type):
     """
     Collects a best-effort snapshot of identifiers + linked accounts for review/reference.
     Enforcement is handled separately; this is for storage + staff notes.
+    User IP addresses are not collected or stored.
     """
     seed_uuids = {u.strip() for u in (seed_uuids or []) if u and str(u).strip()}
-    seed_ips = {i.strip() for i in (seed_ips or []) if i and str(i).strip()}
     seed_macs = {m.strip() for m in (seed_macs or []) if m and str(m).strip()}
     seed_hostids = {h.strip() for h in (seed_hostids or []) if h and str(h).strip()}
 
     linked_uuids = set(seed_uuids)
     observed = {
-        "ips": set(seed_ips),
         "macs": set(seed_macs),
         "hostids": set(seed_hostids),
         "grids": {},  # uuid -> inbound_from
@@ -433,11 +437,7 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
     try:
         with pariah_conn.cursor() as cursor:
             # 1) Expand linked UUIDs based on the ban vector(s)
-            if ban_type == "ip" and seed_ips:
-                fmt = ",".join(["%s"] * len(seed_ips))
-                cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_ip WHERE user_ip IN ({fmt})", tuple(seed_ips))
-                linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
-            elif ban_type == "mac" and seed_macs:
+            if ban_type == "mac" and seed_macs:
                 fmt = ",".join(["%s"] * len(seed_macs))
                 cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_mac WHERE user_mac IN ({fmt})", tuple(seed_macs))
                 linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
@@ -446,25 +446,17 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
                 cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_host_id WHERE user_host_id IN ({fmt})", tuple(seed_hostids))
                 linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
 
-            # 2) If this is an account ban, do a single "one hop" expansion:
-            #    seed UUIDs -> identifiers -> other UUIDs sharing those identifiers.
+            # 2) Account ban: one-hop expansion via MAC and Host ID only (no IP linkage).
             if ban_type == "account" and seed_uuids:
                 fmt_u = ",".join(["%s"] * len(seed_uuids))
-                cursor.execute(f"SELECT DISTINCT user_ip FROM gatekeeper_ip WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
-                hop_ips = {r.get("user_ip") for r in _safe_fetchall(cursor) if r.get("user_ip")}
                 cursor.execute(f"SELECT DISTINCT user_mac FROM gatekeeper_mac WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
                 hop_macs = {r.get("user_mac") for r in _safe_fetchall(cursor) if r.get("user_mac")}
                 cursor.execute(f"SELECT DISTINCT user_host_id FROM gatekeeper_host_id WHERE user_uuid IN ({fmt_u})", tuple(seed_uuids))
                 hop_hosts = {r.get("user_host_id") for r in _safe_fetchall(cursor) if r.get("user_host_id")}
 
-                observed["ips"].update(hop_ips)
                 observed["macs"].update(hop_macs)
                 observed["hostids"].update(hop_hosts)
 
-                if hop_ips:
-                    fmt = ",".join(["%s"] * len(hop_ips))
-                    cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_ip WHERE user_ip IN ({fmt})", tuple(hop_ips))
-                    linked_uuids.update([r.get("user_uuid") for r in _safe_fetchall(cursor) if r.get("user_uuid")])
                 if hop_macs:
                     fmt = ",".join(["%s"] * len(hop_macs))
                     cursor.execute(f"SELECT DISTINCT user_uuid FROM gatekeeper_mac WHERE user_mac IN ({fmt})", tuple(hop_macs))
@@ -478,12 +470,6 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
             if linked_uuids:
                 fmt_u = ",".join(["%s"] * len(linked_uuids))
                 u_tuple = tuple(linked_uuids)
-
-                cursor.execute(f"SELECT DISTINCT user_uuid, user_ip, user_name FROM gatekeeper_ip WHERE user_uuid IN ({fmt_u})", u_tuple)
-                for r in _safe_fetchall(cursor):
-                    if r.get("user_ip"):
-                        observed["ips"].add(r["user_ip"])
-                    add_names(r.get("user_uuid"), r.get("user_name"))
 
                 cursor.execute(f"SELECT DISTINCT user_uuid, user_mac, user_name FROM gatekeeper_mac WHERE user_uuid IN ({fmt_u})", u_tuple)
                 for r in _safe_fetchall(cursor):
@@ -523,9 +509,7 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
     except Exception as e:
         current_app.logger.debug(f"Ban evidence collection skipped (robust DB): {e}")
 
-    # Final evidence formatting (human-readable text, stored in bans_master.notes)
     linked_sorted = sorted([u for u in linked_uuids if u], key=lambda x: str(x))
-    ips_sorted = sorted([i for i in observed["ips"] if i], key=lambda x: str(x))
     macs_sorted = sorted([m for m in observed["macs"] if m], key=lambda x: str(x))
     host_sorted = sorted([h for h in observed["hostids"] if h], key=lambda x: str(x))
 
@@ -533,7 +517,6 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
     lines.append("=== Ban data snapshot ===")
     lines.append(f"CollectedAt(UTC): {_now_utc_iso()}")
     lines.append(f"SeedUuids: {', '.join(sorted(seed_uuids)) if seed_uuids else '(none)'}")
-    lines.append(f"SeedIps: {', '.join(sorted(seed_ips)) if seed_ips else '(none)'}")
     lines.append(f"SeedMacs: {', '.join(sorted(seed_macs)) if seed_macs else '(none)'}")
     lines.append(f"SeedHostIDs: {', '.join(sorted(seed_hostids)) if seed_hostids else '(none)'}")
     lines.append("")
@@ -544,13 +527,11 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
         name_str = " | ".join([n for n in names if n]) if names else "Unknown"
         lines.append(f"- {u} :: {name_str} :: GridFrom={grid}")
     lines.append("")
-    lines.append(f"ObservedIPs({len(ips_sorted)}): {', '.join(ips_sorted) if ips_sorted else '(none)'}")
     lines.append(f"ObservedMACs({len(macs_sorted)}): {', '.join(macs_sorted) if macs_sorted else '(none)'}")
     lines.append(f"ObservedHostIDs({len(host_sorted)}): {', '.join(host_sorted) if host_sorted else '(none)'}")
 
     return {
         "linked_uuids": linked_uuids,
-        "observed_ips": observed["ips"],
         "observed_macs": observed["macs"],
         "observed_hostids": observed["hostids"],
         "grid_by_uuid": observed["grids"],
@@ -562,29 +543,25 @@ def _collect_ban_evidence(pariah_conn, robust_conn, *, seed_uuids, seed_ips, see
 def create_ban():
     if request.method == 'GET':
         prep_uuid = request.args.get('uuid', '')
-        prep_ip = request.args.get('ip', '')
         prep_mac = request.args.get('mac', '')
         prep_hostid = request.args.get('hostid', '')
-        return render_template('admin/create_ban.html', prep_uuid=prep_uuid, prep_ip=prep_ip, prep_mac=prep_mac, prep_hostid=prep_hostid)
+        return render_template('admin/create_ban.html', prep_uuid=prep_uuid, prep_mac=prep_mac, prep_hostid=prep_hostid)
 
     reason = request.form.get('reason', '').strip()
     ban_type = request.form.get('type', 'account').strip()
 
     uuids = [u.strip() for u in request.form.get('uuids', '').split('\n') if u.strip()]
-    ips = [i.strip() for i in request.form.get('ips', '').split('\n') if i.strip()]
     macs = [m.strip() for m in request.form.get('macs', '').split('\n') if m.strip()]
     hostids = [h.strip() for h in request.form.get('hostids', '').split('\n') if h.strip()]
 
     # --- SEVERITY DATA FILTERING ---
-    # If the admin downgrades the ban type, we discard the higher-level identifiers 
-    # so we don't accidentally enforce a firewall block on an "Account Only" ban.
+    # If the admin downgrades the ban type, we discard higher-level identifiers
+    # so we don't accidentally enforce hardware bans on an "Account Only" ban.
     if ban_type == 'account':
-        ips, macs, hostids = [], [], []
-    elif ban_type == 'ip':
         macs, hostids = [], []
     elif ban_type == 'mac':
         hostids = []
-    # If 'hostid', we keep everything (the ultimate ban).
+    # If 'hostid', we keep MAC + Host ID rows (the ultimate ban).
 
     # --- Determine Severity Level ---
     target_level = int(get_dynamic_config('ban_level_account'))
@@ -592,8 +569,6 @@ def create_ban():
         target_level = int(get_dynamic_config('ban_level_host'))
     elif ban_type == 'mac':
         target_level = int(get_dynamic_config('ban_level_mac'))
-    elif ban_type == 'ip':
-        target_level = int(get_dynamic_config('ban_level_ip'))
 
     pariah_conn = get_pariah_db()
     robust_conn = get_robust_db()
@@ -607,7 +582,6 @@ def create_ban():
                 pariah_conn,
                 robust_conn,
                 seed_uuids=uuids,
-                seed_ips=ips,
                 seed_macs=macs,
                 seed_hostids=hostids,
                 ban_type=ban_type
@@ -617,8 +591,6 @@ def create_ban():
             cursor.execute("UPDATE bans_master SET notes = %s WHERE banid = %s", (evidence["notes_text"], ban_id))
 
             # 2. Cascading Data Inserts
-            for ip in ips:
-                cursor.execute("INSERT INTO bans_ip (banid, ip) VALUES (%s, %s)", (ban_id, ip))
             for mac in macs:
                 cursor.execute("INSERT INTO bans_mac (banid, mac) VALUES (%s, %s)", (ban_id, mac))
             for hostid in hostids:
@@ -670,7 +642,7 @@ def create_ban():
         pariah_conn.commit()
 
         # 4. Trigger Firewall & Robust Workers
-        if ban_type in ['ip', 'mac', 'hostid']:
+        if ban_type in ['mac', 'hostid']:
             trigger_system_sync_workers(ban_id)
 
         log_audit_action("Create Ban", f"Ban #{ban_id} created (type={ban_type}, level={target_level})")
@@ -695,7 +667,7 @@ def delete_ban(ban_id):
             cursor.execute("SELECT uuid FROM bans_related_uuid WHERE banid = %s", (ban_id,))
             related_uuids = [row['uuid'] for row in _safe_fetchall(cursor) if row.get('uuid')]
 
-            # Foreign key cascading will delete the child records in bans_ip, bans_mac, etc.
+            # Foreign key cascading will delete the child records in bans_mac, etc.
             cursor.execute("DELETE FROM bans_master WHERE banid = %s", (ban_id,))
 
             # Staff notes: mark ban removed (do this before commit so it stays transactional)

@@ -41,8 +41,8 @@ def test_create_ban_cascading(mock_popen, mock_set_level, client, db_cursor):
     expected_mac_level = _known_setting_default_int("ban_level_mac")
     mock_set_level.assert_called_with("bad-guy-uuid", expected_mac_level)
 
-    # 3. Assert Firewall Worker was triggered
-    assert mock_popen.called, "Firewall sync worker was not triggered on ban creation."
+    # 3. Assert Robust MAC sync worker was triggered
+    assert mock_popen.called, "Robust sync worker was not triggered on ban creation."
 
     # 4. Check UI response
     assert b"Ban created and actively enforced successfully" in response.data
@@ -56,12 +56,11 @@ def test_create_ban_cascading(mock_popen, mock_set_level, client, db_cursor):
 def test_create_ban_sets_level_on_all_linked_accounts(
     mock_popen, mock_set_level, mock_evidence, client, db_cursor
 ):
-    """MAC/IP/host bans expand linked UUIDs; every linked account must receive ban_level_*."""
+    """MAC/host bans expand linked UUIDs; every linked account must receive ban_level_*."""
     mock_evidence.return_value = {
         "linked_uuids": {"primary-uuid", "alt-from-gatekeeper"},
         "grid_by_uuid": {},
         "notes_text": "snapshot",
-        "observed_ips": set(),
         "observed_macs": set(),
         "observed_hostids": set(),
     }
@@ -94,7 +93,7 @@ def test_create_ban_sets_level_on_all_linked_accounts(
 @patch('app.blueprints.admin.user_mgmt.set_user_level')
 @patch('app.blueprints.admin.user_mgmt.subprocess.Popen')
 def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
-    """Proves deleting a ban restores users to Level 0 and flushes the firewall."""
+    """Proves deleting a ban restores users to Level 0 and runs Robust sync."""
     
     with client.session_transaction() as sess:
         sess['uuid'] = 'super-admin-uuid'
@@ -117,8 +116,7 @@ def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
     # 2. Assert Robust API restored them to Level 0
     mock_set_level.assert_called_with('bad-guy-uuid', 0)
 
-    # 3. Assert Firewall Worker Triggered to remove the IP/HostID
-    assert mock_popen.called, "Firewall sync worker was not triggered on ban deletion."
+    assert mock_popen.called, "Robust sync worker was not triggered on ban deletion."
 
     assert b"associated avatars have been restored" in response.data
 

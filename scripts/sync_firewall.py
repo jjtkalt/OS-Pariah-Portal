@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""
+Sync Host-ID bans to firewalld direct rules.
+
+Inbound TCP to the grid login port (Robust public port) is inspected with the
+iptables string/Boyer–Moore match so Login/Gatekeeper payloads containing a
+banned Id0 (Host ID) are dropped. IP-based banning via ipset is not used.
+
+Requires root / sudo (see packaging/pariah_worker.sudo).
+"""
 import os
 import subprocess
 import sys
@@ -24,7 +33,7 @@ def run_cmd(logger, cmd_list):
 
 
 def sync_firewall(logger):
-    logger.info("Starting Pariah firewall synchronization...")
+    logger.info("Starting Pariah firewall synchronization (Host ID rules)...")
     conn = get_pariah_db_connection()
     try:
         login_port = str(
@@ -34,9 +43,6 @@ def sync_firewall(logger):
             login_port = "8002"
 
         with conn.cursor() as cursor:
-            cursor.execute("SELECT ip FROM bans_ip")
-            banned_ips = set(row["ip"] for row in cursor.fetchall())
-
             cursor.execute("SELECT hostid FROM bans_host_id")
             banned_hosts = set(row["hostid"] for row in cursor.fetchall())
 
@@ -44,34 +50,6 @@ def sync_firewall(logger):
             "Using Robust public port %s from portal settings for HostID rules.",
             login_port,
         )
-        logger.info("Syncing %s IP addresses (ipset)...", len(banned_ips))
-        run_cmd(
-            logger,
-            [
-                "firewall-cmd",
-                "--permanent",
-                "--ipset=pariah_banned_ips",
-                "--remove-entries-from-file=/dev/null",
-            ],
-        )
-        run_cmd(logger, ["firewall-cmd", "--ipset=pariah_banned_ips", "--flush"])
-
-        for ip in banned_ips:
-            run_cmd(
-                logger,
-                [
-                    "firewall-cmd",
-                    "--permanent",
-                    "--ipset=pariah_banned_ips",
-                    "--add-entry",
-                    ip,
-                ],
-            )
-            run_cmd(
-                logger,
-                ["firewall-cmd", "--ipset=pariah_banned_ips", "--add-entry", ip],
-            )
-
         logger.info("Syncing %s Host ID direct rules...", len(banned_hosts))
 
         for host in banned_hosts:

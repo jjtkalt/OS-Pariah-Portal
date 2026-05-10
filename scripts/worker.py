@@ -108,8 +108,7 @@ def parse_gatekeeper_logs():
                                 user_name = name_match.group(1).replace('.', ' ') if name_match else "Unknown"
                                 from_match = re.search(r' @ (.*?) \(', line, re.IGNORECASE)
 
-                                # Hardware & IP Identifiers
-                                ip_match = re.search(r', IP[:\s=]+([^\s,]+)', line, re.IGNORECASE)
+                                # Hardware identifiers
                                 mac_match = re.search(r', Mac[:\s=]+([^\s,]+)', line, re.IGNORECASE)
                                 hostid_match = re.search(r', Id0[:\s=]+([^\s,]+)', line, re.IGNORECASE)
 
@@ -119,10 +118,6 @@ def parse_gatekeeper_logs():
                                 if from_match:
                                     cursor.execute("REPLACE INTO gatekeeper_from (user_uuid, date_time, user_name, inbound_from) VALUES (%s, %s, %s, %s)",
                                                    (user_uuid, date_time, user_name, from_match.group(1)))
-                                    any_inserted = True
-                                if ip_match:
-                                    cursor.execute("REPLACE INTO gatekeeper_ip (user_uuid, date_time, user_name, user_ip) VALUES (%s, %s, %s, %s)",
-                                                   (user_uuid, date_time, user_name, ip_match.group(1)))
                                     any_inserted = True
                                 if mac_match:
                                     cursor.execute("REPLACE INTO gatekeeper_mac (user_uuid, date_time, user_name, user_mac) VALUES (%s, %s, %s, %s)",
@@ -319,7 +314,7 @@ def cleanup_old_iars():
 def clean_texture_cache():
     """Scans the texture cache directory and deletes JPGs older than 30 days."""
     cache_dir = get_dynamic_config('texture_cache_path', '/home/opensim/FSAssets/pariahcache')
-    days_old = 30 
+    days_old = 5
     
     if not cache_dir or not os.path.exists(cache_dir):
         print(f"Texture Cache Cleanup: Directory {cache_dir} not found. Skipping.")

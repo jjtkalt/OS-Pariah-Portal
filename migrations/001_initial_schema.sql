@@ -31,20 +31,6 @@ CREATE TABLE IF NOT EXISTS `bans_host_id` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `bans_ip`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE IF NOT EXISTS `bans_ip` (
-  `banid` int(10) unsigned NOT NULL,
-  `ip` varchar(45) NOT NULL,
-  PRIMARY KEY (`banid`,`ip`),
-  CONSTRAINT `fk_bans_ip` FOREIGN KEY (`banid`) REFERENCES `bans_master` (`banid`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `bans_mac`
 --
 
@@ -68,7 +54,7 @@ CREATE TABLE IF NOT EXISTS `bans_master` (
   `banid` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `date` timestamp NOT NULL DEFAULT current_timestamp(),
   `reason` text DEFAULT NULL,
-  `type` enum('account','mac','hostid','ip','uuid','mixed') NOT NULL DEFAULT 'account',
+  `type` enum('account','mac','hostid','uuid','mixed') NOT NULL DEFAULT 'account',
   PRIMARY KEY (`banid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -145,22 +131,6 @@ CREATE TABLE IF NOT EXISTS `gatekeeper_host_id` (
   `user_host_id` varchar(255) NOT NULL,
   `entered` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`user_uuid`,`user_host_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `gatekeeper_ip`
---
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE IF NOT EXISTS `gatekeeper_ip` (
-  `user_uuid` char(36) NOT NULL,
-  `date_time` varchar(24) NOT NULL,
-  `user_name` text NOT NULL,
-  `user_ip` varchar(45) NOT NULL,
-  `entered` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`user_uuid`,`user_ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -426,7 +396,6 @@ CREATE TABLE IF NOT EXISTS `tickets` (
   `status` enum('Open','In Progress','Waiting on User','Waiting on Staff','On Hold','Completed','Will not work','No Response','Withdrawn') DEFAULT 'Open',
   `assigned_to_uuid` char(36) DEFAULT NULL,
   `assigned_to_name` varchar(100) DEFAULT NULL,
-  `guest_ip` varchar(45) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
