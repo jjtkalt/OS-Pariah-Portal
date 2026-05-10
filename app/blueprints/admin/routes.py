@@ -158,13 +158,19 @@ def update_single_setting():
     # Strip the 'cfg_' prefix we use in the HTML IDs
     actual_key = key.replace('cfg_', '') if key.startswith('cfg_') else key
 
-    # Check if the submitted value matches our schema default
-    is_default = False
-    for category, fields in KNOWN_SETTINGS.items():
+    meta = None
+    for fields in KNOWN_SETTINGS.values():
         if actual_key in fields:
-            if str(fields[actual_key].get('default', '')) == val:
-                is_default = True
+            meta = fields[actual_key]
             break
+
+    is_default = meta is not None and str(meta.get('default', '')) == val
+
+    if meta and meta.get('type') == 'selectable':
+        opts_raw = meta.get('options') or ''
+        allowed = [x.strip() for x in opts_raw.split(',') if x.strip()]
+        if allowed and val not in allowed:
+            return jsonify({'status': 'error', 'message': 'Value is not allowed for this setting.'}), 400
 
     pariah_conn = get_pariah_db()
     try:

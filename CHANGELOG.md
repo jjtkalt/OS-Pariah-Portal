@@ -38,6 +38,7 @@ _range approximates roadmap “Completed (v0.10.0 – v0.10.1)”._
 - Policy bouncer: users who decline current policies can be locked to a configurable user level while still able to log in and accept policies; restoration to normal levels on agreement.
 - Region visibility for online HUD driven from region config (public listing toggle) instead of only `listable_regions`-style settings.
 - Configurable CSS background image via settings (avoid editing packaged CSS for theming).
+- Settings can support selectable options.
 - Ban creation collects associated account identifiers and notes for review and escalation.
 - Portal version visible in the UI (supports RPM workflow writing `app/version.py`).
 - Region owners and estate managers: optional start/stop/restart and HUD list visibility via `Perm_Region_Control`, without full region management (tiers: off / owners / owners+managers).

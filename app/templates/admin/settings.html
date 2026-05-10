@@ -2,8 +2,13 @@
 {% block title %}System Settings - {{ grid_name }} Portal{% endblock %}
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
-    <h1 class="text-primary m-0 mb-5">System Configuration</h1>
-    <p class="text-muted mb-20 mt-0">Manage global settings. Changes save automatically.</p>
+    <h1 class="text-primary m-0">System Configuration</h1>
+    <div class="text-muted m-0 mb-10">
+        <span>Manage global settings. Changes save automatically.</span>
+        <span class="date">
+            OS Pariah Portal <span style="font-family: monospace;">{{ portal_version }}</span>
+        </span>
+    </div>
 
     {% for category, fields in schema.items() %}
     <fieldset class="card p-0 mb-20">
@@ -38,6 +43,20 @@
                         <select id="cfg_{{ key }}" name="cfg_{{ key }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">
                             <option value="true" {% if current_val == 'true' %}selected{% endif %}>Yes / Enabled</option>
                             <option value="false" {% if current_val == 'false' %}selected{% endif %}>No / Disabled</option>
+                        </select>
+                    {% elif meta.type == 'selectable' %}
+                        {% set opt_ns = namespace(matched=false) %}
+                        <select id="cfg_{{ key }}" name="cfg_{{ key }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">
+                            {% for raw in (meta.options or '').split(',') %}
+                                {% set opt = raw.strip() %}
+                                {% if opt %}
+                                    {% if current_val == opt %}{% set opt_ns.matched = true %}{% endif %}
+                                    <option value="{{ opt }}" {% if current_val == opt %}selected{% endif %}>{{ opt.replace('_', ' ')|replace('-', ' ')|title }}</option>
+                                {% endif %}
+                            {% endfor %}
+                            {% if not opt_ns.matched and current_val %}
+                                <option value="{{ current_val }}" selected>{{ current_val }} (stored value; pick a listed option to normalize)</option>
+                            {% endif %}
                         </select>
                     {% else %}
                         <input type="{{ meta.type }}" id="cfg_{{ key }}" name="cfg_{{ key }}" value="{{ current_val }}" class="w-100 mb-0" onchange="saveSetting('{{ key }}', this.value)">

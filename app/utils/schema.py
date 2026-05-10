@@ -48,8 +48,9 @@ KNOWN_SETTINGS = {
         "max_region_size_multiplier": {"label": "Max Region Size Multiplier", "type": "number", "default": "4"},
         "region_owner_control_level": {
             "label": "Region Owner/Estate Manager Controls",
-            "type": "text",
-            "default": "no"
+            "type": "selectable",
+            "options": "no,owners,owners_managers",
+            "default": "no",
         },
     },
     "IAR & Backups": {

@@ -45,6 +45,33 @@ def test_settings_update_success(client, db_cursor):
     assert b"success" in response.data
 
 
+def test_settings_update_selectable_rejects_invalid(client):
+    """Selectable settings only accept values listed in schema options."""
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'super-admin-uuid'
+        sess['permissions'] = PERM_MANAGE_SETTINGS
+
+    response = client.post(
+        '/admin/settings/update_single',
+        data={'key': 'region_owner_control_level', 'value': 'not_a_real_mode'},
+    )
+    assert response.status_code == 400
+    assert b"not allowed" in response.data
+
+
+def test_settings_update_selectable_accepts_valid(client, db_cursor):
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'super-admin-uuid'
+        sess['permissions'] = PERM_MANAGE_SETTINGS
+
+    response = client.post(
+        '/admin/settings/update_single',
+        data={'key': 'region_owner_control_level', 'value': 'owners'},
+    )
+    assert response.status_code == 200
+    assert b"success" in response.data
+
+
 # -------------------------------------------------------------------
 # Test 3: Successful Settings Add (Authorized Admin)
 # -------------------------------------------------------------------

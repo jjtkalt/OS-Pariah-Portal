@@ -201,7 +201,7 @@ label.radio {
   margin-right: 12px;
 }
 
-input[type="text"], input[type="password"], input[type="email"], input[type="number"], textarea, select {
+input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="url"], textarea, select {
   background: var(--input-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
