@@ -15,8 +15,14 @@ def test_clean_texture_cache(mock_get_config, mock_exists, mock_remove, mock_get
     """Test that the cleanup routine correctly identifies and deletes old files."""
     from scripts.worker import clean_texture_cache
 
-    # Setup mocks
-    mock_get_config.return_value = '/fake/cache/dir'
+    def fake_get_config(key, default=None):
+        if key == 'texture_cache_path':
+            return '/fake/cache/dir'
+        if key == 'texture_cache_retention_days':
+            return '30'
+        return default
+
+    mock_get_config.side_effect = fake_get_config
     mock_exists.return_value = True
     # Provide two fake files in the directory
     mock_listdir.return_value = ['old_texture.jpg', 'new_texture.jpg', 'not_an_image.txt']

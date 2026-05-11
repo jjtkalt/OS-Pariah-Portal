@@ -312,10 +312,15 @@ def cleanup_old_iars():
         conn.close()
 
 def clean_texture_cache():
-    """Scans the texture cache directory and deletes JPGs older than 30 days."""
+    """Scans the texture cache directory and deletes JPGs older than texture_cache_retention_days."""
     cache_dir = get_dynamic_config('texture_cache_path', '/home/opensim/FSAssets/pariahcache')
-    days_old = 5
-    
+    try:
+        days_old = int(str(get_dynamic_config('texture_cache_retention_days') or '30').strip())
+    except (TypeError, ValueError):
+        days_old = 30
+    if days_old < 1:
+        days_old = 1
+
     if not cache_dir or not os.path.exists(cache_dir):
         print(f"Texture Cache Cleanup: Directory {cache_dir} not found. Skipping.")
         return
