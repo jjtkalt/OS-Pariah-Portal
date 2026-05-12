@@ -8,48 +8,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Known issues
 
-- None recorded at migration from the roadmap. Track new findings as GitHub issues or append here before tagging a release.
+- None recorded. Track new findings as GitHub issues or append here before tagging a release.
 
 ---
 
-## [0.10.1]
+## [0.10.1] – 2026-05-12
 
-_range approximates roadmap “Completed (v0.10.0 – v0.10.1)”._
+Changes since [0.10.0](#0100).
 
 ### Security
 
-- Restrict who can change their own permissions (manage roles); allow only when the account is already Super Admin.
-- Reserve destructive permissions (e.g. purge assets, delete grid users, assign Super Admin) for Super Admins only, not merely holders of manage-roles.
-- Add `PERM_VIEW_PPI` so PPI (IP, MAC, HostID) is not exposed to everyone with user lookup; gate PPI behind explicit permission.
-- Separate Knowledge Base document editing from policy-editing permissions.
+- Manage Roles: restrict changing your own permission mask unless you are already Super Admin; reserve destructive capabilities (e.g. purge assets, delete grid users, assign Super Admin) for Super Admins, not only for users who hold manage-roles.
+- Gatekeeper lookup: add `PERM_VIEW_PPI` so PPI (IP, MAC, HostID) is not exposed to everyone with user lookup.
+- Separate Knowledge Base document editing from grid policy editing permissions.
 
 ### Fixed
 
-- Gatekeeper lookup showed “Unknown User” for hypergrid records after robust info was included; IP/MAC/HostID linkage to names and UUIDs restored.
-- Password reset via token could fail with an internal error.
-- Expired or superseded password reset tokens were not cleaned up reliably.
-- Registration page listed non-policy documents as “Required Reading”; only binding, login-not-required policies are shown.
-- Manage Regions page permission checks did not use `check_bit` consistently.
-- RBAC table and user level handling when all RBAC perms are removed; skip redundant RBAC checks for in-world admin user levels (0, 200) per policy.
-- Online HUD still used legacy `is_admin` / userlevel logic; now driven by RBAC-style permission (e.g. who may view online users).
+- Gatekeeper lookup showed “Unknown User” for some hypergrid paths after Robust enrichment; linkage of IP/MAC/HostID to names and UUIDs restored (includes HG lookup hotfix).
+- Password reset via token could fail internally; expired or superseded tokens are cleaned up more reliably.
+- Registration “Required Reading” listed non-policy documents; only binding policies that do not require login are shown.
+- Manage Regions: permission checks now use `check_bit` consistently.
+- RBAC when all portal bits are removed from a user; redundant RBAC checks skipped for in-world admin Robust tiers (0, 200) per policy.
+- Online HUD no longer relies on legacy `is_admin` / userlevel checks alone; visibility follows RBAC (including region-owner scenarios).
+- **Policy agreement:** agreeing to an updated policy version **only** restores Robust user level from the policy-decline lock tier. Staff and admins (normal positive levels) are no longer reset to 0/1 when recording agreement.
+- **Texture gallery worker:** cache cleanup uses configurable retention again (see Added); fixes unintended aggressive deletion when retention was hard-coded shorter than documented defaults.
 
 ### Added
 
-- Policy bouncer: users who decline current policies can be locked to a configurable user level while still able to log in and accept policies; restoration to normal levels on agreement.
-- Region visibility for online HUD driven from region config (public listing toggle) instead of only `listable_regions`-style settings.
-- Configurable CSS background image via settings (avoid editing packaged CSS for theming).
-- Settings can support selectable options.
+- Policy decline flow: configurable Robust lock tier (`policy_decline_user_level`); users can still log in to read policies and agree or decline.
+- Who may see which regions on the online HUD respects region config (e.g. public listing toggle), not legacy listable-region settings.
+- Configurable portal background image via settings (theming without editing packaged CSS).
+- **Settings schema:** `selectable` field type with comma-separated `options`; validated on save (e.g. **Region Owner/Estate Manager Controls** as a dropdown: `no` / `owners` / `owners_managers`).
+- **`texture_cache_retention_days`** setting (default 30); `scripts/worker.py` cleanup honors it for JPG cache files under `texture_cache_path`.
 - Ban creation collects associated account identifiers and notes for review and escalation.
-- Portal version visible in the UI (supports RPM workflow writing `app/version.py`).
-- Region owners and estate managers: optional start/stop/restart and HUD list visibility via `Perm_Region_Control`, without full region management (tiers: off / owners / owners+managers).
+- Portal version string shown in the UI (`app/version.py`; RPM-friendly).
+- Region owners / estate managers (optional): start/stop/restart and HUD visibility via region-control permission, without full region management—tiered by `region_owner_control_level`.
+- Robust **systemd unit name** setting for optional service restart after MAC ban sync.
+- This changelog as the canonical release history; legacy roadmap retired (planned work tracked in GitHub issues).
 
 ### Changed
 
-- Gatekeeper lookup: sort named results for easier scanning.
-- Replace redundant “Valid Region Host IPs” with Region DNS mappings; warn when region host names lack mapping entries.
-- Regions list UI: simplify status presentation (enabled/disabled vs duplicated labels).
-- Policy admin: minor/major bump preview shows the actual resulting version numbers.
-- Settings and DNA-related grid URL variables reworked (domain vs login URI, robust host/ports/protocol and derived URLs).
+- Gatekeeper lookup: named results sorted; “Valid Region Host IPs” replaced by Region DNS mappings with warnings when a region hostname has no mapping.
+- Regions list UI: clearer enabled/disabled presentation.
+- Policy admin: minor/major bump preview shows the resulting version strings accurately.
+- Grid connectivity settings clarified further (`domainName`, Robust host/ports/protocol, derived public/private URLs).
+- Ban management UI and Gatekeeper-oriented display names on bans.
+- User management and helpdesk ticket handling refactored to reduce inappropriate reliance on raw IP fields where Robust identifies users.
+
+### Dependencies
+
+- `urllib3` updated (Dependabot security/maintenance track).
 
 ---
 
