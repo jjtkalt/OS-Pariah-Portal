@@ -147,8 +147,8 @@ def policy_agreement():
                 session['is_admin'] = False
                 session['permissions'] = 0
                 flash(
-                    'Your account has been set to the policy non-agreement tier in Robust. '
-                    'You can log in again to review the policies when you are ready.',
+                    'Your account has been locked for policy non-agreement. '
+                    'You can log in again here to review the policies when you are ready.',
                     'warning',
                 )
             else:
@@ -156,18 +156,28 @@ def policy_agreement():
             return redirect(url_for('auth.logout'))
 
         if request.form.get('agree') == 'yes':
-            rbac_row = None
-            with pariah_conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
-                    (session['uuid'],),
-                )
-                rbac_row = cursor.fetchone()
+            decline_level = get_policy_decline_level()
+            try:
+                current_level = int(session.get('user_level', 0))
+            except (TypeError, ValueError):
+                current_level = 0
 
-            target_level = 1 if rbac_row else 0
-            if not set_user_level(session['uuid'], target_level):
-                flash('The grid could not restore your user level. Your agreement was not saved. Please contact support.', 'error')
-                return redirect(url_for('user.policy_agreement'))
+            # Only restore Robust userLevel when they were locked for policy non-agreement.
+            # Other users (e.g. staff agreeing to a new policy version) keep their existing level.
+            restoring = current_level == decline_level
+            if restoring:
+                rbac_row = None
+                with pariah_conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
+                        (session['uuid'],),
+                    )
+                    rbac_row = cursor.fetchone()
+
+                target_level = 1 if rbac_row else 0
+                if not set_user_level(session['uuid'], target_level):
+                    flash('The grid could not restore your system access. Your agreement was not saved. Please contact support.', 'error')
+                    return redirect(url_for('user.policy_agreement'))
 
             with pariah_conn.cursor() as cursor:
                 cursor.execute(
@@ -176,9 +186,10 @@ def policy_agreement():
                 )
             pariah_conn.commit()
 
-            session['user_level'] = target_level
-            session['is_admin'] = target_level >= 200
-            session['permissions'] = rbac_row['permissions'] if rbac_row else 0
+            if restoring:
+                session['user_level'] = target_level
+                session['is_admin'] = target_level >= 200
+                session['permissions'] = rbac_row['permissions'] if rbac_row else 0
 
             flash('Thank you for agreeing to the updated grid policies.', 'success')
             return redirect(url_for('comms.news_feed'))
