@@ -3,11 +3,11 @@
 #
 
 Name:           os-pariah-portal
-Version:        0.9.2
+Version:        0.10.1
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
-License:        MIT
+License:        GNU-GPLv3
 URL:            https://github.com/jjtkalt/OS-Pariah-Portal
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      x86_64
@@ -100,6 +100,6 @@ echo "========================================================="
 /etc/sudoers.d/pariah_worker
 %config(noreplace) %attr(0640, pariah, opensim) /etc/os_pariah/os-pariah.conf
 %doc README.md
-%doc ROADMAP.md
+%doc CHANGELOG.md
 %doc COMPATIBILITY.md
 %license LICENSE
