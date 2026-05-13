@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+# Checkout + attach RPM to the published release (GitHub maps release asset uploads to contents: write).
+permissions:
+  contents: write
+
 jobs:
   build-rpm:
     runs-on: ubuntu-latest

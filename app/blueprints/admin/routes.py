@@ -93,9 +93,12 @@ def approve_user():
             return jsonify({'status': 'success'})
         else:
             return jsonify({'status': 'error', 'message': 'ROBUST API failed. Check if port 8003 is accessible.'})
-    except Exception as e:
-        current_app.logger.error(f"Approval exception: {e}")
-        return jsonify({'status': 'error', 'message': str(e)})
+    except Exception:
+        current_app.logger.exception("Approval exception")
+        return jsonify({
+            'status': 'error',
+            'message': 'An unexpected error occurred while approving the user.',
+        }), 500
 
 @admin_bp.route('/approvals/reject', methods=['POST'])
 @rbac_required(PERM_APPROVE_USERS)
@@ -119,9 +122,12 @@ def reject_user():
         set_user_level(uuid, rejected_level)
 
         return jsonify({'status': 'success'})
-    except Exception as e:
-        current_app.logger.error(f"Rejection exception: {e}")
-        return jsonify({'status': 'error', 'message': str(e)})
+    except Exception:
+        current_app.logger.exception("Rejection exception")
+        return jsonify({
+            'status': 'error',
+            'message': 'An unexpected error occurred while rejecting the user.',
+        }), 500
 
 @admin_bp.route('/settings', methods=['GET'])
 @rbac_required(PERM_MANAGE_SETTINGS)
