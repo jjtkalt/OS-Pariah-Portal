@@ -41,21 +41,21 @@ Sadly, not all of those can be applied to OpenSimulator because of the very natu
 ### Patreon/PayPal/Venmo
 ### Gatekeeper Logs & Ban Records
 
-We designed one of the most advanced, multi-layered ban systems currently available in the OpenSimulator ecosystem.
+We implemented a multi-layered ban system to.
 
 **Defense in Depth:** Banning an account in the database is not enough. A true grid defense requires synchronized enforcement at the Database, Application, and the Network levels.
 
-* **Gatekeeper Cross-Referencing:** Leveraged nightly worker scripts to scrape and parse OpenSim Gatekeeper logs, allowing Admins to instantly cross-reference Alt accounts using usernames, IPs, and hardware information.
+* **Gatekeeper Cross-Referencing:** Leveraged nightly worker scripts to scrape and parse OpenSim Gatekeeper logs, allowing Admins to instantly cross-reference Alt accounts using usernames, and hardware information.
 * **Cascading Severity Tiers:** Replaced the standard binary ban system with a highly granular, configurable tier system:
     * Account Ban
-    * IP Ban
-    * Hardware Ban
-    * Host Ban
-* **OS-Level Network Enforcement (Firewalld):** Created a bridge between the web database and the host OS. 
-    * Uses highly efficient hash tables to instantly drop traffic.
+    * Hardware Ban (MAC via gatekeeper)
+    * Host Ban (Id0 via firewall)
+* **OS-Level Network Enforcement (Firewalld):** Created a bridge between the web database and the host OS.
     * Uses advanced string-matching algorithms to drop packets on the OpenSim login port.
 * **Surgical Robust Configuration Injection:** Safely injects bans into Robust's configuration.
 * **Secure Boundary Crossing:** The web application never requires `root` access. Instead, it asynchronously triggers highly restricted, dedicated scripts firewall and Robust configurations.
 
 ### Name Changes
 ### Partner System
+### Security Items
+
