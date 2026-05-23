@@ -5,6 +5,7 @@ from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.robust_api import create_robust_user, set_user_level
 from app.blueprints.auth.routes import verify_turnstile
 from app.utils.notifications import send_verification_email, notify_staff_new_app
+from app.utils.registration_notes import save_registration_application_note
 
 register_bp = Blueprint('register', __name__)
 
@@ -93,6 +94,12 @@ def register():
     # --- 6. Track Registration State in Pariah DB ---
     verification_token = uuid.uuid4().hex
     pariah_conn = get_pariah_db()
+    registration_record = {
+        "inviter": inviter,
+        "discord": discord,
+        "matrix": matrix,
+        "other_info": other_info,
+    }
     with pariah_conn.cursor() as cursor:
         cursor.execute(
             """INSERT INTO pending_registrations
@@ -100,6 +107,7 @@ def register():
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (new_uuid, email, inviter, discord, matrix, other_info, verification_token, require_approval, 'pending_email')
         )
+        save_registration_application_note(cursor, new_uuid, registration_record)
     pariah_conn.commit()
 
     # --- 7. Dispatch Workflows ---
