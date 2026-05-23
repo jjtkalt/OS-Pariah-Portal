@@ -1,7 +1,7 @@
 import os
 import uuid
 import subprocess
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory, abort
 from app.utils.db import get_pariah_db, get_dynamic_config, get_robust_db
 from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password, set_user_level
 from app.utils.auth_helpers import get_policy_decline_level
@@ -230,7 +230,11 @@ def download_iar(filename):
         flash("System error: IAR output directory is not configured.", "error")
         return redirect(url_for('user.profile'))
 
-    full_path = os.path.join(downloads_dir, filename)
+    full_path = os.path.normpath(os.path.join(downloads_dir, filename))
+
+    # Ensure the path is safe and within the downloads_dir
+    if not full_path.startswith(downloads_dir):
+        abort(403)
 
     # Gracefully handle missing files
     if not os.path.exists(full_path):

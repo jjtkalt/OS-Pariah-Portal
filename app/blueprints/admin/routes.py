@@ -262,8 +262,12 @@ def serve_texture(hash_val):
 
     # 1. Check Configurable Cache Path
     cache_dir = get_dynamic_config('texture_cache_path')
-    cached_file = os.path.join(cache_dir, f"{hash_val}.jpg")
+    cached_file = os.path.normpath(os.path.join(cache_dir, f"{hash_val}.jpg"))
     can_cache = False
+
+    # Ensure the cache directory is safe and within the fsassets_root
+    if not cached_file.startswith(cache_dir):
+        abort(403)
 
     try:
         os.makedirs(cache_dir, exist_ok=True)
@@ -282,11 +286,16 @@ def serve_texture(hash_val):
         abort(404)
         
     rel_path = os.path.join(hash_val[0:2], hash_val[2:4], hash_val[4:6], hash_val[6:10], f"{hash_val}.gz")
-    full_path = os.path.join(fsassets_root, rel_path)
+    full_path = os.path.normpath(os.path.join(fsassets_root, rel_path))
 
-    if not os.path.exists(full_path):
+    # Ensure the path is safe and within the fsassets_root
+    if not full_path.startswith(fsassets_root):
+        abort(403)
+    # If the file does not exist, return a 404
+    elif not os.path.exists(full_path):
         abort(404)
 
+    # If the file is safe, try to decode it
     try:
         # Unzip -> Decode
         with gzip.open(full_path, 'rb') as f:
