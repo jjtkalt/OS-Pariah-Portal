@@ -40,7 +40,15 @@ def test_successful_registration(mock_send_email, mock_set_level, mock_create_ro
     # Grab the exact SQL string the portal tried to run
     sql_queries_run = [call[0][0] for call in db_cursor.execute.call_args_list]
     assert any("INSERT INTO pending_registrations" in q for q in sql_queries_run), "Did not attempt to insert registration into DB."
-    
+    assert any("INSERT INTO user_notes" in q for q in sql_queries_run), "Did not copy registration application to user notes."
+
+    note_insert = next(c for c in db_cursor.execute.call_args_list if "INSERT INTO user_notes" in c[0][0])
+    note_args = note_insert[0][1]
+    assert note_args[0] == "fake-uuid-1234-5678"
+    assert "[REGISTRATION APPLICATION]" in note_args[2]
+    assert "test@example.com" not in note_args[2]
+    assert essay_text in note_args[2]
+
     assert mock_send_email.called, "Verification email was not dispatched."
     assert b"Registration successful!" in response.data
 

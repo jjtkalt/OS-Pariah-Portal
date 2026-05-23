@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, request, flash, redirect, current_app, url_for, session
 from app.utils.db import get_pariah_db
-from app.utils.auth_helpers import rbac_required, has_permission
+from app.utils.auth_helpers import rbac_required, has_permission, require_active_user
 from app.utils.schema import *
-from app.blueprints.api.routes import fetch_all_online_users
+from app.blueprints.api.routes import fetch_all_online_users, get_online_snapshot
 from app.utils.robust_api import get_total_regions_count
 
 comms_bp = Blueprint('comms', __name__, url_prefix='/comms')
@@ -42,6 +42,20 @@ def post_news():
         return redirect(url_for('comms.news_feed'))
         
     return render_template('comms/post_news.html')
+
+@comms_bp.route('/online', methods=['GET'])
+@require_active_user
+def online_users():
+    """Logged-in portal view of who is online (HUD-listable regions, or all with permission)."""
+    show_all = has_permission(PERM_ONLINE_HUD_ALL)
+    snapshot = get_online_snapshot(show_all)
+    return render_template(
+        'comms/online_users.html',
+        total_online=snapshot['total_online'],
+        users=snapshot['users'],
+        show_all_regions=snapshot['show_all_regions'],
+    )
+
 
 @comms_bp.route('/notices', methods=['GET'])
 def user_notices():

@@ -23,6 +23,7 @@
                     <a href="{{ url_for('tickets.index') }}" class="btn btn-warning" Title="Helpdesk">&#10067;</a>
 
                     {% if session.get('uuid') %}
+                        <a href="{{ url_for('comms.online_users') }}" class="btn btn-outline" title="Users Online">Online</a>
                         {% if has_any_permissions() %}
                             <div class="admin-dropdown">
                                 <span class="admin-menu">Admin Tools &#9662;</span>

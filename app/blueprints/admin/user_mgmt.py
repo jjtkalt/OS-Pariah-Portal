@@ -830,7 +830,13 @@ def manage_roles(uuid):
                 elif current_level == 200:
                     set_user_level(uuid, 201)
 
-            log_audit_action("Update Roles", f"Changed bitmask to {new_bitmask}", target_uuid=uuid)
+            old_roles = format_rbac_labels(current_permissions)
+            new_roles = format_rbac_labels(new_bitmask)
+            log_audit_action(
+                "Update Roles",
+                f"Changed from {old_roles} to {new_roles}",
+                target_uuid=uuid,
+            )
             flash(f"Permissions updated for {avatar_name}.", "success")
         except Exception as e:
             current_app.logger.error(f"Update roles error: {e}")
