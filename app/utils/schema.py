@@ -154,3 +154,15 @@ RBAC_SCHEMA = {
         PERM_MANAGE_ASSETS: {"label": "Manage Assets", "desc": "Purge items from FSAssets", "super_only": True},
     }
 }
+
+
+def format_rbac_labels(bitmask):
+    """Human-readable role names for a permissions bitmask (audit log, etc.)."""
+    if not bitmask:
+        return "(none)"
+    labels = []
+    for perms in RBAC_SCHEMA.values():
+        for bit_val, details in perms.items():
+            if bitmask & bit_val:
+                labels.append(details["label"])
+    return ", ".join(labels) if labels else "(none)"
