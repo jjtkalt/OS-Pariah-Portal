@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Users Online - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar flex-between" style="border-bottom: none;">
+    <h2 class="m-0">Users Online</h2>
+</div>
+
+<p class="text-muted mb-20 mt-0">
+    Grid-wide total with a list refreshed about every 30 seconds.
+    {% if show_all_regions %}
+        You have permission to see avatars in all regions.
+    {% else %}
+        Only avatars in public HUD-listable regions are shown below.
+    {% endif %}
+</p>
+
+<div class="stats-grid grid-2cards mb-20">
+    <div class="group m-0 text-center" style="max-height: none;">
+        <span class="text-primary" style="font-size: 2rem; font-weight: 700; line-height: 1;">{{ total_online }}</span>
+        <span class="text-muted d-block mt-5">Total Users Online</span>
+    </div>
+    <div class="group m-0 text-center" style="max-height: none;">
+        <span class="text-primary" style="font-size: 2rem; font-weight: 700; line-height: 1;">{{ users|length }}</span>
+        <span class="text-muted d-block mt-5">Shown in This List</span>
+    </div>
+</div>
+
+{% if users %}
+    <div class="card p-0" style="overflow-x: auto;">
+        <table class="m-0 w-100" style="min-width: 400px;">
+            <thead>
+                <tr>
+                    <th>Avatar</th>
+                    <th>Region</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.name }}</td>
+                    <td class="text-muted">{{ user.region }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert info">
+        No users are currently visible in this list.
+        {% if not show_all_regions %}
+            They may all be in private regions.
+        {% endif %}
+    </div>
+{% endif %}
+{% endblock %}

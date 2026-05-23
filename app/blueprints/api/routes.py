@@ -96,6 +96,30 @@ def fetch_all_online_users():
     return sorted(users_online, key=lambda k: k['name'])
 
 
+def filter_online_users_by_region(all_users, show_all):
+    """Restrict to HUD-listable regions unless show_all is True."""
+    if show_all:
+        return list(all_users)
+    listable_regions = _hud_listable_region_names()
+    return [
+        user for user in all_users
+        if user["region"].lower() in listable_regions
+    ]
+
+
+def get_online_snapshot(show_all):
+    """
+    Grid-wide online count plus a viewer-filtered user list.
+    Used by /api/online and the portal online page.
+    """
+    all_users = fetch_all_online_users()
+    return {
+        "total_online": len(all_users),
+        "users": filter_online_users_by_region(all_users, show_all),
+        "show_all_regions": show_all,
+    }
+
+
 def _hud_listable_region_names():
     """
     Region names where avatars may appear on the public HUD (/api/online).
@@ -126,28 +150,13 @@ def online_lister():
     """
     The main endpoint for the in-world HUD and website widget.
     """
-    # 1. Fetch the raw list from memory cache
-    all_users = fetch_all_online_users()
-    
-    # 2. Check Permissions
-    show_all = has_admin_view_access()
-    
-    # 3. Filter regions if not an admin
-    filtered_users = []
-    if show_all:
-        filtered_users = all_users
-    else:
-        listable_regions = _hud_listable_region_names()
-        for user in all_users:
-            if user["region"].lower() in listable_regions:
-                filtered_users.append(user)
+    snapshot = get_online_snapshot(has_admin_view_access())
 
-    # 4. Format Output exactly as the HUD expects (for now):
+    # Format output exactly as the HUD expects:
     # Total Online Users: X<br>
     # User Name,Region<br>
-    output_lines = [f"Total Online Users: {len(all_users)}<br>"]
-    for user in filtered_users:
+    output_lines = [f"Total Online Users: {snapshot['total_online']}<br>"]
+    for user in snapshot["users"]:
         output_lines.append(f"{user['name']},{user['region']}<br>")
 
-    # Return as raw text/html so the HUD parser doesn't break
     return "".join(output_lines), 200, {'Content-Type': 'text/html; charset=utf-8'}
