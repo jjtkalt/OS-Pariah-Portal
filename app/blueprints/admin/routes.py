@@ -412,3 +412,34 @@ def audit_log():
         logs = cursor.fetchall()
 
     return render_template('admin/audit.html', logs=logs, page=page, search=search)
+
+
+def _can_view_bot_queue():
+    return has_permission(PERM_MANAGE_SETTINGS) or has_permission(PERM_MANAGE_EVENTS)
+
+
+@admin_bp.route('/bot-queue', methods=['GET', 'POST'])
+def bot_queue_admin():
+    if not session.get('uuid'):
+        flash('Please log in.', 'error')
+        return redirect(url_for('auth.login'))
+    if not _can_view_bot_queue():
+        flash('Unauthorized: You lack the required portal permissions.', 'error')
+        return redirect(url_for('comms.news_feed'))
+
+    from app.utils.grid_bot import get_queue_stats, retry_failed_messages
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'retry_all':
+            retry_failed_messages()
+            flash('All failed messages re-queued.', 'success')
+        elif action == 'retry_selected':
+            ids = [int(x) for x in request.form.getlist('message_id') if x.isdigit()]
+            if ids:
+                retry_failed_messages(ids)
+                flash(f'Re-queued {len(ids)} message(s).', 'success')
+        return redirect(url_for('admin.bot_queue_admin'))
+
+    stats, recent = get_queue_stats()
+    return render_template('admin/bot_queue.html', stats=stats, recent=recent)

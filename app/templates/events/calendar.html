@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Grid Calendar — {{ grid_name }}{% endblock %}
+{% block content %}
+<div class="nav-bar flex-between" style="border-bottom: none;">
+    <h2 class="m-0">Grid Calendar</h2>
+    <div class="d-flex gap-10">
+        <a href="{{ url_for('events.search') }}" class="btn btn-muted">Search Official</a>
+        <a href="{{ url_for('events.subscribe') }}" class="btn btn-muted">Subscribe</a>
+        <a href="{{ url_for('events.suggest') }}" class="btn btn-success">Suggest Event</a>
+        {% if has_permission(PERMS.PERM_MANAGE_EVENTS) %}
+            <a href="{{ url_for('events.manage_event') }}" class="btn btn-primary">+ New Event</a>
+        {% endif %}
+    </div>
+</div>
+<p class="text-muted">All times shown in Pacific (PT).</p>
+
+<div class="mb-20 d-flex gap-20">
+    <span class="nav-group">
+        <a href="{{ url_for('events.calendar_index', view='month', year=year, month=month, day=day, tier=tier_filter) }}" class="btn {% if view == 'month' %}btn-primary{% else %}btn-outline{% endif %}">Month</a>
+        <a href="{{ url_for('events.calendar_index', view='week', year=year, month=month, day=day, tier=tier_filter) }}" class="btn {% if view == 'week' %}btn-primary{% else %}btn-outline{% endif %}">Week</a>
+        <a href="{{ url_for('events.calendar_index', view='day', year=year, month=month, day=day, tier=tier_filter) }}" class="btn {% if view == 'day' %}btn-primary{% else %}btn-outline{% endif %}">Day</a>
+        <a href="{{ url_for('events.calendar_index', view='schedule', year=year, month=month, day=day, tier=tier_filter) }}" class="btn {% if view == 'schedule' %}btn-primary{% else %}btn-outline{% endif %}">Schedule</a>
+    </span>
+    <span class="nav-group">
+        {% for t, label in tier_labels.items() %}
+            {% if tier_filter == t %}
+                <a href="{{ url_for('events.calendar_index', view=view, year=year, month=month, day=day) }}" class="btn btn-primary" title="Show all tiers">{{ label }}</a>
+            {% else %}
+                <a href="{{ url_for('events.calendar_index', view=view, year=year, month=month, day=day, tier=t) }}" class="btn btn-outline">{{ label }}</a>
+            {% endif %}
+        {% endfor %}
+    </span>
+</div>
+
+<div class="mb-20 d-flex gap-20">
+    <span class="nav-group">
+        {% if view == 'month' %}
+            <a href="{{ url_for('events.calendar_index', view='month', year=prev_year, month=prev_month, tier=tier_filter) }}" class="btn btn-outline p-0">&larr;</a>
+        {% else %}
+            <a href="{{ url_for('events.calendar_index', view=view, year=prev_year, month=prev_month, day=prev_day, tier=tier_filter) }}" class="btn btn-outline p-0">&larr;</a>
+        {% endif %}
+        {% if is_current_period %}
+            <strong>{{ month_name }}</strong>
+        {% else %}
+            <a href="{{ today_url }}" class="fw-bold" title="Jump to today">{{ month_name }}</a>
+        {% endif %}
+        {% if view == 'month' %}
+            <a href="{{ url_for('events.calendar_index', view='month', year=next_year, month=next_month, tier=tier_filter) }}" class="btn btn-outline p-0">&rarr;</a>
+        {% else %}
+            <a href="{{ url_for('events.calendar_index', view=view, year=next_year, month=next_month, day=next_day, tier=tier_filter) }}" class="btn btn-outline p-0">&rarr;</a>
+        {% endif %}
+    </span>
+</div>
+
+{% if view == 'schedule' %}
+    {% if not schedule_grouped %}
+        <p class="text-muted">No events in this period.</p>
+    {% else %}
+        {% for day in schedule_grouped.keys()|sort %}
+            {% set occs = schedule_grouped[day] %}
+            <h3>
+                <a href="{{ url_for('events.calendar_index', view='day', year=day.year, month=day.month, day=day.day, tier=tier_filter) }}">{{ day.strftime('%A, %B %d, %Y') }}</a>
+            </h3>
+            {% for occ in occs %}
+                <div class="group mb-10">
+                    <a href="{{ url_for('events.detail', event_id=occ.event_id) }}"><strong>{{ occ.series_event.title }}</strong></a>
+                    — {{ format_pacific(occ.occurrence_start, occ.series_event.all_day) }}
+                    <span class="text-muted">({{ tier_labels.get(occ.series_event.event_tier, '') }})</span>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    {% endif %}
+
+{% elif view == 'week' %}
+<table class="calendar-grid w-100">
+    <thead><tr>
+        {% for d in week_dates %}
+            <th><a href="{{ url_for('events.calendar_index', view='day', year=d.year, month=d.month, day=d.day, tier=tier_filter) }}">{{ d.strftime('%a %b %d') }}</a></th>
+        {% endfor %}
+    </tr></thead>
+    <tbody><tr>
+    {% for d in week_dates %}
+        <td class="calendar-day-cell">
+            <a href="{{ url_for('events.calendar_index', view='day', year=d.year, month=d.month, day=d.day, tier=tier_filter) }}" class="calendar-day-link">{{ d.day }}</a>
+            {% for occ in by_date.get(d, []) %}
+                <div class="text-sm mb-5">
+                    <a href="{{ url_for('events.detail', event_id=occ.event_id) }}">{{ occ.series_event.title[:40] }}</a>
+                </div>
+            {% endfor %}
+        </td>
+    {% endfor %}
+    </tr></tbody>
+</table>
+
+{% elif view == 'day' %}
+<div class="group">
+    {% for occ in day_occurrences %}
+        <div class="mb-10">
+            <a href="{{ url_for('events.detail', event_id=occ.event_id) }}"><strong>{{ occ.series_event.title }}</strong></a>
+            <span class="text-muted text-sm"> — {{ format_pacific(occ.occurrence_start, occ.series_event.all_day) }}</span>
+        </div>
+    {% else %}
+        <p class="text-muted">No events scheduled for this day.</p>
+    {% endfor %}
+</div>
+
+{% else %}
+<table class="calendar-grid w-100">
+    <thead><tr>{% for d in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}<th>{{ d }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for week in weeks %}
+        <tr>
+        {% for day in week %}
+            <td class="calendar-day-cell">
+                {% if day %}
+                    <a href="{{ url_for('events.calendar_index', view='day', year=day.year, month=day.month, day=day.day, tier=tier_filter) }}" class="calendar-day-link">{{ day.day }}</a>
+                    {% for occ in by_date.get(day, []) %}
+                        <div class="text-sm mb-5">
+                            <a href="{{ url_for('events.detail', event_id=occ.event_id) }}">{{ occ.series_event.title[:40] }}</a>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </td>
+        {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

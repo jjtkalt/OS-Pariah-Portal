@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Follow Event — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>Follow: {{ event.title }}</h2>
+<form method="POST">
+    <label><input type="checkbox" name="notify_email" {% if not following or following.notify_email %}checked{% endif %}> Email reminders</label><br>
+    <label><input type="checkbox" name="notify_inworld" {% if not following or following.notify_inworld %}checked{% endif %}> In-world IM reminders</label>
+
+    <div class="group mt-20">
+        <label><strong>Reminder times</strong></label>
+        {% for seconds, label in offset_choices %}
+            <label class="block">
+                <input type="checkbox" name="reminder_offset" value="{{ seconds }}"
+                    {% if seconds in selected_offsets %}checked{% endif %}>
+                {{ label }}
+            </label>
+        {% endfor %}
+        <label class="block mt-10">
+            Custom (minutes before):
+            <input type="number" name="reminder_custom_minutes" min="1" max="10080" class="input" style="width:120px;display:inline-block;">
+        </label>
+    </div>
+
+    <button type="submit" class="btn btn-success mt-20">Save</button>
+</form>
+{% endblock %}

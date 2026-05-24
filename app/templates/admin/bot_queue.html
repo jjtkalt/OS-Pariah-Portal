@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Bot Message Queue — {{ grid_name }}{% endblock %}
+
+{% block content %}
+<div class="flex-between flex-wrap gap-10 mb-20">
+    <div>
+        <h1 class="text-primary m-0">Grid Service Bot Queue</h1>
+        <p class="text-muted mt-5 m-0">Monitor pending, failed, and recent in-world deliveries.</p>
+    </div>
+</div>
+
+<div class="flex gap-10 mb-20 flex-wrap">
+    {% for status, count in stats.items() %}
+        <div class="card p-10">
+            <strong>{{ status }}</strong>: {{ count }}
+        </div>
+    {% else %}
+        <p class="text-muted">Queue is empty.</p>
+    {% endfor %}
+</div>
+
+<form method="POST" class="mb-20">
+    <button type="submit" name="action" value="retry_all" class="btn btn-warning">Retry all failed</button>
+</form>
+
+<div class="card p-0" style="overflow-x: auto;">
+    <form method="POST">
+        <table class="m-0 w-100" style="min-width: 900px;">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>ID</th>
+                    <th>Status</th>
+                    <th>Channel</th>
+                    <th>Type</th>
+                    <th>Priority</th>
+                    <th>Retries</th>
+                    <th>Created</th>
+                    <th>Body</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in recent %}
+                <tr>
+                    <td>
+                        {% if row.status in ('failed', 'claimed') %}
+                        <input type="checkbox" name="message_id" value="{{ row.id }}">
+                        {% endif %}
+                    </td>
+                    <td>{{ row.id }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>{{ row.delivery_channel or 'region' }}</td>
+                    <td>{{ row.message_type }}</td>
+                    <td>{{ row.priority }}</td>
+                    <td>{{ row.retry_count }}</td>
+                    <td class="text-sm text-muted">{{ row.created_at }}</td>
+                    <td class="text-sm">{{ (row.message_body or '')[:120] }}{% if row.notice_subject %}<br><em>{{ row.notice_subject }}</em>{% endif %}</td>
+                    <td class="text-sm text-muted">{{ row.last_error or '' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="10" class="text-muted">No messages yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if recent %}
+        <div class="p-10">
+            <button type="submit" name="action" value="retry_selected" class="btn btn-outline">Retry selected</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

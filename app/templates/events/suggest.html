@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% from 'events/_form_fields.html' import event_fields %}
+{% block title %}Suggest Event — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>Suggest an Event</h2>
+<p class="text-muted">Suggestions are reviewed by staff before appearing on the calendar.</p>
+<form method="POST">
+    {{ event_fields(form, regions, tiers, categories, tier_labels, category_labels, show_recurrence=false) }}
+    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+    <button type="submit" class="btn btn-success mt-20">Submit for Review</button>
+</form>
+{% endblock %}

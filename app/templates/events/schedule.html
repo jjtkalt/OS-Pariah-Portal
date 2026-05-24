@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Event Schedule — {{ grid_name }}{% endblock %}
+{% block content %}
+<h2>Event Schedule</h2>
+<p><a href="{{ url_for('events.calendar_index') }}" class="btn btn-outline">Calendar view</a></p>
+{% if not grouped %}
+    <p class="text-muted">No upcoming events.</p>
+{% else %}
+    {% for day, occs in grouped.items() %}
+        <h3>{{ day.strftime('%A, %B %d, %Y') }}</h3>
+        {% for occ in occs %}
+            <div class="group mb-10">
+                <a href="{{ url_for('events.detail', event_id=occ.event_id) }}"><strong>{{ occ.series_event.title }}</strong></a>
+                — {{ format_pacific(occ.occurrence_start, occ.series_event.all_day) }}
+                <span class="text-muted">({{ tier_labels.get(occ.series_event.event_tier, '') }})</span>
+            </div>
+        {% endfor %}
+    {% endfor %}
+{% endif %}
+{% endblock %}

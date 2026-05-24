@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Search Official Events — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>Search Official Events</h2>
+<form method="GET" class="mb-20">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search..." class="input" style="max-width:400px;">
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+{% for ev in results %}
+    <div class="group mb-10">
+        <a href="{{ url_for('events.detail', event_id=ev.id) }}"><strong>{{ ev.title }}</strong></a>
+        — {{ format_pacific(ev.starts_at, ev.all_day) }}
+    </div>
+{% else %}
+    {% if q %}<p class="text-muted">No results.</p>{% endif %}
+{% endfor %}
+{% endblock %}
