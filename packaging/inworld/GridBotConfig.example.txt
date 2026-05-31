@@ -1,0 +1,9 @@
+# Grid Bot Config — copy to in-world notecard named exactly: GridBotConfig
+#
+# One KEY=VALUE per line. Lines starting with # are ignored.
+#
+PORTAL_URL=https://portal.example.com
+BOT_TOKEN=replace-with-grid_bot_api_token-from-portal-settings
+POLL_INTERVAL=30
+ANNOUNCE_CHANNEL=0
+VERBOSE=1

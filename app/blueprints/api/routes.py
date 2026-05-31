@@ -160,3 +160,69 @@ def online_lister():
         output_lines.append(f"{user['name']},{user['region']}<br>")
 
     return "".join(output_lines), 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+
+@api_bp.route('/bot/queue', methods=['GET'])
+def bot_queue():
+    """In-world Grid Service Bot polls pending messages.
+
+    Query params:
+      format=text  — LSL-friendly lines: id|type|target_uuid|region|group|delivery|subject|body
+      format=json  — default
+    """
+    from flask import Response
+    from app.utils.grid_bot import (
+        verify_bot_api_request, claim_pending_messages,
+        mark_message_claimed, enrich_bot_messages, format_message_text_line,
+    )
+
+    if not verify_bot_api_request():
+        return {'error': 'Unauthorized'}, 401
+
+    messages = enrich_bot_messages(claim_pending_messages(limit=20))
+    for msg in messages:
+        mark_message_claimed(msg['id'])
+
+    if request.args.get('format') == 'text':
+        lines = [format_message_text_line(msg) for msg in messages]
+        return Response('\n'.join(lines), mimetype='text/plain; charset=utf-8')
+
+    return {'messages': messages}, 200
+
+
+@api_bp.route('/bot/ack/<int:message_id>', methods=['GET', 'POST'])
+def bot_ack(message_id):
+    from app.utils.grid_bot import verify_bot_api_request, ack_message
+
+    if not verify_bot_api_request():
+        return {'error': 'Unauthorized'}, 401
+
+    if request.method == 'GET':
+        success = request.args.get('success', '1') not in ('0', 'false', 'no')
+        error = request.args.get('error')
+    else:
+        data = request.get_json(silent=True) or {}
+        success = data.get('success', True)
+        error = data.get('error')
+
+    ack_message(message_id, success=success, error=error)
+    if request.method == 'GET' and request.args.get('format') == 'text':
+        return 'OK', 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    return {'ok': True}, 200
+
+
+@api_bp.route('/bot/status', methods=['GET'])
+def bot_status():
+    from app.utils.grid_bot import verify_bot_api_request
+    from app.utils.db import get_pariah_db
+
+    if not verify_bot_api_request():
+        return {'error': 'Unauthorized'}, 401
+
+    conn = get_pariah_db()
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT status, COUNT(*) AS c FROM bot_message_queue GROUP BY status"
+        )
+        counts = {row['status']: row['c'] for row in cursor.fetchall()}
+    return {'queue': counts}, 200

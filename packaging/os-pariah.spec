@@ -43,6 +43,8 @@ mkdir -p %{buildroot}/home/opensim/Backups/downloads
 
 # Copy application files
 cp -r app scripts migrations wsgi.py requirements.txt %{buildroot}/opt/os_pariah/
+mkdir -p %{buildroot}/opt/os_pariah/packaging/inworld
+cp -r packaging/inworld/* %{buildroot}/opt/os_pariah/packaging/inworld/
 
 # Install the default blank config template
 cp .env.example %{buildroot}/etc/os_pariah/os-pariah.conf
@@ -55,6 +57,8 @@ cp packaging/pariah.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-iar.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-log.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-log.timer %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-worker-calendar.service %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-worker-calendar.timer %{buildroot}/usr/lib/systemd/system/
 
 # Add the Nginx files (Please install certbot, don't use dummy certs!)
 cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
@@ -94,6 +98,9 @@ echo "========================================================="
 /usr/lib/systemd/system/pariah-worker-iar.service
 /usr/lib/systemd/system/pariah-worker-log.service
 /usr/lib/systemd/system/pariah-worker-log.timer
+/usr/lib/systemd/system/pariah-worker-calendar.service
+/usr/lib/systemd/system/pariah-worker-calendar.timer
+%doc packaging/inworld/README.md
 %config(noreplace) /etc/nginx/vhosts.d/OS-Pariah.conf
 /etc/nginx/dummypariah.crt
 /etc/nginx/dummypariah.key

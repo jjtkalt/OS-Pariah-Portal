@@ -65,6 +65,7 @@ html, body {
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
   left: 10%;
   max-height: 70%;
+  min-height: 50%;
   overflow-y: auto;
   padding: 12px;
   position: absolute;
@@ -121,6 +122,15 @@ html, body {
 .nav-links a:active {
   background: var(--primary);
   color: white;
+}
+.nav-group {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px;
 }
 
 .admin-menu {
@@ -259,7 +269,7 @@ button:disabled, .btn:disabled {
 .btn-muted:hover { filter: brightness(0.9); }
 
 .btn-outline {
-  background: transparent;
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   color: var(--text-main);
 }
@@ -380,6 +390,7 @@ tr:hover {
 
 /* Layout & Flexbox */
 .d-flex { display: flex; }
+.flex { display: flex; }
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .flex-center { display: flex; justify-content: center; align-items: center; }
 .flex-column { display: flex; flex-direction: column; }
@@ -420,3 +431,138 @@ tr:hover {
 /* Sizing */
 .w-100 { width: 100%; }
 .h-100 { height: 100%; }
+
+/* Calendar grid cells — minimum height for readable month/week layout */
+.calendar-grid {
+  border-collapse: collapse;
+}
+.calendar-day-cell {
+  background: var(--card-bg);
+  vertical-align: top;
+  height: 4.5em;
+  width: 14%;
+  border: 1px solid var(--border-color);
+  padding: 4px;
+} 
+.calendar-day-cell:hover {
+  background: var(--success-bg);
+}
+.calendar-day-link {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 4px;
+}
+.calendar-day-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+.recurrence-fieldset legend {
+  font-weight: bold;
+  padding: 0 6px;
+}
+
+.event-form-schedule-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 4px;
+}
+
+.event-form-field {
+  margin: 0;
+  flex: 0 1 auto;
+}
+
+.event-form-field label:not(.event-form-check) {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.event-form-field .input {
+  margin: 0;
+  min-width: 0;
+}
+
+.event-form-field--check {
+  align-self: center;
+  flex: 0 0 auto;
+  padding-bottom: 6px;
+}
+
+.event-form-check {
+  align-items: center;
+  color: var(--text-main);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 600;
+  gap: 6px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.event-form-field--date .input {
+  width: 10.5rem;
+}
+
+.event-form-field--time .input {
+  width: 7.25rem;
+}
+
+.event-form-field--select .input {
+  width: 9.5rem;
+}
+
+.event-form-field--repeat .input {
+  max-width: 13rem;
+  min-width: 11rem;
+}
+
+.event-form-recurrence-extra {
+  background: var(--bg-hover);
+  border-radius: 6px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+
+.event-form-recurrence-extra--warn {
+  background: var(--warning-bg);
+}
+
+.event-form-recurrence-inline {
+  margin-bottom: 20px;
+}
+
+.event-form-hint {
+  align-self: center;
+  flex: 1 1 12rem;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .event-form-field--date .input,
+  .event-form-field--time .input,
+  .event-form-field--select .input,
+  .event-form-field--repeat .input {
+    width: 100%;
+  }
+
+  .event-form-field {
+    flex: 1 1 8rem;
+  }
+}

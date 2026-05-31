@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% from 'events/_form_fields.html' import event_fields %}
+{% block title %}Event Form — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>{% if event %}Edit Event{% else %}New Event{% endif %}</h2>
+<p class="text-sm text-muted mb-20">All dates and times are Pacific (PT).</p>
+<form method="POST">
+    {{ event_fields(form, regions, tiers, categories, tier_labels, category_labels, recurrence_modes=recurrence_modes, weekday_codes=weekday_codes, weekday_labels=weekday_labels) }}
+    <div class="d-flex gap-10 mt-20">
+        <button type="submit" name="action" value="save" class="btn btn-primary">Save Draft</button>
+        <button type="submit" name="action" value="publish" class="btn btn-success">Publish</button>
+        <a href="{{ back_url }}" class="btn btn-outline">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var allDay = document.getElementById('event_all_day');
+    var timeStart = document.getElementById('time_start');
+    var timeEnd = document.getElementById('time_end');
+
+    function syncAllDay() {
+        if (!allDay) return;
+        var off = allDay.checked;
+        [timeStart, timeEnd].forEach(function (el) {
+            if (!el) return;
+            el.disabled = off;
+            var wrap = el.closest('.event-form-field--time');
+            if (wrap) wrap.style.opacity = off ? '0.45' : '1';
+        });
+    }
+
+    if (allDay) {
+        allDay.addEventListener('change', syncAllDay);
+        syncAllDay();
+    }
+
+    var mode = document.getElementById('recurrence_mode');
+    if (!mode) return;
+
+    var weekly = document.getElementById('recurrence-weekly-days');
+    var until = document.getElementById('recurrence-until-row');
+    var custom = document.getElementById('recurrence-custom-notice');
+
+    function syncRecurrence() {
+        var v = mode.value;
+        var repeating = v && v !== 'none';
+        if (weekly) weekly.style.display = v === 'weekly' ? 'block' : 'none';
+        if (until) until.style.display = repeating ? 'flex' : 'none';
+        if (custom) custom.style.display = v === 'custom' ? 'block' : 'none';
+    }
+
+    mode.addEventListener('change', syncRecurrence);
+    syncRecurrence();
+})();
+</script>
+{% endblock %}

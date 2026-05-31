@@ -29,3 +29,7 @@ python-dotenv==1.2.2
 requests==2.33.0
 urllib3==2.7.0
 Werkzeug==3.1.6
+markdown==3.10
+bleach==6.3.0
+python-dateutil==2.9.0.post0
+icalendar==6.1.3

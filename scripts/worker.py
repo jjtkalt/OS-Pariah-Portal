@@ -358,7 +358,14 @@ if __name__ == "__main__":
         elif sys.argv[1] == "iar":
             process_iar_backups()
             cleanup_old_iars() 
+        elif sys.argv[1] == "calendar":
+            from app import create_app
+            app = create_app()
+            with app.app_context():
+                from scripts.calendar_notifications import process_calendar_notifications
+                process_calendar_notifications()
+                print("Calendar notifications processed.")
         else:
-            print("Unknown argument. Use 'logs' or 'iar'.")
+            print("Unknown argument. Use 'logs', 'iar', or 'calendar'.")
     else:
         print("Usage: python worker.py [logs|iar]")

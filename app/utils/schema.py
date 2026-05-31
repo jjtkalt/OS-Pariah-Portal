@@ -52,6 +52,27 @@ KNOWN_SETTINGS = {
             "options": "no,owners,owners_managers",
             "default": "no",
         },
+        "grid_timezone": {"label": "Grid Timezone (IANA)", "type": "text", "default": "America/Los_Angeles"},
+    },
+    "Calendar & Events": {
+        "calendar_enabled": {"label": "Enable Calendar Module", "type": "boolean", "default": "true"},
+        "calendar_allow_suggestions": {"label": "Allow User Event Suggestions", "type": "boolean", "default": "true"},
+        "calendar_suggestion_rate_limit": {"label": "Max Pending Suggestions Per User", "type": "number", "default": "3"},
+        "calendar_show_cancelled": {"label": "Show Cancelled Events on Calendar", "type": "boolean", "default": "false"},
+        "calendar_feed_past_days": {"label": "Feed Past Event Window (Days)", "type": "number", "default": "30"},
+        "calendar_recurrence_expand_months": {"label": "Recurrence Expand Window (Months)", "type": "number", "default": "3"},
+        "calendar_default_reminder_offsets": {"label": "Default Reminder Offsets (JSON seconds)", "type": "text", "default": "[86400, 3600]"},
+        "calendar_bot_upcoming_minutes": {"label": "Bot Upcoming Announcement (Minutes Before)", "type": "number", "default": "15"},
+        "calendar_bot_halfway_enabled": {"label": "Bot Halfway Event Announcements", "type": "boolean", "default": "true"},
+        "calendar_default_use_group_chat": {"label": "Default: Post Event Announcements to Group Chat", "type": "boolean", "default": "true"},
+        "calendar_default_use_group_notice": {"label": "Default: Post Event Announcements as Group Notices", "type": "boolean", "default": "true"},
+    },
+    "Grid Service Bot": {
+        "grid_bot_uuid": {"label": "Grid Bot Avatar UUID", "type": "text", "default": "", "no_reset": True},
+        "grid_bot_name": {"label": "Grid Bot Display Name", "type": "text", "default": "Grid Helper"},
+        "grid_bot_api_token": {"label": "Grid Bot API Token", "type": "password", "default": "", "no_reset": True},
+        "grid_bot_announce_region_uuid": {"label": "Default Announce Region UUID", "type": "text", "default": ""},
+        "grid_bot_announce_group_uuid": {"label": "Default Announce Group UUID", "type": "text", "default": ""},
     },
     "IAR & Backups": {
         "IAR_OUTPUT_DIR": {"label": "IAR Output Directory", "type": "text", "default": "/home/opensim/Backups/downloads/iars"},
@@ -112,6 +133,10 @@ PERM_MANAGE_RESOURCES = 1 << 24 # Creator / Member resources
 PERM_VIEW_PPI         = 1 << 25 # View Users's PII
 PERM_VIEW_REGIONS     = 1 << 26 # 67108864 - View list of Regions
 PERM_ONLINE_HUD_ALL   = 1 << 27 # 134217728 - /api/online full grid list (portal or in-world HUD)
+PERM_MANAGE_EVENTS    = 1 << 28 # Calendar: create/edit/publish/cancel events
+PERM_APPROVE_EVENTS   = 1 << 29 # Calendar: approve user event suggestions
+PERM_DELETE_EVENTS    = 1 << 30 # Calendar: hard-delete events
+PERM_MANAGE_REGION_EVENTS = 1 << 31 # Calendar: manage region-tier events
 
 # --- UNIFIED RBAC UI SCHEMA ---
 RBAC_SCHEMA = {
@@ -152,6 +177,10 @@ RBAC_SCHEMA = {
         PERM_VIEW_ASSETS: {"label": "View Assets", "desc": "Access texture gallery", "super_only": True},
         PERM_MANAGE_POLICIES: {"label": "Manage Policies", "desc": "Edit Legal Grid Policies & Rules", "super_only": True},
         PERM_MANAGE_ASSETS: {"label": "Manage Assets", "desc": "Purge items from FSAssets", "super_only": True},
+        PERM_MANAGE_EVENTS: {"label": "Manage Events", "desc": "Create, edit, publish, and cancel calendar events"},
+        PERM_APPROVE_EVENTS: {"label": "Approve Events", "desc": "Review and approve user event suggestions"},
+        PERM_DELETE_EVENTS: {"label": "Delete Events", "desc": "Permanently delete calendar events", "super_only": True},
+        PERM_MANAGE_REGION_EVENTS: {"label": "Manage Region Events", "desc": "Create region-tier calendar events (region owners also via region control)"},
     }
 }
 

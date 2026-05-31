@@ -9,6 +9,7 @@ import time
 import secrets
 from app.utils.notifications import send_password_reset_email
 from app.utils.audit import log_audit_action
+from app.utils.grid_bot import is_grid_bot_uuid
 from app.utils.password_resets import create_password_reset_token
 from datetime import datetime, timezone
 
@@ -551,6 +552,12 @@ def create_ban():
     ban_type = request.form.get('type', 'account').strip()
 
     uuids = [u.strip() for u in request.form.get('uuids', '').split('\n') if u.strip()]
+    for uid in uuids:
+        if is_grid_bot_uuid(uid):
+            flash('The Grid Service Bot account cannot be banned.', 'error')
+            log_audit_action('Blocked ban on grid bot', f'Attempted ban on protected UUID {uid}')
+            return redirect(url_for('user_mgmt.manage_bans'))
+
     macs = [m.strip() for m in request.form.get('macs', '').split('\n') if m.strip()]
     hostids = [h.strip() for h in request.form.get('hostids', '').split('\n') if h.strip()]
 
@@ -723,6 +730,10 @@ def update_user_level(uuid):
 @rbac_required(PERM_RENAME_USERS)
 def rename_user(uuid):
     """Allows Admins to rename a user's avatar."""
+    if is_grid_bot_uuid(uuid):
+        flash('The Grid Service Bot account cannot be renamed.', 'error')
+        log_audit_action('Blocked rename on grid bot', f'Attempted rename of protected UUID {uuid}')
+        return redirect(url_for('user_mgmt.gatekeeper_lookup', type='uuid', q=uuid))
 
     new_first = request.form.get('first_name', '').strip()
     new_last = request.form.get('last_name', '').strip()

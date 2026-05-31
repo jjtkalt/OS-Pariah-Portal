@@ -21,13 +21,18 @@
                     <a href="{{ url_for('index') }}" class="btn btn-outline">Home</a>
                     <a href="{{ url_for('docs') }}" class="btn btn-muted" Title="Documents and Policies">&#128221;</a>
                     <a href="{{ url_for('tickets.index') }}" class="btn btn-warning" Title="Helpdesk">&#10067;</a>
+                    <a href="{{ url_for('events.calendar_index') }}" class="btn btn-muted" title="Calendar">&#128197;</a>
 
                     {% if session.get('uuid') %}
-                        <a href="{{ url_for('comms.online_users') }}" class="btn btn-outline" title="Users Online">Online</a>
+                        <a href="{{ url_for('comms.online_users') }}" class="btn" title="Users Online">Online</a>
                         {% if has_any_permissions() %}
                             <div class="admin-dropdown">
                                 <span class="admin-menu">Admin Tools &#9662;</span>
                                 <div class="dropdown-content">
+                                    {% if has_permission(PERMS.PERM_APPROVE_EVENTS) %}
+                                        <a href="{{ url_for('events.moderation') }}">Event Moderation</a>
+                                    {% endif %}
+
                                     {% if has_permission(PERMS.PERM_APPROVE_USERS) %}
                                         <a href="{{ url_for('admin.pending_approvals') }}">Registration Approvals</a>
                                     {% endif %}
@@ -46,6 +51,10 @@
 
                                     {% if has_permission(PERMS.PERM_MANAGE_SETTINGS) %}
                                         <a href="{{ url_for('admin.system_settings') }}">System Settings</a>
+                                    {% endif %}
+
+                                    {% if has_permission(PERMS.PERM_MANAGE_SETTINGS) or has_permission(PERMS.PERM_MANAGE_EVENTS) %}
+                                        <a href="{{ url_for('admin.bot_queue_admin') }}">Bot Queue</a>
                                     {% endif %}
 
                                     {% if has_permission(PERMS.PERM_VIEW_AUDIT) %}

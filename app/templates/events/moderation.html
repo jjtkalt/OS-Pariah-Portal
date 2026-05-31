@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Event Moderation — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>Pending Event Suggestions</h2>
+{% for s in pending %}
+<div class="group mb-20">
+    <h3>{{ s.title }} <span class="text-muted">by {{ s.submitter_name }}</span></h3>
+    <p>{{ format_pacific(s.starts_at, s.all_day) }} — {{ s.event_tier }} / {{ s.category }}</p>
+    <p>{{ description_html(s.description)|safe }}</p>
+    <form action="{{ url_for('events.approve_suggestion', sid=s.id) }}" method="POST" class="inline">
+        <input type="text" name="staff_notes" placeholder="Optional note">
+        <button type="submit" class="btn btn-success">Approve</button>
+    </form>
+    <form action="{{ url_for('events.reject_suggestion', sid=s.id) }}" method="POST" style="display:inline">
+        <input type="text" name="staff_notes" placeholder="Rejection reason">
+        <button type="submit" class="btn btn-danger">Reject</button>
+    </form>
+</div>
+{% else %}
+<p class="text-muted">No pending suggestions.</p>
+{% endfor %}
+{% endblock %}

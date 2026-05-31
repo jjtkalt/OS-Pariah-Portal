@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Subscribe to Calendar — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>Build Your Feed</h2>
+<p class="text-muted">Choose filters and save a personal iCal or RSS subscription URL.</p>
+{% if feed_url_ics %}
+<div class="alert success">
+    <p><strong>iCal:</strong> <input type="text" readonly value="{{ feed_url_ics }}" class="input" style="width:100%"></p>
+    <p><strong>RSS:</strong> <input type="text" readonly value="{{ feed_url_rss }}" class="input" style="width:100%"></p>
+</div>
+{% endif %}
+<form method="POST">
+    <h3>Tiers</h3>
+    {% for t in tiers %}<label><input type="checkbox" name="tiers" value="{{ t }}"> {{ tier_labels.get(t) }}</label><br>{% endfor %}
+    <h3>Categories</h3>
+    {% for c in categories %}<label><input type="checkbox" name="categories" value="{{ c }}"> {{ category_labels.get(c) }}</label><br>{% endfor %}
+    <h3>Regions</h3>
+    {% for r in regions %}<label><input type="checkbox" name="regions" value="{{ r.region_uuid }}"> {{ r.region_name }}</label><br>{% endfor %}
+    <p class="text-sm text-muted">Leave all unchecked to include everything.</p>
+    <button type="submit" class="btn btn-primary mt-20">Generate subscription URL</button>
+</form>
+<p class="mt-20">Or use query params: <code>/events/feed.ics?tier=official,community&amp;category=social</code></p>
+{% endblock %}

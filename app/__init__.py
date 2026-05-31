@@ -84,6 +84,7 @@ def create_app(config_class='app.config.Config'):
     from .blueprints.comms.routes import comms_bp
     from .blueprints.regions.routes import regions_bp
     from .blueprints.policies.routes import policies_bp
+    from .blueprints.events.routes import events_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(register_bp, url_prefix='/register')
@@ -95,6 +96,7 @@ def create_app(config_class='app.config.Config'):
     app.register_blueprint(comms_bp, url_prefix='/comms')
     app.register_blueprint(regions_bp, url_prefix='/regions')
     app.register_blueprint(policies_bp, url_prefix='/policies')
+    app.register_blueprint(events_bp, url_prefix='/events')
 
     @app.before_request
     def require_policy_agreement():

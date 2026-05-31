@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.title }} — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>{{ event.title }} <span class="text-muted text-sm">({{ tier_labels.get(event.event_tier) }})</span></h2>
+<p><strong>When:</strong> {{ format_pacific(event.starts_at, event.all_day) }}
+{% if event.ends_at %} — {{ format_pacific(event.ends_at, event.all_day) }}{% endif %}</p>
+{% if event.location %}<p><strong>Where:</strong> {{ event.location }}{% if event.region_name %} ({{ event.region_name }}){% endif %}</p>{% endif %}
+{% if event.slurl %}<p><strong>Teleport:</strong> {{ event.slurl }}</p>{% endif %}
+{% if recurrence_summary %}<p><strong>Repeats:</strong> {{ recurrence_summary }}</p>{% endif %}
+<div class="group mb-20">{{ description_html|safe }}</div>
+<p>
+    <a href="{{ url_for('events.feed_ics', event_id=event.id) }}" class="btn btn-outline">Add to calendar (.ics)</a>
+    <a href="{{ url_for('events.follow', event_id=event.id) }}" class="btn btn-success">Follow / Reminders</a>
+</p>
+{% if can_manage %}
+<div class="mt-20 pt-20" style="border-top: 1px solid var(--border-color);">
+    <a href="{{ url_for('events.manage_event', event_id=event.id) }}" class="btn btn-primary">Edit</a>
+    <form action="{{ url_for('events.cancel_event', event_id=event.id) }}" method="POST" style="display:inline" onsubmit="return confirm('Cancel the entire series?');">
+        <input type="hidden" name="cancel_scope" value="series">
+        <button type="submit" class="btn btn-warning">Cancel series</button>
+    </form>
+    {% if has_permission(PERMS.PERM_DELETE_EVENTS) %}
+    <form action="{{ url_for('events.delete_event', event_id=event.id) }}" method="POST" style="display:inline" onsubmit="return confirm('Permanently delete?');">
+        <button type="submit" class="btn btn-danger">Delete</button>
+    </form>
+    {% endif %}
+</div>
+{% if event.recurrence_rule and upcoming_occurrences %}
+<div class="mt-20">
+    <h3>Upcoming occurrences</h3>
+    <p class="text-sm text-muted">Cancel a single date without cancelling the whole series.</p>
+    {% for occ in upcoming_occurrences %}
+    <div class="d-flex gap-10 mb-10" style="align-items: center;">
+        <span>{{ format_pacific(occ.occurrence_start, event.all_day) }}</span>
+        <form action="{{ url_for('events.cancel_event', event_id=event.id) }}" method="POST" style="display:inline" onsubmit="return confirm('Cancel this occurrence only?');">
+            <input type="hidden" name="cancel_scope" value="occurrence">
+            <input type="hidden" name="occurrence_start" value="{{ occ.occurrence_start.isoformat() }}">
+            <button type="submit" class="btn btn-outline">Cancel this date</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

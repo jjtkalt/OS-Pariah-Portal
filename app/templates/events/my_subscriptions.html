@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}My Subscriptions — {{ grid_name }}{% endblock %}
+{% block content %}
+{% include 'events/_back.html' %}
+<h2>My Calendar Subscriptions</h2>
+<h3>Feed URLs</h3>
+{% for s in subs %}
+<p><a href="{{ url_for('events.feed_ics', token=s.subscription_token, _external=true) }}">iCal feed #{{ s.id }}</a></p>
+{% else %}
+<p class="text-muted">No saved feeds. <a href="{{ url_for('events.subscribe') }}">Create one</a>.</p>
+{% endfor %}
+<h3>Followed Events</h3>
+{% for f in follows %}
+<p><a href="{{ url_for('events.detail', event_id=f.event_id) }}">{{ f.title }}</a></p>
+{% else %}
+<p class="text-muted">Not following any events.</p>
+{% endfor %}
+{% endblock %}

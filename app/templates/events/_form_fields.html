@@ -1,0 +1,135 @@
+{% macro event_fields(form, regions, tiers, categories, tier_labels, category_labels, show_tier=true, show_recurrence=true, recurrence_modes=[], weekday_codes=[], weekday_labels={}) %}
+<div class="group">
+    <label>Title *</label>
+    <input type="text" name="title" value="{{ form.title }}" required maxlength="255" class="input">
+</div>
+<div class="group">
+    <label>Description (Markdown)</label>
+    <textarea name="description" rows="6" class="input">{{ form.description }}</textarea>
+    <p class="text-sm text-muted">Bold, lists, links supported. HTML is stripped for safety.</p>
+</div>
+
+<div class="event-form-schedule-row">
+    <div class="event-form-field event-form-field--check">
+        <label class="event-form-check" for="event_all_day">
+            <input type="checkbox" name="all_day" id="event_all_day" {% if form.all_day %}checked{% endif %}>
+            All day
+        </label>
+    </div>
+    <div class="event-form-field event-form-field--date">
+        <label for="date_start">Start *</label>
+        <input type="date" name="date_start" id="date_start" value="{{ form.date_start }}" required class="input">
+    </div>
+    <div class="event-form-field event-form-field--time" id="time-start-wrap">
+        <label for="time_start">Start time</label>
+        <input type="time" name="time_start" id="time_start" value="{{ form.time_start }}" class="input">
+    </div>
+    <div class="event-form-field event-form-field--date">
+        <label for="date_end">End date</label>
+        <input type="date" name="date_end" id="date_end" value="{{ form.date_end }}" class="input">
+    </div>
+    <div class="event-form-field event-form-field--time" id="time-end-wrap">
+        <label for="time_end">End time</label>
+        <input type="time" name="time_end" id="time_end" value="{{ form.time_end }}" class="input">
+    </div>
+    {% if show_tier %}
+    <div class="event-form-field event-form-field--select">
+        <label for="event_tier">Tier</label>
+        <select name="event_tier" id="event_tier" class="input">
+            {% for t in tiers %}
+                <option value="{{ t }}" {% if form.event_tier == t %}selected{% endif %}>{{ tier_labels.get(t, t) }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div class="event-form-field event-form-field--select">
+        <label for="category">Category</label>
+        <select name="category" id="category" class="input">
+            {% for c in categories %}
+                <option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ category_labels.get(c, c) }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if show_recurrence %}
+    <div class="event-form-field event-form-field--repeat">
+        <label for="recurrence_mode">Repeats</label>
+        <select name="recurrence_mode" id="recurrence_mode" class="input">
+            {% for mode, label in recurrence_modes %}
+            <option value="{{ mode }}" {% if form.recurrence_mode == mode %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+            {% if form.recurrence_mode == 'custom' %}
+            <option value="custom" selected>Custom (existing)</option>
+            {% endif %}
+        </select>
+    </div>
+    {% endif %}
+</div>
+
+{% if show_recurrence %}
+<div id="recurrence-custom-notice" class="event-form-recurrence-extra event-form-recurrence-extra--warn" style="{% if form.recurrence_mode != 'custom' %}display:none{% endif %};">
+    <p class="text-sm text-muted m-0">This event uses a custom repeat pattern. Choose a new repeat option above to replace it, or leave as custom to keep it.</p>
+    <input type="hidden" name="recurrence_rule_legacy" value="{{ form.recurrence_custom_rule }}">
+</div>
+
+<div id="recurrence-weekly-days" class="event-form-recurrence-extra" style="{% if form.recurrence_mode != 'weekly' %}display:none{% endif %};">
+    <span class="text-sm text-muted mb-10">Repeat on:</span>
+    <div class="d-flex gap-10 flex-wrap">
+        {% for code in weekday_codes %}
+        <label class="text-sm event-form-check">
+            <input type="checkbox" name="recurrence_weekly_days" value="{{ code }}"
+                {% if code in form.recurrence_weekly_days %}checked{% endif %}>
+            {{ weekday_labels.get(code, code) }}
+        </label>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="recurrence-until-row" class="event-form-schedule-row event-form-recurrence-inline" style="{% if form.recurrence_mode == 'none' %}display:none{% endif %};">
+    <div class="event-form-field event-form-field--date">
+        <label for="recurrence_until_date">Repeat until</label>
+        <input type="date" name="recurrence_until_date" id="recurrence_until_date"
+               value="{{ form.recurrence_until_date }}" class="input">
+    </div>
+    <p class="text-sm text-muted m-0 event-form-hint">Optional. Leave blank for no end date.</p>
+</div>
+{% endif %}
+
+<div class="group">
+    <label>Location</label>
+    <input type="text" name="location" value="{{ form.location }}" class="input">
+</div>
+<div class="group">
+    <label>SLURL / Teleport URI</label>
+    <input type="text" name="slurl" value="{{ form.slurl }}" class="input">
+</div>
+<div class="group">
+    <label>Region</label>
+    <select name="region_uuid" class="input">
+        <option value="">— None —</option>
+        {% for r in regions %}
+            <option value="{{ r.region_uuid }}" {% if form.region_uuid == r.region_uuid %}selected{% endif %}>{{ r.region_name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="group">
+    <label>Announce group UUID</label>
+    <input type="text" name="announce_group_uuid" value="{{ form.announce_group_uuid }}" class="input" placeholder="Leave blank for grid default">
+    <p class="text-sm text-muted">Group for in-world chat and notice announcements.</p>
+</div>
+<div class="group">
+    <label>Group chat announcements</label>
+    <select name="use_group_chat" class="input">
+        <option value="" {% if form.use_group_chat == '' %}selected{% endif %}>Use grid default</option>
+        <option value="1" {% if form.use_group_chat == '1' %}selected{% endif %}>Yes</option>
+        <option value="0" {% if form.use_group_chat == '0' %}selected{% endif %}>No</option>
+    </select>
+</div>
+<div class="group">
+    <label>Group notice announcements</label>
+    <select name="use_group_notice" class="input">
+        <option value="" {% if form.use_group_notice == '' %}selected{% endif %}>Use grid default</option>
+        <option value="1" {% if form.use_group_notice == '1' %}selected{% endif %}>Yes</option>
+        <option value="0" {% if form.use_group_notice == '0' %}selected{% endif %}>No</option>
+    </select>
+</div>
+{% endmacro %}
