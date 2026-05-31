@@ -684,13 +684,18 @@ def manage_event(event_id=None):
         return redirect(url_for('events.calendar_index'))
 
     if request.method == 'POST':
+        manage_url = (
+            url_for('events.manage_event', event_id=event_id)
+            if event_id
+            else url_for('events.manage_event')
+        )
         row = _event_row_from_form(request.form, session['uuid'], session['name'])
         if row.get('_recurrence_error'):
             flash(row['_recurrence_error'], 'error')
-            return redirect(request.url)
+            return redirect(manage_url)
         if not row['title'] or not row['starts_at']:
             flash('Title and start date are required.', 'error')
-            return redirect(request.url)
+            return redirect(manage_url)
 
         action = request.form.get('action', 'save')
         if action == 'publish':
