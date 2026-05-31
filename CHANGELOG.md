@@ -12,6 +12,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.0.0] – 2026-05-31
+
+First stable release. Changes since [0.10.1](#0101).
+
+### Added
+
+- **Calendar and events:** month/week/schedule views, recurring events, community suggestions with staff moderation, follows with email and in-world reminders, iCal/RSS subscription feeds, and tier/category filtering.
+- **Grid Service Bot integration:** in-world group chat and notice delivery for event announcements; admin bot message queue with retry; packaged LSL scripts and `pariah-worker-calendar` timer/service.
+- **Online users page** (`/comms/online`): portal view of who is online, respecting RBAC for all-regions vs public-only visibility (shared logic with the online HUD).
+- **Registration application notes:** pending registration details are persisted to staff user notes in the same transaction as the application.
+- **`sync_requirements.py`:** pre-start dependency sync invoked from `pariah.service` so RPM installs stay aligned with `requirements.txt`.
+
+### Security
+
+- Texture proxy and IAR download routes validate normalized paths against their base directories to block path traversal (CodeQL findings).
+
+### Changed
+
+- Role management audit log entries include human-readable RBAC labels before and after permission changes.
+- GitHub Actions workflows use refined `permissions` scopes.
+
+### Dependencies
+
+- `idna` updated (Dependabot maintenance track).
+- New calendar dependencies: `python-dateutil`, `icalendar`.
+
+---
+
 ## [0.10.1] – 2026-05-12
 
 Changes since [0.10.0](#0100).
