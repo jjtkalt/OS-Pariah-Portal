@@ -31,6 +31,7 @@ from app.utils.event_notifications import (
     broadcast_event_cancelled, notify_followers_cancelled,
 )
 from app.blueprints.auth.routes import verify_turnstile
+from app.blueprints.regions.routes import _user_can_control_region
 from app.utils.recurrence_form import (
     recurrence_from_form, merge_recurrence_into_form, recurrence_form_defaults,
     format_recurrence_human, RECURRENCE_MODES, WEEKDAY_CODES, WEEKDAY_LABELS,
