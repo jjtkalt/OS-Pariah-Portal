@@ -2,13 +2,14 @@ import os
 import gzip
 import re
 import io
+import uuid
 import cv2
 import numpy as np
 from flask import Blueprint, render_template, request, jsonify, current_app, session, flash, redirect, url_for, send_from_directory, send_file, abort
 from app.utils.auth_helpers import rbac_required, has_permission
 from app.utils.db import get_pariah_db, get_robust_db, get_dynamic_config
 from app.utils.robust_api import set_user_level
-from app.utils.notifications import send_matrix_discord_webhook, send_approval_email
+from app.utils.notifications import send_matrix_discord_webhook, send_approval_email, send_verification_email
 from app.utils.schema import *
 from app.utils.audit import log_audit_action
 
@@ -17,49 +18,51 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @admin_bp.route('/approvals', methods=['GET'])
 @rbac_required(PERM_APPROVE_USERS)
 def pending_approvals():
-    """Renders the dashboard of users waiting for Level 0 access."""
+    """Renders the dashboard of users awaiting email verification or staff approval."""
+    view = request.args.get('view', 'approval')
+    if view not in ('approval', 'email'):
+        view = 'approval'
+
+    status = 'pending_email' if view == 'email' else 'pending_approval'
     pariah_conn = get_pariah_db()
     pending_users = []
 
-    # 1. Fetch the pending registration metadata from our portal database
     with pariah_conn.cursor() as cursor:
         cursor.execute("""
             SELECT user_uuid, email, inviter, discord, matrix, other_info, created_at
             FROM pending_registrations
-            WHERE status = 'pending_approval'
+            WHERE status = %s
             ORDER BY created_at ASC
-        """)
+        """, (status,))
         pending_records = cursor.fetchall()
 
-    if not pending_records:
-        return render_template('admin/approvals.html', users=[])
+    if pending_records:
+        robust_conn = get_robust_db()
+        uuids = [record['user_uuid'] for record in pending_records]
+        format_strings = ','.join(['%s'] * len(uuids))
+        user_names = {}
 
-    # 2. Extract UUIDs and fetch their actual names from the Robust database
-    robust_conn = get_robust_db()
-    uuids = [record['user_uuid'] for record in pending_records]
+        try:
+            with robust_conn.cursor() as r_cursor:
+                r_cursor.execute(
+                    f"SELECT PrincipalID, FirstName, LastName FROM useraccounts WHERE PrincipalID IN ({format_strings})",
+                    tuple(uuids),
+                )
+                for row in r_cursor.fetchall():
+                    user_names[row['PrincipalID']] = {
+                        'first_name': row['FirstName'],
+                        'last_name': row['LastName'],
+                    }
+        except Exception as e:
+            current_app.logger.error(f"Failed to fetch user names from Robust: {e}")
 
-    format_strings = ','.join(['%s'] * len(uuids))
-    user_names = {}
+        for record in pending_records:
+            user_uuid = record['user_uuid']
+            record['first_name'] = user_names.get(user_uuid, {}).get('first_name', 'Unknown')
+            record['last_name'] = user_names.get(user_uuid, {}).get('last_name', 'User')
+            pending_users.append(record)
 
-    try:
-        with robust_conn.cursor() as r_cursor:
-            r_cursor.execute(f"SELECT PrincipalID, FirstName, LastName FROM useraccounts WHERE PrincipalID IN ({format_strings})", tuple(uuids))
-            for row in r_cursor.fetchall():
-                user_names[row['PrincipalID']] = {
-                    'first_name': row['FirstName'],
-                    'last_name': row['LastName']
-                }
-    except Exception as e:
-        current_app.logger.error(f"Failed to fetch user names from Robust: {e}")
-
-    # 3. Merge the names into our records for the template
-    for record in pending_records:
-        uuid = record['user_uuid']
-        record['first_name'] = user_names.get(uuid, {}).get('first_name', 'Unknown')
-        record['last_name'] = user_names.get(uuid, {}).get('last_name', 'User')
-        pending_users.append(record)
-
-    return render_template('admin/approvals.html', users=pending_users)
+    return render_template('admin/approvals.html', users=pending_users, view=view)
 
 @admin_bp.route('/approvals/approve', methods=['POST'])
 @rbac_required(PERM_APPROVE_USERS)
@@ -98,6 +101,53 @@ def approve_user():
         return jsonify({
             'status': 'error',
             'message': 'An unexpected error occurred while approving the user.',
+        }), 500
+
+@admin_bp.route('/approvals/resend-verification', methods=['POST'])
+@rbac_required(PERM_APPROVE_USERS)
+def resend_verification():
+    """AJAX endpoint to rotate the verification token and resend the email."""
+    user_uuid = request.form.get('uuid')
+
+    if not user_uuid:
+        return jsonify({'status': 'error', 'message': 'Missing UUID.'}), 400
+
+    try:
+        new_token = uuid.uuid4().hex
+        pariah_conn = get_pariah_db()
+        with pariah_conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE pending_registrations SET verification_token = %s WHERE user_uuid = %s AND status = 'pending_email'",
+                (new_token, user_uuid),
+            )
+            if cursor.rowcount != 1:
+                cursor.execute(
+                    "SELECT status FROM pending_registrations WHERE user_uuid = %s",
+                    (user_uuid,),
+                )
+                reg = cursor.fetchone()
+                pariah_conn.rollback()
+                if not reg:
+                    return jsonify({'status': 'error', 'message': 'Registration not found.'}), 404
+                return jsonify({'status': 'error', 'message': 'This user is not awaiting email verification.'}), 400
+
+            cursor.execute(
+                "SELECT email FROM pending_registrations WHERE user_uuid = %s",
+                (user_uuid,),
+            )
+            reg = cursor.fetchone()
+
+        pariah_conn.commit()
+
+        send_verification_email(reg['email'], new_token)
+        log_audit_action("Approvals", "Resent email verification link", target_uuid=user_uuid)
+
+        return jsonify({'status': 'success'})
+    except Exception:
+        current_app.logger.exception("Resend verification exception")
+        return jsonify({
+            'status': 'error',
+            'message': 'An unexpected error occurred while resending the verification email.',
         }), 500
 
 @admin_bp.route('/approvals/reject', methods=['POST'])

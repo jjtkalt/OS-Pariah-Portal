@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from app.utils.schema import *
 
 # -------------------------------------------------------------------
@@ -123,3 +124,74 @@ def test_settings_delete_success(client, db_cursor):
 
     assert deleted, "The DELETE query was not executed correctly."
     assert b"deleted and reverted to system default" in response.data
+
+
+# -------------------------------------------------------------------
+# Registration Approvals
+# -------------------------------------------------------------------
+def test_approvals_unauthorized(client):
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'fake-admin-uuid'
+        sess['permissions'] = PERM_MANAGE_SETTINGS
+
+    response = client.get('/admin/approvals', follow_redirects=True)
+    assert b"Unauthorized: You lack the required portal permissions." in response.data
+
+
+def test_approvals_email_view(client, db_cursor):
+    db_cursor.fetchall.return_value = []
+
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'approver-uuid'
+        sess['permissions'] = PERM_APPROVE_USERS
+
+    response = client.get('/admin/approvals?view=email')
+    assert response.status_code == 200
+    assert b"Awaiting Email Verification" in response.data
+    assert b"have not yet verified their email address" in response.data
+    assert b"btn-danger btn-reject" not in response.data
+
+    sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
+    assert any("WHERE status = %s" in q for q in sql_queries)
+    status_args = next(call[0][1] for call in db_cursor.execute.call_args_list if "pending_registrations" in call[0][0])
+    assert status_args == ('pending_email',)
+
+
+@patch('app.blueprints.admin.routes.send_verification_email')
+def test_resend_verification_success(mock_send_email, client, db_cursor):
+    db_cursor.rowcount = 1
+    db_cursor.fetchone.return_value = {'email': 'pending@example.com'}
+
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'approver-uuid'
+        sess['permissions'] = PERM_APPROVE_USERS
+
+    response = client.post('/admin/approvals/resend-verification', data={
+        'uuid': 'fake-uuid-1234',
+    })
+
+    assert response.status_code == 200
+    assert response.json['status'] == 'success'
+    mock_send_email.assert_called_once()
+    assert mock_send_email.call_args[0][0] == 'pending@example.com'
+
+    update_calls = [call for call in db_cursor.execute.call_args_list if "verification_token" in call[0][0]]
+    assert update_calls, "Did not rotate the verification token."
+
+
+@patch('app.blueprints.admin.routes.send_verification_email')
+def test_resend_verification_wrong_status(mock_send_email, client, db_cursor):
+    db_cursor.rowcount = 0
+    db_cursor.fetchone.return_value = {'status': 'pending_approval'}
+
+    with client.session_transaction() as sess:
+        sess['uuid'] = 'approver-uuid'
+        sess['permissions'] = PERM_APPROVE_USERS
+
+    response = client.post('/admin/approvals/resend-verification', data={
+        'uuid': 'fake-uuid-1234',
+    })
+
+    assert response.status_code == 400
+    assert 'not awaiting email verification' in response.json['message']
+    mock_send_email.assert_not_called()
