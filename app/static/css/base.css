@@ -1,5 +1,5 @@
 /* =========================================================
-   OS Pariah Portal - Central Stylesheet
+   OS Pariah Portal - Base Stylesheet (PlatformStandards ADR-003)
    Optimized for low cognitive load, high readability, and easy theming
    ========================================================= */
 
@@ -36,12 +36,22 @@
   --warning: #f59e0b;
   --warning-bg: #fef3c7;
   --warning-text: #b45309;
+
+  /* Platform portability tokens (PlatformStandards ADR-003/004): shared token *names*
+     so base.css, manual.css, and portable components work across apps. Values stay
+     OS-Pariah's own (non-CVG) identity. */
+  --surface: #ffffff;
+  --accent: var(--success);
+  --text-on-primary: #ffffff;
+  --font-body: 'Inter', Arial, Helvetica, sans-serif;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 html, body {
   background-color: var(--bg-color);
   color: var(--text-main);
-  font-family: 'Inter', Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
   height: 100%;
   margin: 0;
   padding: 0;

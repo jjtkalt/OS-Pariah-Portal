@@ -37,6 +37,7 @@ mkdir -p %{buildroot}/etc/os_pariah
 mkdir -p %{buildroot}/etc/sudoers.d
 mkdir -p %{buildroot}/usr/lib/systemd/system
 mkdir -p %{buildroot}/etc/nginx/vhosts.d
+mkdir -p %{buildroot}/etc/nginx/conf.d
 mkdir -p %{buildroot}/var/log/os_pariah
 mkdir -p %{buildroot}/home/opensim/FSAssets/pariahcache
 mkdir -p %{buildroot}/home/opensim/Backups/downloads
@@ -62,6 +63,7 @@ cp packaging/pariah-worker-calendar.timer %{buildroot}/usr/lib/systemd/system/
 
 # Add the Nginx files (Please install certbot, don't use dummy certs!)
 cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
+cp packaging/cloudflare-real-ip.conf %{buildroot}/etc/nginx/conf.d/
 cp packaging/dummypariah.crt packaging/dummypariah.key %{buildroot}/etc/nginx/
 
 %post
@@ -75,6 +77,11 @@ echo "Installing Python Dependencies..."
 
 # Lock down permissions
 chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
+
+# Ensure the pariah user can create /etc/os_pariah/secrets on first start (ADR-013).
+# The secrets file itself is NOT shipped in the RPM; it is generated at runtime.
+chown pariah:pariah /etc/os_pariah
+chmod 0750 /etc/os_pariah
 
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
@@ -102,11 +109,15 @@ echo "========================================================="
 /usr/lib/systemd/system/pariah-worker-calendar.timer
 %doc packaging/inworld/README.md
 %config(noreplace) /etc/nginx/vhosts.d/OS-Pariah.conf
+%config(noreplace) /etc/nginx/conf.d/cloudflare-real-ip.conf
 /etc/nginx/dummypariah.crt
 /etc/nginx/dummypariah.key
 /etc/sudoers.d/pariah_worker
+%dir %attr(0750, pariah, pariah) /etc/os_pariah/
 %config(noreplace) %attr(0640, pariah, opensim) /etc/os_pariah/os-pariah.conf
 %doc README.md
 %doc CHANGELOG.md
 %doc COMPATIBILITY.md
+%doc docs/DEPLOYMENT.md
+%doc docs/OPERATIONS.md
 %license LICENSE
