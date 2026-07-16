@@ -8,14 +8,16 @@ from app.utils.registration_notes import (
 
 
 def test_format_registration_application_note_includes_all_fields():
-    note = format_registration_application_note({
-        "email": "user@example.com",
-        "inviter": "Friend Avatar",
-        "discord": "user#1234",
-        "matrix": "@user:matrix.org",
-        "other_info": "I love building regions.",
-        "created_at": datetime(2025, 5, 23, 12, 0, 0),
-    })
+    note = format_registration_application_note(
+        {
+            "email": "user@example.com",
+            "inviter": "Friend Avatar",
+            "discord": "user#1234",
+            "matrix": "@user:matrix.org",
+            "other_info": "I love building regions.",
+            "created_at": datetime(2025, 5, 23, 12, 0, 0),
+        }
+    )
     assert "[REGISTRATION APPLICATION]" in note
     assert "user@example.com" not in note
     assert "Email:" not in note
@@ -38,7 +40,13 @@ def test_save_registration_application_note_inserts_row():
     save_registration_application_note(
         cursor,
         "user-uuid-123",
-        {"email": "a@b.co", "inviter": "", "discord": "", "matrix": "", "other_info": ""},
+        {
+            "email": "a@b.co",
+            "inviter": "",
+            "discord": "",
+            "matrix": "",
+            "other_info": "",
+        },
     )
     cursor.execute.assert_called_once()
     query, args = cursor.execute.call_args[0]

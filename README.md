@@ -33,13 +33,31 @@ For all the various reasons that one thing or another was chosen, or to learn mo
 
 ## Installation
 
-Before installing or upgrading, please check the [Compatibility Matrix](COMPATIBILITY.md) file to ensure your grid's version of OpenSimulator is supported.
+Before installing or upgrading, check the [Compatibility Matrix](COMPATIBILITY.md) to ensure your grid's OpenSimulator version is supported.
 
-### Package Installation
+**Full install and first-boot guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)  
+**Day-to-day operations (workers, upgrades, troubleshooting):** [docs/OPERATIONS.md](docs/OPERATIONS.md)  
+**End-user help (once the portal is running):** `/manual.html`
 
-Install the RPM.  Note: This is only tested on openSUSE 15.6 right now per the OS-Pariah Installation project
+### Quick start (RPM)
 
-To verify the RPM, add this public key to your rpm key ring (save to a file, then rpm --import <file>).  Please note - the is the signing key for the Pariah ecosystem:
+1. Import the Pariah ecosystem PGP key (below) if you want to verify signed releases.
+2. Install the RPM on openSUSE Leap 15.6:
+   ```bash
+   sudo zypper install ./os-pariah-portal-*.rpm
+   ```
+3. Edit `/etc/os_pariah/os-pariah.conf` with your MariaDB credentials (portal + Robust read-only). Leave `SECRET_KEY` unset — it is auto-generated into `/etc/os_pariah/secrets` on first start.
+4. Start the portal:
+   ```bash
+   sudo systemctl enable --now pariah
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+Manual (unsupported) installs are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### PGP signing key
+
+To verify the RPM, add this public key to your rpm keyring (`rpm --import <file>`). This is the signing key for the Pariah ecosystem:
 
 ```
 -----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -56,35 +74,16 @@ iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 -----END PGP PUBLIC KEY BLOCK-----
 ```
 
-### Manual Installation (Not recommended or supported.  But it should work!)
+## Contributing
 
-In our testing, the following commands were run as the opensim user from Pariah Installation.  This allowed us to use Git to update to the latest develop release for testing.  YMMV
+Linting and formatting use **Ruff** (see `pyproject.toml`). To match CI before you push:
 
-- Create a pariah user to run the portal.  Assign the home directory to be your installation base.
-- Create the SUDO rules required for Pariah.  Something like:
-  - ```sudo cp /opt/os_pariah/packaging/pariah_worker.sudo /etc/sudoers.d/pariah_worker```
-  - ```sudo chmod 0440 /etc/sudoers.d/pariah_worker```
-- Create the Pariah Gallery Cache directory for image review:
-  - ```sudo mkdir -p /home/opensim/FSAssets/pariahcache```
-  - ```sudo chown pariah:pariah /home/opensim/FSAssets/pariahcache```
-- Create the files (EG: IAR) storage path
-  - ```sudo mkdir -p /home/opensim/Backups/downloads```
-  - ```sudo chown pariah:pariah /home/opensim/Backups/downloads```
-- Create the system log location
-  - ```sudo mkdir -m 0770 -p /var/log/os_pariah```
-  - ```sudo chown pariah:opensim /var/log/os_pariah```
-  - IMPORTANT: If your FSAssets path is different than the default, or you aren't using the default fsassets table in the robust database, you must update this to where it will be located and update the default value in the Admin - Settings menu of the Portal UI.
-- Clone the GitHub repository into /opt/os_pariah
-- Edit ```.env_example``` with your DB credentials and save it as either ```.env``` or the standard /etc/os_pariah/os-pariah.conf
-- Create the virtual environment inside /opt/os_pariah: ```cd /opt/os_pariah; python3.12 -m venv venv```
-- Activate the Virtual environment in your shell: ```source /opt/os_pariah/venv/bin/activate```
-- Install requirements into the virtual environment: ```/opt/os_pariah/venv/bin/pip -r requirements.txt```
-- Run database migrations: ```/opt/os_pariah/venv/bin/python /opt/os_pariah/scripts/migrate.py```
-- Install and activate the Systemd services and the Nginx vhost configuration from the /opt/os_pariah/packaging directory
-  - ```sudo cp /opt/os_pariah/packaging/OS-Pariah.conf /etc/nginx/vhosts.d/```
-  - ```sudo cp /opt/os_pariah/packaging/*.service /opt/os_pariah/packaging/*.timer /etc/systemd/system/```
-  - ```sudo systemctl daemon-reload```
-- Test and restart the Nginx Web Service
-  - ```sudo nginx -t```
-  - ```sudo systemctl restart nginx.service```
-- Enable and start the portal: ```sudo systemctl enable --now pariah```
+```bash
+source venv/bin/activate          # Windows: venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+ruff format .
+ruff check --fix .
+pytest -v tests/
+```
+
+Optional but recommended: `pre-commit install` (uses `.pre-commit-config.yaml`) so Ruff runs on every commit.

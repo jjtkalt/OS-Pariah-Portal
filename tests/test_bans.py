@@ -1,6 +1,7 @@
-import pytest
 from unittest.mock import patch
-from app.utils.schema import *
+
+from app.utils.schema import KNOWN_SETTINGS, PERM_ISSUE_BANS, PERM_MANAGE_ROLES
+
 
 def _known_setting_default_int(key: str) -> int:
     """
@@ -12,25 +13,30 @@ def _known_setting_default_int(key: str) -> int:
             return int(fields[key]["default"])
     raise KeyError(key)
 
+
 # -------------------------------------------------------------------
 # Test 1: Creating a Ban (Cascading DB & Severity Level Sync)
 # -------------------------------------------------------------------
-@patch('app.blueprints.admin.user_mgmt.set_user_level')
-@patch('app.blueprints.admin.user_mgmt.subprocess.Popen')
+@patch("app.blueprints.admin.user_mgmt.set_user_level")
+@patch("app.blueprints.admin.user_mgmt.subprocess.Popen")
 def test_create_ban_cascading(mock_popen, mock_set_level, client, db_cursor):
     """MAC ban applies ban_level_mac from settings (schema default when DB row absent) and triggers sync."""
-    
+
     # Inject Super Admin Session
     with client.session_transaction() as sess:
-        sess['uuid'] = 'super-admin-uuid'
-        sess['permissions'] = PERM_ISSUE_BANS
+        sess["uuid"] = "super-admin-uuid"
+        sess["permissions"] = PERM_ISSUE_BANS
 
-    response = client.post('/admin/users/bans/create', data={
-        'reason': 'Griefing Sandbox',
-        'type': 'mac',
-        'uuids': 'bad-guy-uuid',
-        'macs': '00:11:22:33:44:55'
-    }, follow_redirects=True)
+    response = client.post(
+        "/admin/users/bans/create",
+        data={
+            "reason": "Griefing Sandbox",
+            "type": "mac",
+            "uuids": "bad-guy-uuid",
+            "macs": "00:11:22:33:44:55",
+        },
+        follow_redirects=True,
+    )
 
     # 1. Assert DB Inserts successfully cascaded
     sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
@@ -46,6 +52,7 @@ def test_create_ban_cascading(mock_popen, mock_set_level, client, db_cursor):
 
     # 4. Check UI response
     assert b"Ban created and actively enforced successfully" in response.data
+
 
 # -------------------------------------------------------------------
 # Test 1b: Linked accounts (e.g. gatekeeper-discovered alts) get the tier level
@@ -90,51 +97,54 @@ def test_create_ban_sets_level_on_all_linked_accounts(
 # -------------------------------------------------------------------
 # Test 2: Deleting a Ban (Restoration & Firewall Sync)
 # -------------------------------------------------------------------
-@patch('app.blueprints.admin.user_mgmt.set_user_level')
-@patch('app.blueprints.admin.user_mgmt.subprocess.Popen')
+@patch("app.blueprints.admin.user_mgmt.set_user_level")
+@patch("app.blueprints.admin.user_mgmt.subprocess.Popen")
 def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
     """Proves deleting a ban restores users to Level 0 and runs Robust sync."""
-    
+
     with client.session_transaction() as sess:
-        sess['uuid'] = 'super-admin-uuid'
-        sess['permissions'] = PERM_ISSUE_BANS
+        sess["uuid"] = "super-admin-uuid"
+        sess["permissions"] = PERM_ISSUE_BANS
 
     # Mock the DB returning the UUID tied to the ban we are deleting,
     # and then return an empty list when the redirect loads the Ban Table UI!
     db_cursor.fetchall.side_effect = [
-        [{'uuid': 'bad-guy-uuid'}], 
+        [{"uuid": "bad-guy-uuid"}],
         [],  # bans_related_uuid
-        []
+        [],
     ]
 
-    response = client.post('/admin/users/bans/1/delete', follow_redirects=True)
+    response = client.post("/admin/users/bans/1/delete", follow_redirects=True)
 
     # 1. Assert DB Deletion
     sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
     assert any("DELETE FROM bans_master" in q for q in sql_queries)
 
     # 2. Assert Robust API restored them to Level 0
-    mock_set_level.assert_called_with('bad-guy-uuid', 0)
+    mock_set_level.assert_called_with("bad-guy-uuid", 0)
 
     assert mock_popen.called, "Robust sync worker was not triggered on ban deletion."
 
     assert b"associated avatars have been restored" in response.data
 
+
 # -------------------------------------------------------------------
 # Test 3: Manual Promotion
 # -------------------------------------------------------------------
-@patch('app.blueprints.admin.user_mgmt.set_user_level')
+@patch("app.blueprints.admin.user_mgmt.set_user_level")
 def test_manual_user_promotion(mock_set_level, client):
     """Proves Super Admins can manually adjust a user level (e.g., Promotion)."""
-    
-    with client.session_transaction() as sess:
-        sess['uuid'] = 'super-admin-uuid'
-        sess['permissions'] = PERM_MANAGE_ROLES
 
-    response = client.post('/admin/users/good-guy-uuid/set_level', data={
-        'new_level': '200'
-    }, follow_redirects=True)
+    with client.session_transaction() as sess:
+        sess["uuid"] = "super-admin-uuid"
+        sess["permissions"] = PERM_MANAGE_ROLES
+
+    response = client.post(
+        "/admin/users/good-guy-uuid/set_level",
+        data={"new_level": "200"},
+        follow_redirects=True,
+    )
 
     # Assert Robust API bumped them to 200
-    mock_set_level.assert_called_with('good-guy-uuid', 200)
+    mock_set_level.assert_called_with("good-guy-uuid", 200)
     assert b"User level successfully updated to 200" in response.data

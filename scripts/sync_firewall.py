@@ -8,6 +8,7 @@ banned Id0 (Host ID) are dropped. IP-based banning via ipset is not used.
 
 Requires root / sudo (see packaging/pariah_worker.sudo).
 """
+
 import os
 import subprocess
 import sys
@@ -44,7 +45,7 @@ def sync_firewall(logger):
 
         with conn.cursor() as cursor:
             cursor.execute("SELECT hostid FROM bans_host_id")
-            banned_hosts = set(row["hostid"] for row in cursor.fetchall())
+            banned_hosts = {row["hostid"] for row in cursor.fetchall()}
 
         logger.info(
             "Using Robust public port %s from portal settings for HostID rules.",

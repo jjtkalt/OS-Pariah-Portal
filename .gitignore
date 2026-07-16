@@ -1,5 +1,6 @@
 # Security & Secrets (CRITICAL)
 .env
+.secrets
 private.pem
 *.log
 

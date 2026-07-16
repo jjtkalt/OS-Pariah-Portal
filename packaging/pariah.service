@@ -11,6 +11,9 @@ Group=nginx
 WorkingDirectory=/opt/os_pariah
 Environment="PATH=/opt/os_pariah/venv/bin"
 EnvironmentFile=/etc/os_pariah/os-pariah.conf
+# Auto-generated SECRET_KEY (created by migrate.py on first start); optional so the
+# service still starts before the file exists.
+EnvironmentFile=-/etc/os_pariah/secrets
 
 # Automatically creates /run/os_pariah/ owned by the pariah user
 RuntimeDirectory=os_pariah

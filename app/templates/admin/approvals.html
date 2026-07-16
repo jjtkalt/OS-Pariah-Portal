@@ -7,9 +7,28 @@
     <h2 class="m-0">Pending Registrations</h2>
 </div>
 
+<div class="flex-center gap-10 mb-20">
+    <a href="{{ url_for('admin.pending_approvals', view='approval') }}"
+       class="btn-outline{% if view == 'approval' %} btn-info{% endif %}"
+       style="padding: 8px 16px; text-decoration: none;">
+        Awaiting Approval
+    </a>
+    <a href="{{ url_for('admin.pending_approvals', view='email') }}"
+       class="btn-outline{% if view == 'email' %} btn-info{% endif %}"
+       style="padding: 8px 16px; text-decoration: none;">
+        Awaiting Email Verification
+    </a>
+</div>
+
+{% if view == 'email' %}
+<p class="text-muted mb-20 mt-0">
+    These users have registered but have not yet verified their email address. Resend the verification link if they did not receive it.
+</p>
+{% else %}
 <p class="text-muted mb-20 mt-0">
     These users have verified their emails but are awaiting approval. Approving them grants access. Rejecting them locks them permanently.
 </p>
+{% endif %}
 
 {% if users %}
     <div class="group p-0 m-0" style="max-height: 70vh;">
@@ -48,6 +67,13 @@
                     </td>
                     <td class="text-center" style="vertical-align: middle;">
                         <div class="flex-center gap-10">
+                            {% if view == 'email' %}
+                            <button class="btn-info btn-resend flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
+                                    onclick="resendVerification('{{ user.user_uuid }}', 'row_{{ user.user_uuid }}')">
+                                <span class="btn-text">Resend Email</span>
+                                <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
+                            </button>
+                            {% else %}
                             <button class="btn-success btn-approve flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
                                     onclick="processUser('approve', '{{ user.user_uuid }}', '{{ user.email }}', 'row_{{ user.user_uuid }}')">
                                 <span class="btn-text">Approve</span>
@@ -59,6 +85,7 @@
                                 <span class="btn-text">Reject</span>
                                 <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -69,11 +96,66 @@
 {% else %}
     <div class="text-center group p-0" style="padding: 40px;">
         <h3 class="text-success m-0">All caught up!</h3>
+        {% if view == 'email' %}
+        <p class="text-muted m-0 mt-10">There are currently no users awaiting email verification.</p>
+        {% else %}
         <p class="text-muted m-0 mt-10">There are currently no users awaiting approval.</p>
+        {% endif %}
     </div>
 {% endif %}
 
 <script>
+    function setRowLoading(row, activeBtn, loading) {
+        const buttons = row.querySelectorAll('button');
+        buttons.forEach(btn => { btn.disabled = loading; });
+
+        const activeText = activeBtn.querySelector('.btn-text');
+        const activeSpinner = activeBtn.querySelector('.spinner');
+        activeText.style.display = loading ? 'none' : 'inline-block';
+        activeSpinner.style.display = loading ? 'inline-block' : 'none';
+    }
+
+    function removeRowOnSuccess(row) {
+        row.style.opacity = '0';
+        setTimeout(() => {
+            row.remove();
+            if (document.querySelectorAll('tbody tr').length === 0) {
+                location.reload();
+            }
+        }, 500);
+    }
+
+    function resendVerification(uuid, rowId) {
+        if (!confirm('Resend the email verification link to this user?')) return;
+
+        const row = document.getElementById(rowId);
+        const activeBtn = row.querySelector('.btn-resend');
+        setRowLoading(row, activeBtn, true);
+
+        const formData = new URLSearchParams();
+        formData.append('uuid', uuid);
+
+        fetch('{{ url_for("admin.resend_verification") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Verification email sent.');
+                setRowLoading(row, activeBtn, false);
+            } else {
+                alert(data.message || 'Failed to resend verification email.');
+                setRowLoading(row, activeBtn, false);
+            }
+        })
+        .catch(() => {
+            alert('Network error occurred. Check browser console.');
+            setRowLoading(row, activeBtn, false);
+        });
+    }
+
     function processUser(action, uuid, email, rowId) {
         const isApprove = (action === 'approve');
         const actionText = isApprove ? 'approve' : 'reject';
@@ -84,13 +166,7 @@
         const btnApprove = row.querySelector('.btn-approve');
         const btnReject = row.querySelector('.btn-reject');
         const activeBtn = isApprove ? btnApprove : btnReject;
-        const activeText = activeBtn.querySelector('.btn-text');
-        const activeSpinner = activeBtn.querySelector('.spinner');
-
-        btnApprove.disabled = true;
-        btnReject.disabled = true;
-        activeText.style.display = 'none';
-        activeSpinner.style.display = 'inline-block';
+        setRowLoading(row, activeBtn, true);
 
         const formData = new URLSearchParams();
         formData.append('uuid', uuid);
@@ -106,27 +182,15 @@
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                row.style.opacity = '0';
-                setTimeout(() => {
-                    row.remove();
-                    if (document.querySelectorAll('tbody tr').length === 0) {
-                        location.reload();
-                    }
-                }, 500);
+                removeRowOnSuccess(row);
             } else {
                 alert(data.message || `${actionText} failed due to server error.`);
-                btnApprove.disabled = false;
-                btnReject.disabled = false;
-                activeText.style.display = 'inline-block';
-                activeSpinner.style.display = 'none';
+                setRowLoading(row, activeBtn, false);
             }
         })
-        .catch(err => {
-            alert("Network error occurred. Check browser console.");
-            btnApprove.disabled = false;
-            btnReject.disabled = false;
-            activeText.style.display = 'inline-block';
-            activeSpinner.style.display = 'none';
+        .catch(() => {
+            alert('Network error occurred. Check browser console.');
+            setRowLoading(row, activeBtn, false);
         });
     }
 </script>
