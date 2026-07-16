@@ -1,11 +1,17 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from app.utils.schema import PERM_APPROVE_USERS, PERM_MANAGE_REGIONS, PERM_REGION_CONTROL
+from app.utils.schema import (
+    PERM_APPROVE_USERS,
+    PERM_MANAGE_REGIONS,
+    PERM_REGION_CONTROL,
+)
 
 
 @patch("app.blueprints.api.routes._hud_listable_region_names")
 @patch("app.blueprints.api.routes.fetch_all_online_users")
-def test_online_lister_public_filters_by_region_config(mock_fetch_users, mock_hud_names, client):
+def test_online_lister_public_filters_by_region_config(
+    mock_fetch_users, mock_hud_names, client
+):
     mock_fetch_users.return_value = [
         {"name": "Alice A", "region": "Welcome", "is_hg": False},
         {"name": "Bob B", "region": "Private Estate", "is_hg": False},

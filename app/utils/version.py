@@ -30,7 +30,7 @@ def get_portal_version() -> str:
 
     try:
         from app.version import __version__
+
         return (__version__ or "").strip() or "unknown"
     except Exception:
         return "unknown"
-

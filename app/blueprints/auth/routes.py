@@ -1,95 +1,121 @@
 import hashlib
+import json
+import os
+import secrets
+import time
 import urllib.parse
 import urllib.request
-import json
-import time
-import secrets
-import os
-import jwt 
-from jwt.algorithms import RSAAlgorithm
-from cryptography.hazmat.primitives import serialization
-from functools import wraps
-from flask import Blueprint, request, session, redirect, url_for, flash, current_app, render_template, jsonify
-from app.utils.db import get_robust_db, get_pariah_db, get_dynamic_config
-from app.utils.robust_api import update_user_password
-from app.utils.auth_helpers import get_policy_decline_level
-from app.utils.notifications import send_password_reset_email
-from app.utils.password_resets import create_password_reset_token, purge_expired_password_reset_tokens
-from app.utils.schema import *
 
-auth_bp = Blueprint('auth', __name__)
+import jwt
+from cryptography.hazmat.primitives import serialization
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from jwt.algorithms import RSAAlgorithm
+
+from app.utils.auth_helpers import get_policy_decline_level
+from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.notifications import send_password_reset_email
+from app.utils.password_resets import (
+    create_password_reset_token,
+    purge_expired_password_reset_tokens,
+)
+from app.utils.robust_api import update_user_password
+from app.utils.schema import PERM_SUPER_ADMIN
+
+auth_bp = Blueprint("auth", __name__)
 
 # --- Turnstile & Standard Login ---
+
 
 def verify_turnstile(response_token):
     """Verifies the Cloudflare Turnstile token."""
     if not response_token:
         return False
-    secret = get_dynamic_config('TURNSTILE_SECRET_KEY')
-    url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
-    data = urllib.parse.urlencode({'secret': secret, 'response': response_token}).encode('utf-8')
+    secret = get_dynamic_config("TURNSTILE_SECRET_KEY")
+    url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+    data = urllib.parse.urlencode(
+        {"secret": secret, "response": response_token}
+    ).encode("utf-8")
     req = urllib.request.Request(url, data=data)
-    
+
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode())
-            return result.get('success', False)
+            return result.get("success", False)
     except Exception as e:
         current_app.logger.error(f"Turnstile verification failed: {e}")
         return False
 
-@auth_bp.route('/login', methods=['GET', 'POST'])
+
+@auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == 'POST':
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        password = request.form.get('password', '')
+    if request.method == "POST":
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        password = request.form.get("password", "")
 
         if not first_name or not last_name or not password:
-            flash('Please fill out all fields.', 'error')
-            return redirect(url_for('auth.login'))
+            flash("Please fill out all fields.", "error")
+            return redirect(url_for("auth.login"))
 
         robust_conn = get_robust_db()
         try:
             with robust_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT PrincipalID, userLevel
                     FROM UserAccounts
                     WHERE FirstName = %s AND LastName = %s
-                """, (first_name, last_name))
+                """,
+                    (first_name, last_name),
+                )
                 account = cursor.fetchone()
 
                 if not account:
-                    flash('Invalid avatar name or password.', 'error')
-                    return redirect(url_for('auth.login'))
+                    flash("Invalid avatar name or password.", "error")
+                    return redirect(url_for("auth.login"))
 
-                user_uuid = account['PrincipalID']
+                user_uuid = account["PrincipalID"]
 
-                cursor.execute("SELECT passwordHash, passwordSalt FROM auth WHERE UUID = %s", (user_uuid,))
+                cursor.execute(
+                    "SELECT passwordHash, passwordSalt FROM auth WHERE UUID = %s",
+                    (user_uuid,),
+                )
                 auth_data = cursor.fetchone()
 
                 if not auth_data:
-                    flash('Invalid avatar name or password.', 'error')
-                    return redirect(url_for('auth.login'))
+                    flash("Invalid avatar name or password.", "error")
+                    return redirect(url_for("auth.login"))
 
-                pass_md5 = hashlib.md5(password.encode('utf-8')).hexdigest()
+                pass_md5 = hashlib.md5(password.encode("utf-8")).hexdigest()
                 hash_string = f"{pass_md5}:{auth_data['passwordSalt']}"
-                final_hash = hashlib.md5(hash_string.encode('utf-8')).hexdigest()
+                final_hash = hashlib.md5(hash_string.encode("utf-8")).hexdigest()
 
-                if final_hash == auth_data['passwordHash']:
-
+                if final_hash == auth_data["passwordHash"]:
                     # --- THE GATEKEEPER / BOUNCER ---
                     decline_level = get_policy_decline_level()
-                    ul = account['userLevel']
+                    ul = account["userLevel"]
                     if ul < 0 and ul != decline_level:
-                        flash('Your account is currently locked, pending approval, or banned.', 'error')
-                        return redirect(url_for('auth.login'))
+                        flash(
+                            "Your account is currently locked, pending approval, or banned.",
+                            "error",
+                        )
+                        return redirect(url_for("auth.login"))
                     # --------------------------------
 
-                    session['uuid'] = user_uuid
-                    session['name'] = f"{first_name} {last_name}"
-                    session['user_level'] = account['userLevel']
-                    session['is_admin'] = account['userLevel'] >= 200
+                    session["uuid"] = user_uuid
+                    session["name"] = f"{first_name} {last_name}"
+                    session["user_level"] = account["userLevel"]
+                    session["is_admin"] = account["userLevel"] >= 200
 
                     # --- OPTIMIZED RBAC HYDRATION ---
                     # Convention:
@@ -99,108 +125,132 @@ def login():
                     # - other >0 staff tiers: load portal RBAC
                     ul_int = 0
                     try:
-                        ul_int = int(account['userLevel'])
+                        ul_int = int(account["userLevel"])
                     except (TypeError, ValueError):
                         ul_int = 0
 
                     if ul_int > 0 and ul_int != 200:
                         pariah_conn = get_pariah_db()
                         with pariah_conn.cursor() as p_cursor:
-                            p_cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (user_uuid,))
+                            p_cursor.execute(
+                                "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
+                                (user_uuid,),
+                            )
                             rbac_row = p_cursor.fetchone()
                             if rbac_row:
                                 # Normal login for an existing staff member
-                                session['permissions'] = rbac_row['permissions']
+                                session["permissions"] = rbac_row["permissions"]
                             else:
                                 # --- THE BOOTSTRAP LOGIC ---
                                 # If they have no RBAC record, but OpenSim says they are a Grid Owner (Specifically 250+)
                                 # The logic here is to allow a grid owner to setup their account that first time into portal so they don't have to edit the database directly or run scripts.
                                 # Note: This WILL NOT allow "recovering access" in the portal without the extra step of deleting the RBAC entry for their UUID first.
                                 if ul_int >= 250:
-                                    p_cursor.execute("INSERT INTO user_rbac (user_uuid, permissions) VALUES (%s, %s)", (user_uuid, PERM_SUPER_ADMIN))
+                                    p_cursor.execute(
+                                        "INSERT INTO user_rbac (user_uuid, permissions) VALUES (%s, %s)",
+                                        (user_uuid, PERM_SUPER_ADMIN),
+                                    )
                                     pariah_conn.commit()
-                                    session['permissions'] = PERM_SUPER_ADMIN
-                                    flash('Bootstrap: Super Admin permissions automatically synchronized from your OpenSim user level.', 'info')
-                                    current_app.logger.info(f"Bootstrap: Auto-granted PERM_SUPER_ADMIN to {first_name} {last_name}.")
+                                    session["permissions"] = PERM_SUPER_ADMIN
+                                    flash(
+                                        "Bootstrap: Super Admin permissions automatically synchronized from your OpenSim user level.",
+                                        "info",
+                                    )
+                                    current_app.logger.info(
+                                        f"Bootstrap: Auto-granted PERM_SUPER_ADMIN to {first_name} {last_name}."
+                                    )
                                 else:
                                     # They are staff (1-249), but have no assigned portal roles yet
-                                    session['permissions'] = 0
+                                    session["permissions"] = 0
                     else:
-                        session['permissions'] = 0
+                        session["permissions"] = 0
                     # --------------------------------
 
                     # Check if they were trying to log in via an external OIDC app
-                    if 'next' in session:
-                        next_url = session.pop('next')
+                    if "next" in session:
+                        next_url = session.pop("next")
                         return redirect(next_url)
 
                     if ul == decline_level:
-                        flash('Your grid access is paused until you agree to the current policies.', 'info')
-                        return redirect(url_for('user.policy_agreement'))
+                        flash(
+                            "Your grid access is paused until you agree to the current policies.",
+                            "info",
+                        )
+                        return redirect(url_for("user.policy_agreement"))
 
-                    flash('Login successful!', 'success')
-                    return redirect(url_for('comms.news_feed'))
+                    flash("Login successful!", "success")
+                    return redirect(url_for("comms.news_feed"))
                 else:
-                    flash('Invalid avatar name or password.', 'error')
-                    return redirect(url_for('auth.login'))
+                    flash("Invalid avatar name or password.", "error")
+                    return redirect(url_for("auth.login"))
 
         except Exception as e:
             current_app.logger.error(f"Login Error: {e}")
-            flash('A database error occurred.', 'error')
-            return redirect(url_for('auth.login'))
+            flash("A database error occurred.", "error")
+            return redirect(url_for("auth.login"))
 
-    return render_template('auth/login.html')
+    return render_template("auth/login.html")
 
-@auth_bp.route('/logout', methods=['GET', 'POST'])
+
+@auth_bp.route("/logout", methods=["GET", "POST"])
 def logout():
-    user_uuid = session.get('uuid')
+    user_uuid = session.get("uuid")
     if user_uuid:
         pariah_conn = get_pariah_db()
         try:
             with pariah_conn.cursor() as cursor:
-                cursor.execute("DELETE FROM oidc_auth_codes WHERE user_uuid = %s", (user_uuid,))
-                cursor.execute("DELETE FROM oidc_access_tokens WHERE user_uuid = %s", (user_uuid,))
+                cursor.execute(
+                    "DELETE FROM oidc_auth_codes WHERE user_uuid = %s", (user_uuid,)
+                )
+                cursor.execute(
+                    "DELETE FROM oidc_access_tokens WHERE user_uuid = %s", (user_uuid,)
+                )
             pariah_conn.commit()
         except Exception as e:
             current_app.logger.error(f"Failed to clear OIDC sessions on logout: {e}")
-        
+
         session.clear()
-        flash('You have been successfully and securely logged out.', 'success')
-    return redirect(url_for('auth.login'))
+        flash("You have been successfully and securely logged out.", "success")
+    return redirect(url_for("auth.login"))
 
 
 # --- OIDC / SSO Routes ---
 
+
 def get_private_key():
     """Loads the RSA private key for signing JWTs."""
-    key_path = os.path.join(current_app.root_path, '..', 'private.pem')
-    with open(key_path, 'rb') as f:
+    key_path = os.path.join(current_app.root_path, "..", "private.pem")
+    with open(key_path, "rb") as f:
         return f.read()
 
-@auth_bp.route('/.well-known/openid-configuration')
+
+@auth_bp.route("/.well-known/openid-configuration")
 def oidc_discovery():
     """Standard OIDC Discovery document."""
     # The issuer domain must match what is configured in your portal settings
-    domain = get_dynamic_config('portal_url')
+    domain = get_dynamic_config("portal_url")
 
-    return jsonify({
-        "issuer": domain,
-        "authorization_endpoint": url_for('auth.authorize', _external=True),
-        "token_endpoint": url_for('auth.token', _external=True),
-        "userinfo_endpoint": url_for('auth.userinfo', _external=True),
-        "jwks_uri": url_for('auth.jwks', _external=True),
-        "response_types_supported": ["code"],
-        "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": ["RS256"]
-    })
+    return jsonify(
+        {
+            "issuer": domain,
+            "authorization_endpoint": url_for("auth.authorize", _external=True),
+            "token_endpoint": url_for("auth.token", _external=True),
+            "userinfo_endpoint": url_for("auth.userinfo", _external=True),
+            "jwks_uri": url_for("auth.jwks", _external=True),
+            "response_types_supported": ["code"],
+            "subject_types_supported": ["public"],
+            "id_token_signing_alg_values_supported": ["RS256"],
+        }
+    )
 
-@auth_bp.route('/.well-known/jwks.json')
+
+@auth_bp.route("/.well-known/jwks.json")
 def jwks():
     """Serves the Public Key so external apps can verify the JWT signatures."""
-    key_path = os.path.join(current_app.root_path, '..', 'private.pem')
+    key_path = os.path.join(current_app.root_path, "..", "private.pem")
 
     try:
-        with open(key_path, 'rb') as f:
+        with open(key_path, "rb") as f:
             private_key = serialization.load_pem_private_key(f.read(), password=None)
 
         public_key = private_key.public_key()
@@ -210,43 +260,48 @@ def jwks():
         jwk_dict = json.loads(jwk_string)
 
         # Now we can safely add the necessary standard JWK attributes
-        jwk_dict['kid'] = 'os-pariah-key-1'
-        jwk_dict['use'] = 'sig'
+        jwk_dict["kid"] = "os-pariah-key-1"
+        jwk_dict["use"] = "sig"
 
         return jsonify({"keys": [jwk_dict]})
     except Exception as e:
         current_app.logger.error(f"Failed to generate JWKS: {e}")
         return jsonify({"error": "server_configuration_error"}), 500
 
-@auth_bp.route('/authorize', methods=['GET'])
+
+@auth_bp.route("/authorize", methods=["GET"])
 def authorize():
     """Step 1: Application requests authorization."""
-    client_id = request.args.get('client_id')
-    redirect_uri = request.args.get('redirect_uri')
-    state = request.args.get('state')
-    nonce = request.args.get('nonce')
+    client_id = request.args.get("client_id")
+    redirect_uri = request.args.get("redirect_uri")
+    state = request.args.get("state")
+    nonce = request.args.get("nonce")
 
     if not client_id or not redirect_uri:
         return "Missing client_id or redirect_uri", 400
 
-    if 'uuid' not in session:
+    if "uuid" not in session:
         # Save the authorize request URL so we can bounce them back here after login
-        session['next'] = request.url
-        return redirect(url_for('auth.login'))
+        session["next"] = request.url
+        return redirect(url_for("auth.login"))
 
     from app.utils.auth_helpers import is_policy_decline_session
+
     if is_policy_decline_session():
-        flash('You must agree to the current grid policies before using external applications.', 'info')
-        return redirect(url_for('user.policy_agreement'))
+        flash(
+            "You must agree to the current grid policies before using external applications.",
+            "info",
+        )
+        return redirect(url_for("user.policy_agreement"))
 
     auth_code = secrets.token_urlsafe(32)
     pariah_conn = get_pariah_db()
-    
+
     try:
         with pariah_conn.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO oidc_auth_codes (code, user_uuid, client_id, nonce, expires_at) VALUES (%s, %s, %s, %s, %s)",
-                (auth_code, session['uuid'], client_id, nonce, int(time.time()) + 300)
+                (auth_code, session["uuid"], client_id, nonce, int(time.time()) + 300),
             )
         pariah_conn.commit()
     except Exception as e:
@@ -256,20 +311,21 @@ def authorize():
     # Ensure the redirect_uri has the correct parameters attached
     parsed_url = urllib.parse.urlparse(redirect_uri)
     query_params = urllib.parse.parse_qs(parsed_url.query)
-    query_params['code'] = [auth_code]
+    query_params["code"] = [auth_code]
     if state:
-        query_params['state'] = [state]
-        
+        query_params["state"] = [state]
+
     new_query = urllib.parse.urlencode(query_params, doseq=True)
     final_url = parsed_url._replace(query=new_query).geturl()
-    
+
     return redirect(final_url)
 
-@auth_bp.route('/token', methods=['POST'])
+
+@auth_bp.route("/token", methods=["POST"])
 def token():
     """Step 2: Exchange auth code for JWT and Access Token."""
-    client_id = request.form.get('client_id')
-    code = request.form.get('code')
+    client_id = request.form.get("client_id")
+    code = request.form.get("code")
 
     if not client_id or not code:
         return jsonify({"error": "invalid_request"}), 400
@@ -278,13 +334,13 @@ def token():
     try:
         with pariah_conn.cursor() as cursor:
             cursor.execute(
-                "SELECT user_uuid, nonce FROM oidc_auth_codes WHERE code = %s AND client_id = %s AND expires_at > %s", 
-                (code, client_id, int(time.time()))
+                "SELECT user_uuid, nonce FROM oidc_auth_codes WHERE code = %s AND client_id = %s AND expires_at > %s",
+                (code, client_id, int(time.time())),
             )
             row = cursor.fetchone()
             if not row:
                 return jsonify({"error": "invalid_grant"}), 400
-            
+
             cursor.execute("DELETE FROM oidc_auth_codes WHERE code = %s", (code,))
         pariah_conn.commit()
     except Exception as e:
@@ -292,152 +348,181 @@ def token():
         return jsonify({"error": "server_error"}), 500
 
     issued_at = int(time.time())
-    expires_at = issued_at + 3600 # 1 hour
-    domain = get_dynamic_config('portal_url')
-    
+    expires_at = issued_at + 3600  # 1 hour
+    domain = get_dynamic_config("portal_url")
+
     id_token_payload = {
         "iss": domain,
-        "sub": row['user_uuid'],
+        "sub": row["user_uuid"],
         "aud": client_id,
         "exp": expires_at,
-        "iat": issued_at
+        "iat": issued_at,
     }
-    if row['nonce']: 
-        id_token_payload["nonce"] = row['nonce']
+    if row["nonce"]:
+        id_token_payload["nonce"] = row["nonce"]
 
     # Sign the token and include the kid header!
     id_token = jwt.encode(
-        id_token_payload, 
-        get_private_key(), 
-        algorithm="RS256", 
-        headers={"kid": "os-pariah-key-1"}
+        id_token_payload,
+        get_private_key(),
+        algorithm="RS256",
+        headers={"kid": "os-pariah-key-1"},
     )
-    
+
     access_token = secrets.token_urlsafe(32)
-    
+
     with pariah_conn.cursor() as cursor:
         cursor.execute(
             "INSERT INTO oidc_access_tokens (token, user_uuid, client_id, expires_at) VALUES (%s, %s, %s, %s)",
-            (access_token, row['user_uuid'], client_id, expires_at)
+            (access_token, row["user_uuid"], client_id, expires_at),
         )
     pariah_conn.commit()
 
-    return jsonify({
-        "access_token": access_token, 
-        "token_type": "Bearer", 
-        "expires_in": 3600, 
-        "id_token": id_token
-    })
+    return jsonify(
+        {
+            "access_token": access_token,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "id_token": id_token,
+        }
+    )
 
-@auth_bp.route('/userinfo', methods=['GET', 'POST'])
+
+@auth_bp.route("/userinfo", methods=["GET", "POST"])
 def userinfo():
     """Step 3: Fetch user profile data using the Access Token."""
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         return jsonify({"error": "invalid_request"}), 401
-        
-    access_token = auth_header.split(' ')[1]
-    
+
+    access_token = auth_header.split(" ")[1]
+
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT user_uuid FROM oidc_access_tokens WHERE token = %s AND expires_at > %s", (access_token, int(time.time())))
+        cursor.execute(
+            "SELECT user_uuid FROM oidc_access_tokens WHERE token = %s AND expires_at > %s",
+            (access_token, int(time.time())),
+        )
         row = cursor.fetchone()
-        if not row: 
+        if not row:
             return jsonify({"error": "invalid_token"}), 401
-        user_uuid = row['user_uuid']
+        user_uuid = row["user_uuid"]
 
     robust_conn = get_robust_db()
     with robust_conn.cursor() as cursor:
-        cursor.execute("SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s", (user_uuid,))
+        cursor.execute(
+            "SELECT FirstName, LastName FROM useraccounts WHERE PrincipalID = %s",
+            (user_uuid,),
+        )
         account = cursor.fetchone()
         if account:
             full_name = f"{account['FirstName']} {account['LastName']}"
-            return jsonify({
-                "sub": user_uuid, 
-                "name": full_name, 
-                "preferred_username": full_name,
-                "given_name": account['FirstName'],
-                "family_name": account['LastName']
-            })
-            
+            return jsonify(
+                {
+                    "sub": user_uuid,
+                    "name": full_name,
+                    "preferred_username": full_name,
+                    "given_name": account["FirstName"],
+                    "family_name": account["LastName"],
+                }
+            )
+
     return jsonify({"error": "user_not_found"}), 404
 
-@auth_bp.route('/forgot', methods=['GET', 'POST'])
+
+@auth_bp.route("/forgot", methods=["GET", "POST"])
 def forgot_password():
-    if request.method == 'POST':
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        turnstile_response = request.form.get('cf-turnstile-response')
+    if request.method == "POST":
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        turnstile_response = request.form.get("cf-turnstile-response")
 
         if not verify_turnstile(turnstile_response):
-            flash('Security check failed. Please try again.', 'error')
-            return redirect(url_for('auth.forgot_password'))
+            flash("Security check failed. Please try again.", "error")
+            return redirect(url_for("auth.forgot_password"))
 
         # Security Best Practice: Generic success message prevents user enumeration
         generic_success_message = "If an account matches that avatar name, a password reset link has been sent to its registered email address."
 
         if not first_name or not last_name:
-            flash(generic_success_message, 'info')
-            return redirect(url_for('auth.login'))
+            flash(generic_success_message, "info")
+            return redirect(url_for("auth.login"))
 
         robust_conn = get_robust_db()
         try:
             with robust_conn.cursor() as cursor:
                 # Find the user's UUID and Email associated with this specific Avatar
-                cursor.execute("SELECT PrincipalID, Email FROM useraccounts WHERE FirstName = %s AND LastName = %s", (first_name, last_name))
+                cursor.execute(
+                    "SELECT PrincipalID, Email FROM useraccounts WHERE FirstName = %s AND LastName = %s",
+                    (first_name, last_name),
+                )
                 account = cursor.fetchone()
 
                 # Ensure the account exists AND actually has an email on file
-                if account and account['Email']:
-                    user_uuid = account['PrincipalID']
-                    email = account['Email']
+                if account and account["Email"]:
+                    user_uuid = account["PrincipalID"]
+                    email = account["Email"]
                     pariah_conn = get_pariah_db()
-                    token, _expires_at = create_password_reset_token(pariah_conn, user_uuid, ttl_seconds=3600)
+                    token, _expires_at = create_password_reset_token(
+                        pariah_conn, user_uuid, ttl_seconds=3600
+                    )
 
                     send_password_reset_email(email, token)
 
         except Exception as e:
             current_app.logger.error(f"Forgot password error: {e}")
 
-        flash(generic_success_message, 'info')
-        return redirect(url_for('auth.login'))
+        flash(generic_success_message, "info")
+        return redirect(url_for("auth.login"))
 
-    site_key = get_dynamic_config('TURNSTILE_SITE_KEY')
-    return render_template('auth/forgot.html', site_key=site_key)
+    site_key = get_dynamic_config("TURNSTILE_SITE_KEY")
+    return render_template("auth/forgot.html", site_key=site_key)
 
-@auth_bp.route('/reset/<token>', methods=['GET', 'POST'])
+
+@auth_bp.route("/reset/<token>", methods=["GET", "POST"])
 def reset_password(token):
     pariah_conn = get_pariah_db()
     purge_expired_password_reset_tokens(pariah_conn)
 
     # 1. Verify the token is valid and hasn't expired
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT user_uuid FROM password_resets WHERE token = %s AND expires_at > %s", (token, int(time.time())))
+        cursor.execute(
+            "SELECT user_uuid FROM password_resets WHERE token = %s AND expires_at > %s",
+            (token, int(time.time())),
+        )
         reset_record = cursor.fetchone()
 
     if not reset_record:
-        flash('That password reset link is invalid or has expired. Please request a new one.', 'error')
-        return redirect(url_for('auth.forgot_password'))
+        flash(
+            "That password reset link is invalid or has expired. Please request a new one.",
+            "error",
+        )
+        return redirect(url_for("auth.forgot_password"))
 
-    user_uuid = reset_record['user_uuid']
+    user_uuid = reset_record["user_uuid"]
 
-    if request.method == 'POST':
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
+    if request.method == "POST":
+        new_password = request.form.get("new_password")
+        confirm_password = request.form.get("confirm_password")
 
         if new_password != confirm_password:
-            flash('Passwords do not match.', 'error')
-            return redirect(url_for('auth.reset_password', token=token))
+            flash("Passwords do not match.", "error")
+            return redirect(url_for("auth.reset_password", token=token))
 
         if update_user_password(user_uuid, new_password):
             # 3. Burn all outstanding tokens for this user (cleans up duplicates)
             with pariah_conn.cursor() as cursor:
-                cursor.execute("DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,))
+                cursor.execute(
+                    "DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,)
+                )
             pariah_conn.commit()
 
-            flash('Your password has been successfully updated. You may now log in.', 'success')
-            return redirect(url_for('auth.login'))
+            flash(
+                "Your password has been successfully updated. You may now log in.",
+                "success",
+            )
+            return redirect(url_for("auth.login"))
         else:
-            flash('Failed to update password. Please contact support.', 'error')
+            flash("Failed to update password. Please contact support.", "error")
 
-    return render_template('auth/reset.html', token=token)
+    return render_template("auth/reset.html", token=token)

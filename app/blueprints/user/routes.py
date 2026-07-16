@@ -1,164 +1,226 @@
 import os
-import uuid
 import subprocess
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session, current_app, send_from_directory, abort
-from app.utils.db import get_pariah_db, get_dynamic_config, get_robust_db
-from app.utils.robust_api import call_robust_api, update_robust_email, update_user_password, set_user_level
+import uuid
+
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
+
 from app.utils.auth_helpers import get_policy_decline_level
-from app.utils.notifications import send_verification_email, send_email_change_verification
+from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.notifications import (
+    send_email_change_verification,
+)
+from app.utils.robust_api import (
+    set_user_level,
+    update_robust_email,
+    update_user_password,
+)
 
-user_bp = Blueprint('user', __name__, url_prefix='/user')
+user_bp = Blueprint("user", __name__, url_prefix="/user")
 
-@user_bp.route('/profile', methods=['GET'])
-@user_bp.route('/profile', methods=['GET'])
+
+@user_bp.route("/profile", methods=["GET"])
+@user_bp.route("/profile", methods=["GET"])
 def profile():
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
-        
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
+
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT status, requested_at, file_path FROM iar_backups WHERE user_uuid = %s ORDER BY requested_at DESC LIMIT 5", (session['uuid'],))
+        cursor.execute(
+            "SELECT status, requested_at, file_path FROM iar_backups WHERE user_uuid = %s ORDER BY requested_at DESC LIMIT 5",
+            (session["uuid"],),
+        )
         backups = cursor.fetchall()
-        
+
     # --- NEW: Fetch current email from Robust ---
     current_email = "Unknown"
     robust_conn = get_robust_db()
     try:
         with robust_conn.cursor() as r_cursor:
-            r_cursor.execute("SELECT Email FROM useraccounts WHERE PrincipalID = %s", (session['uuid'],))
+            r_cursor.execute(
+                "SELECT Email FROM useraccounts WHERE PrincipalID = %s",
+                (session["uuid"],),
+            )
             account = r_cursor.fetchone()
-            if account and account['Email']:
-                current_email = account['Email']
+            if account and account["Email"]:
+                current_email = account["Email"]
     except Exception as e:
         current_app.logger.error(f"Failed to fetch email for profile: {e}")
 
-    return render_template('user/profile.html', backups=backups, current_email=current_email)
+    return render_template(
+        "user/profile.html", backups=backups, current_email=current_email
+    )
 
-@user_bp.route('/profile/password', methods=['POST'])
+
+@user_bp.route("/profile/password", methods=["POST"])
 def update_password():
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
-        
-    new_password = request.form.get('new_password')
-    confirm_password = request.form.get('confirm_password')
-    
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
+
+    new_password = request.form.get("new_password")
+    confirm_password = request.form.get("confirm_password")
+
     if new_password != confirm_password:
-        flash('Passwords do not match.', 'error')
-        return redirect(url_for('user.profile'))
-        
-    if update_user_password(session['uuid'], new_password):
-        flash('Password updated successfully.', 'success')
+        flash("Passwords do not match.", "error")
+        return redirect(url_for("user.profile"))
+
+    if update_user_password(session["uuid"], new_password):
+        flash("Password updated successfully.", "success")
     else:
-        flash('Failed to update password. Please try again.', 'error')
-        
-    return redirect(url_for('user.profile'))
+        flash("Failed to update password. Please try again.", "error")
 
-@user_bp.route('/profile/email', methods=['POST'])
+    return redirect(url_for("user.profile"))
+
+
+@user_bp.route("/profile/email", methods=["POST"])
 def request_email_change():
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
 
-    new_email = request.form.get('new_email').strip()
+    new_email = request.form.get("new_email").strip()
     verification_token = uuid.uuid4().hex
 
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("""
-            INSERT INTO pending_registrations (user_uuid, email, verification_token, requires_approval, status) 
+        cursor.execute(
+            """
+            INSERT INTO pending_registrations (user_uuid, email, verification_token, requires_approval, status)
             VALUES (%s, %s, %s, FALSE, 'pending_email_change')
             ON DUPLICATE KEY UPDATE email = VALUES(email), verification_token = VALUES(verification_token), status='pending_email_change'
-        """, (session['uuid'], new_email, verification_token))
+        """,
+            (session["uuid"], new_email, verification_token),
+        )
     pariah_conn.commit()
 
     send_email_change_verification(new_email, verification_token)
-    flash('A verification link has been sent to your new email address.', 'info')
-    return redirect(url_for('user.profile'))
+    flash("A verification link has been sent to your new email address.", "info")
+    return redirect(url_for("user.profile"))
 
-@user_bp.route('/verify-email/<token>')
+
+@user_bp.route("/verify-email/<token>")
 def verify_email_change(token):
     """Dedicated endpoint for verifying an email update, bypassing the new-user workflow."""
     pariah_conn = get_pariah_db()
-    
+
     try:
         with pariah_conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT user_uuid, email, status 
-                FROM pending_registrations 
+            cursor.execute(
+                """
+                SELECT user_uuid, email, status
+                FROM pending_registrations
                 WHERE verification_token = %s
-            """, (token,))
+            """,
+                (token,),
+            )
             reg = cursor.fetchone()
 
-        if not reg or reg['status'] != 'pending_email_change':
-            flash('Invalid or expired email verification link.', 'error')
-            return redirect(url_for('user.profile'))
+        if not reg or reg["status"] != "pending_email_change":
+            flash("Invalid or expired email verification link.", "error")
+            return redirect(url_for("user.profile"))
 
         # Use the Robust API to update the email securely
-        if update_robust_email(reg['user_uuid'], reg['email']):
+        if update_robust_email(reg["user_uuid"], reg["email"]):
             # Clean up the pending row
             with pariah_conn.cursor() as cursor:
-                cursor.execute("DELETE FROM pending_registrations WHERE user_uuid = %s AND status = 'pending_email_change'", (reg['user_uuid'],))
+                cursor.execute(
+                    "DELETE FROM pending_registrations WHERE user_uuid = %s AND status = 'pending_email_change'",
+                    (reg["user_uuid"],),
+                )
             pariah_conn.commit()
-            flash('Your email address has been successfully updated.', 'success')
+            flash("Your email address has been successfully updated.", "success")
         else:
-            flash('Failed to update email address in the grid database.', 'error')
+            flash("Failed to update email address in the grid database.", "error")
 
     except Exception as e:
         current_app.logger.error(f"Error during email change verification: {e}")
-        flash('An internal error occurred during verification. Please contact support.', 'error')
+        flash(
+            "An internal error occurred during verification. Please contact support.",
+            "error",
+        )
 
-    return redirect(url_for('user.profile'))
+    return redirect(url_for("user.profile"))
 
-@user_bp.route('/profile/backup', methods=['POST'])
+
+@user_bp.route("/profile/backup", methods=["POST"])
 def request_iar_backup():
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
-        
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
+
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT COUNT(*) as count FROM iar_backups WHERE user_uuid = %s AND status IN ('pending', 'processing')", (session['uuid'],))
-        if cursor.fetchone()['count'] > 0:
-            flash('You already have a backup in progress.', 'error')
-            return redirect(url_for('user.profile'))
-            
-        cursor.execute("INSERT INTO iar_backups (user_uuid, status) VALUES (%s, 'pending')", (session['uuid'],))
+        cursor.execute(
+            "SELECT COUNT(*) as count FROM iar_backups WHERE user_uuid = %s AND status IN ('pending', 'processing')",
+            (session["uuid"],),
+        )
+        if cursor.fetchone()["count"] > 0:
+            flash("You already have a backup in progress.", "error")
+            return redirect(url_for("user.profile"))
+
+        cursor.execute(
+            "INSERT INTO iar_backups (user_uuid, status) VALUES (%s, 'pending')",
+            (session["uuid"],),
+        )
     pariah_conn.commit()
-    
+
     try:
-        subprocess.Popen(["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        subprocess.Popen(
+            ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
     except Exception as e:
         current_app.logger.error(f"Failed to trigger IAR worker service: {e}")
-    
-    flash('Your inventory backup has been queued. You will be notified when it is ready for download.', 'success')
-    return redirect(url_for('user.profile'))
 
-@user_bp.route('/policies/agree', methods=['GET', 'POST'])
+    flash(
+        "Your inventory backup has been queued. You will be notified when it is ready for download.",
+        "success",
+    )
+    return redirect(url_for("user.profile"))
+
+
+@user_bp.route("/policies/agree", methods=["GET", "POST"])
 def policy_agreement():
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
 
-    current_version = get_dynamic_config('global_policy_version')
+    current_version = get_dynamic_config("global_policy_version")
     pariah_conn = get_pariah_db()
 
-    if request.method == 'POST':
-        if request.form.get('policy_action') == 'decline':
+    if request.method == "POST":
+        if request.form.get("policy_action") == "decline":
             lock_level = get_policy_decline_level()
-            if set_user_level(session['uuid'], lock_level):
-                session['user_level'] = lock_level
-                session['is_admin'] = False
-                session['permissions'] = 0
+            if set_user_level(session["uuid"], lock_level):
+                session["user_level"] = lock_level
+                session["is_admin"] = False
+                session["permissions"] = 0
                 flash(
-                    'Your account has been locked for policy non-agreement. '
-                    'You can log in again here to review the policies when you are ready.',
-                    'warning',
+                    "Your account has been locked for policy non-agreement. "
+                    "You can log in again here to review the policies when you are ready.",
+                    "warning",
                 )
             else:
-                flash('Could not update your account level in the grid. Please contact support.', 'error')
-            return redirect(url_for('auth.logout'))
+                flash(
+                    "Could not update your account level in the grid. Please contact support.",
+                    "error",
+                )
+            return redirect(url_for("auth.logout"))
 
-        if request.form.get('agree') == 'yes':
+        if request.form.get("agree") == "yes":
             decline_level = get_policy_decline_level()
             try:
-                current_level = int(session.get('user_level', 0))
+                current_level = int(session.get("user_level", 0))
             except (TypeError, ValueError):
                 current_level = 0
 
@@ -170,65 +232,85 @@ def policy_agreement():
                 with pariah_conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
-                        (session['uuid'],),
+                        (session["uuid"],),
                     )
                     rbac_row = cursor.fetchone()
 
                 target_level = 1 if rbac_row else 0
-                if not set_user_level(session['uuid'], target_level):
-                    flash('The grid could not restore your system access. Your agreement was not saved. Please contact support.', 'error')
-                    return redirect(url_for('user.policy_agreement'))
+                if not set_user_level(session["uuid"], target_level):
+                    flash(
+                        "The grid could not restore your system access. Your agreement was not saved. Please contact support.",
+                        "error",
+                    )
+                    return redirect(url_for("user.policy_agreement"))
 
             with pariah_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT IGNORE INTO policy_agreements (user_uuid, policy_version) VALUES (%s, %s)",
-                    (session['uuid'], current_version),
+                    (session["uuid"], current_version),
                 )
             pariah_conn.commit()
 
             if restoring:
-                session['user_level'] = target_level
-                session['is_admin'] = target_level >= 200
-                session['permissions'] = rbac_row['permissions'] if rbac_row else 0
+                session["user_level"] = target_level
+                session["is_admin"] = target_level >= 200
+                session["permissions"] = rbac_row["permissions"] if rbac_row else 0
 
-            flash('Thank you for agreeing to the updated grid policies.', 'success')
-            return redirect(url_for('comms.news_feed'))
+            flash("Thank you for agreeing to the updated grid policies.", "success")
+            return redirect(url_for("comms.news_feed"))
 
-        flash('You must agree to the policies to access the portal.', 'error')
+        flash("You must agree to the policies to access the portal.", "error")
 
     last_agreed = None
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT MAX(agreed_at) as last_agreed FROM policy_agreements WHERE user_uuid = %s", (session['uuid'],))
+        cursor.execute(
+            "SELECT MAX(agreed_at) as last_agreed FROM policy_agreements WHERE user_uuid = %s",
+            (session["uuid"],),
+        )
         row = cursor.fetchone()
-        if row and row['last_agreed']:
-            last_agreed = row['last_agreed']
+        if row and row["last_agreed"]:
+            last_agreed = row["last_agreed"]
 
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT slug, title, updated_at FROM policies WHERE category = 'Policy' ORDER BY title ASC")
+        cursor.execute(
+            "SELECT slug, title, updated_at FROM policies WHERE category = 'Policy' ORDER BY title ASC"
+        )
         active_policies = cursor.fetchall()
 
-    return render_template('user/policy_agreement.html', version=current_version, policies=active_policies, last_agreed=last_agreed)
+    return render_template(
+        "user/policy_agreement.html",
+        version=current_version,
+        policies=active_policies,
+        last_agreed=last_agreed,
+    )
 
-@user_bp.route('/downloads/<path:filename>')
+
+@user_bp.route("/downloads/<path:filename>")
 def download_iar(filename):
     """Securely serves the IAR backup only if the user owns it."""
-    if not session.get('uuid'):
-        return redirect(url_for('auth.login'))
+    if not session.get("uuid"):
+        return redirect(url_for("auth.login"))
 
     # Security check: Does this user actually own this file?
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT 1 FROM iar_backups WHERE file_path = %s AND user_uuid = %s", (filename, session['uuid']))
+        cursor.execute(
+            "SELECT 1 FROM iar_backups WHERE file_path = %s AND user_uuid = %s",
+            (filename, session["uuid"]),
+        )
         if not cursor.fetchone():
-            flash("Access denied. You do not have permission to download this file.", "error")
-            return redirect(url_for('user.profile'))
+            flash(
+                "Access denied. You do not have permission to download this file.",
+                "error",
+            )
+            return redirect(url_for("user.profile"))
 
     # PROPER FIX: Use dynamic config, no string stripping hacks needed
-    downloads_dir = get_dynamic_config('IAR_OUTPUT_DIR')
-    
+    downloads_dir = get_dynamic_config("IAR_OUTPUT_DIR")
+
     if not downloads_dir:
         flash("System error: IAR output directory is not configured.", "error")
-        return redirect(url_for('user.profile'))
+        return redirect(url_for("user.profile"))
 
     full_path = os.path.normpath(os.path.join(downloads_dir, filename))
 
@@ -238,7 +320,10 @@ def download_iar(filename):
 
     # Gracefully handle missing files
     if not os.path.exists(full_path):
-        flash("The requested backup file could not be found on the server. Please generate a new one.", "error")
-        return redirect(url_for('user.profile'))
+        flash(
+            "The requested backup file could not be found on the server. Please generate a new one.",
+            "error",
+        )
+        return redirect(url_for("user.profile"))
 
     return send_from_directory(downloads_dir, filename, as_attachment=True)

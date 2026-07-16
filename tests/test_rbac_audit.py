@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.utils.schema import (
     PERM_ADD_NOTES,
@@ -26,7 +26,9 @@ def test_manage_roles_audit_logs_old_and_new(
     mock_audit, mock_get_robust, mock_set_level, client, db_cursor
 ):
     mock_cursor = MagicMock()
-    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = mock_cursor
+    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = (
+        mock_cursor
+    )
     mock_cursor.fetchone.return_value = {
         "FirstName": "Target",
         "LastName": "User",
