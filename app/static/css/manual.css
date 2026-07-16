@@ -1,0 +1,115 @@
+/* Tab chrome for manual.html (PlatformStandards ADR-005). Uses base.css tokens. */
+
+.manual-page {
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: var(--bg-color);
+}
+
+.manual-page header {
+    position: static;
+    background: transparent;
+    color: var(--text-main);
+    box-shadow: none;
+    display: block;
+    text-align: center;
+    margin-bottom: 30px;
+    min-height: auto;
+    padding: 0;
+}
+
+.manual-page h1 { color: var(--text-main); margin-bottom: 5px; }
+.manual-page .version { color: var(--text-muted); font-size: 0.9em; }
+
+.tab-nav {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 3px solid var(--border-color);
+    margin-bottom: 20px;
+}
+.tab-btn {
+    padding: 12px 25px;
+    border: none;
+    background: none;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    margin-bottom: -3px;
+}
+.tab-btn:hover {
+    color: var(--text-main);
+    background-color: var(--bg-hover);
+}
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+    background-color: var(--surface);
+}
+
+.tab-content {
+    display: none;
+    background: var(--surface);
+    padding: 30px;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    box-shadow: var(--shadow-sm);
+    animation: manualFadeIn 0.3s ease;
+}
+.tab-content.active { display: block; }
+
+@keyframes manualFadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.manual-page h2 {
+    color: var(--primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-top: 0;
+}
+.manual-page h3 { color: var(--text-main); margin-top: 25px; margin-bottom: 10px; }
+.manual-page ul, .manual-page ol { margin-bottom: 15px; padding-left: 25px; }
+.manual-page li { margin-bottom: 8px; }
+
+.manual-page code {
+    background: var(--bg-hover);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, monospace;
+    color: var(--primary);
+    font-size: 0.9em;
+}
+
+.manual-page .note {
+    background: var(--info-bg);
+    border-left: 5px solid var(--info);
+    padding: 15px;
+    margin: 20px 0;
+}
+.manual-page .warning {
+    background: var(--warning-bg);
+    border-left: 5px solid var(--warning);
+    padding: 15px;
+    margin: 20px 0;
+}
+
+@media print {
+    .manual-page { background: white; max-width: 100%; padding: 0; }
+    .tab-nav { display: none; }
+    .tab-content {
+        display: block !important;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        margin-bottom: 30px;
+        page-break-after: always;
+    }
+}

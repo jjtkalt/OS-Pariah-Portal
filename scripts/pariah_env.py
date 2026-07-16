@@ -4,9 +4,11 @@ Shared environment loading for CLI scripts under scripts/.
 /etc/os_pariah/os-pariah.conf is installed from .env.example (KEY=value), same as
 worker.py and wsgi — not ConfigParser INI with [sections].
 """
+
 import logging
 import os
 import sys
+
 import pymysql
 from dotenv import load_dotenv
 
@@ -15,11 +17,18 @@ _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 
 
 def load_pariah_dotenv():
-    """Match worker.py / wsgi.py: system config first, then project .env."""
+    """Match worker.py / wsgi.py: system config first, then project .env, then secrets."""
     if os.path.exists("/etc/os_pariah/os-pariah.conf"):
         load_dotenv("/etc/os_pariah/os-pariah.conf")
     else:
         load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
+
+    # Load the auto-generated SECRET_KEY without overriding existing environment values.
+    if _SCRIPT_DIR not in sys.path:
+        sys.path.insert(0, _SCRIPT_DIR)
+    from ensure_secrets import load_secrets_file
+
+    load_secrets_file()
 
 
 def get_pariah_db_connection():
@@ -44,9 +53,7 @@ def get_dynamic_config_for_scripts(conn, key, default=None):
     from app.utils.schema import KNOWN_SETTINGS
 
     with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT config_value FROM config WHERE config_key = %s", (key,)
-        )
+        cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
         result = cursor.fetchone()
         if result:
             return result["config_value"]
@@ -76,6 +83,8 @@ def configure_sync_logging(name: str) -> logging.Logger:
         file_handler.setFormatter(fmt)
         logger.addHandler(file_handler)
     except OSError:
-        logger.warning("Could not write to %s/sync_workers.log; using stderr only.", log_dir)
+        logger.warning(
+            "Could not write to %s/sync_workers.log; using stderr only.", log_dir
+        )
     logger.propagate = False
     return logger

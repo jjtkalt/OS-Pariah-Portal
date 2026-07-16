@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ grid_name }} Portal — User Manual</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/manual.css') }}">
+</head>
+<body class="manual-page">
+
+    <header>
+        <h1>{{ grid_name }} Portal</h1>
+        <div class="version">User Manual{% if portal_version %} &middot; v{{ portal_version }}{% endif %}</div>
+    </header>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="openTab(event, 'members')">For Members</button>
+        <button class="tab-btn" onclick="openTab(event, 'admins')">For Grid Admins</button>
+        <button class="tab-btn" onclick="openTab(event, 'inworld')">In-World &amp; Support</button>
+    </div>
+
+    <div id="members" class="tab-content active">
+        <h2>For Members</h2>
+
+        <h3>Creating an account</h3>
+        <p>Use the <strong>Register</strong> link in the portal header. Depending on grid
+        settings, your registration may require approval by a grid administrator before you
+        can log in. You'll be notified once your account is active.</p>
+
+        <h3>Logging in</h3>
+        <p>Sign in with your in-world (OpenSimulator) account name and password using the
+        <strong>Login</strong> link. The portal authenticates against the grid, so your portal
+        login is the same identity you use in the viewer.</p>
+
+        <div class="note">The first time grid policies are published or updated, you'll be
+        asked to review and agree to them before the rest of the portal unlocks.</div>
+
+        <h3>Your profile</h3>
+        <p>The profile page (the person icon in the header) lets you review your account and
+        change your password.</p>
+
+        <h3>News, events, and who's online</h3>
+        <ul>
+            <li><strong>Home / News</strong> — grid announcements and alerts.</li>
+            <li><strong>Calendar</strong> — browse events by month, week, day, or schedule,
+            follow events for reminders, and (where allowed) suggest community events.</li>
+            <li><strong>Online</strong> — see who is currently in-world.</li>
+            <li><strong>Documents &amp; Policies</strong> — grid policies, guides, and resources.</li>
+        </ul>
+
+        <h3>Getting help</h3>
+        <p>Open the <strong>Helpdesk</strong> (the ❓ icon) to file a support ticket. Guests can
+        submit tickets too; a CAPTCHA protects the form from spam.</p>
+    </div>
+
+    <div id="admins" class="tab-content">
+        <h2>For Grid Admins</h2>
+
+        <p>Admin tools appear in the <strong>Admin Tools</strong> dropdown when your account has
+        the matching portal permissions.</p>
+
+        <div class="note">Portal permissions are managed with a role/permission system separate
+        from your in-world account level. The first login by a grid-owner account
+        (OpenSimulator <code>userLevel</code> 250 or higher) is automatically granted
+        <strong>Super Admin</strong>, which can then grant permissions to others under
+        <strong>User Management</strong>.</div>
+
+        <h3>Common admin areas</h3>
+        <ul>
+            <li><strong>Registration Approvals</strong> — approve or decline pending sign-ups.</li>
+            <li><strong>User Management</strong> — look up accounts, review notes, and manage bans.</li>
+            <li><strong>Event Moderation</strong> — approve community-suggested events.</li>
+            <li><strong>Region Configs</strong> — manage region settings and hosts.</li>
+            <li><strong>Grid Policies</strong> — publish policies, guides, and resources.</li>
+            <li><strong>System Settings</strong> — grid identity, theming, and backend options.</li>
+            <li><strong>Bot Queue</strong> — inspect the in-world Grid Service Bot message queue.</li>
+            <li><strong>Audit Log</strong> — review administrative actions.</li>
+        </ul>
+
+        <h3>Theming</h3>
+        <p>Under <strong>System Settings</strong> you can point the portal at a custom stylesheet.
+        The default stylesheet is <code>/static/css/base.css</code>.</p>
+
+        <div class="warning">Installation, deployment, and server operations are documented for
+        administrators in the repository: see <code>README.md</code>, <code>docs/DEPLOYMENT.md</code>,
+        and <code>docs/OPERATIONS.md</code>.</div>
+    </div>
+
+    <div id="inworld" class="tab-content">
+        <h2>In-World &amp; Support</h2>
+
+        <h3>Grid Service Bot</h3>
+        <p>The portal can deliver messages and notices in-world through a Grid Service Bot
+        driven by an LSL script. Event reminders and certain notifications are queued by the
+        portal and delivered to avatars or groups in-world.</p>
+
+        <h3>Calendar feeds</h3>
+        <p>Events are also available as subscribable feeds:</p>
+        <ul>
+            <li><code>/events/feed.ics</code> — iCalendar feed for calendar apps.</li>
+            <li><code>/events/feed.rss</code> — RSS feed for readers.</li>
+        </ul>
+
+        <h3>Reporting a problem</h3>
+        <p>Use the <strong>Helpdesk</strong> to open a ticket. Include what you were doing, what
+        you expected, and what happened. Admins can reply and track the ticket to resolution.</p>
+    </div>
+
+    <script>
+    function openTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+    </script>
+</body>
+</html>
