@@ -63,9 +63,7 @@ def sync_macs(logger):
 
         raw_unit = get_dynamic_config_for_scripts(conn, "robust_systemd_service")
         systemd_unit = (
-            str(raw_unit).strip()
-            if raw_unit is not None
-            else "robust@main.service"
+            str(raw_unit).strip() if raw_unit is not None else "robust@main.service"
         )
         if not systemd_unit or systemd_unit.lower() == "none":
             systemd_unit = "robust@main.service"
@@ -79,7 +77,7 @@ def sync_macs(logger):
     mac_string = " ".join(macs)
     logger.info("Syncing %s MAC addresses to %s...", len(macs), robust_conf_path)
 
-    with open(robust_conf_path, "r", encoding="utf-8", errors="replace") as f:
+    with open(robust_conf_path, encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
 
     new_lines = []

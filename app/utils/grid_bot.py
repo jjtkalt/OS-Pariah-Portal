@@ -1,14 +1,16 @@
 """Grid Service Bot message queue."""
 
 import json
+
 from flask import current_app, request
-from app.utils.db import get_pariah_db, get_dynamic_config
+
+from app.utils.db import get_dynamic_config, get_pariah_db
 
 MAX_WRONG_REGION_RETRIES = 20
 
 
 def get_grid_bot_uuid():
-    return (get_dynamic_config('grid_bot_uuid') or '').strip()
+    return (get_dynamic_config("grid_bot_uuid") or "").strip()
 
 
 def is_grid_bot_uuid(uuid):
@@ -23,13 +25,13 @@ def enqueue_bot_message(
     target_uuid=None,
     target_region_uuid=None,
     target_group_uuid=None,
-    delivery_channel='region',
+    delivery_channel="region",
     notice_subject=None,
     metadata=None,
-    priority='normal',
+    priority="normal",
 ):
     """Insert a pending message for the in-world bot to deliver."""
-    body = (message_body or '').strip()
+    body = (message_body or "").strip()
     if not body:
         return None
     meta_json = json.dumps(metadata) if metadata is not None else None
@@ -50,7 +52,7 @@ def enqueue_bot_message(
                 target_region_uuid,
                 target_group_uuid,
                 body[:4000],
-                (notice_subject or '')[:255] or None,
+                (notice_subject or "")[:255] or None,
                 priority,
                 meta_json,
             ),
@@ -62,26 +64,42 @@ def enqueue_bot_message(
 
 def event_group_settings(event):
     """Resolve group chat/notice flags and group UUID for an event."""
-    default_chat = str(get_dynamic_config('calendar_default_use_group_chat', 'false')).lower() == 'true'
-    default_notice = str(get_dynamic_config('calendar_default_use_group_notice', 'false')).lower() == 'true'
-    ugc = event.get('use_group_chat')
-    ugn = event.get('use_group_notice')
+    default_chat = (
+        str(get_dynamic_config("calendar_default_use_group_chat", "false")).lower()
+        == "true"
+    )
+    default_notice = (
+        str(get_dynamic_config("calendar_default_use_group_notice", "false")).lower()
+        == "true"
+    )
+    ugc = event.get("use_group_chat")
+    ugn = event.get("use_group_notice")
     use_chat = default_chat if ugc is None else bool(ugc)
     use_notice = default_notice if ugn is None else bool(ugn)
-    group = (event.get('announce_group_uuid') or get_dynamic_config('grid_bot_announce_group_uuid') or '').strip()
+    group = (
+        event.get("announce_group_uuid")
+        or get_dynamic_config("grid_bot_announce_group_uuid")
+        or ""
+    ).strip()
     return use_chat, use_notice, group or None
 
 
-def enqueue_event_announcements(source, message_type, body, event, priority='normal', subject=None):
+def enqueue_event_announcements(
+    source, message_type, body, event, priority="normal", subject=None
+):
     """Fan out region chat, group chat, and group notice deliveries for calendar events."""
-    subject = (subject or event.get('title') or 'Grid Event')[:255]
-    region = event.get('region_uuid') or (get_dynamic_config('grid_bot_announce_region_uuid') or None)
-    meta = {'event_id': event.get('id')}
+    subject = (subject or event.get("title") or "Grid Event")[:255]
+    region = event.get("region_uuid") or (
+        get_dynamic_config("grid_bot_announce_region_uuid") or None
+    )
+    meta = {"event_id": event.get("id")}
 
     enqueue_bot_message(
-        source, message_type, body,
+        source,
+        message_type,
+        body,
         target_region_uuid=region,
-        delivery_channel='region',
+        delivery_channel="region",
         metadata=meta,
         priority=priority,
     )
@@ -89,17 +107,21 @@ def enqueue_event_announcements(source, message_type, body, event, priority='nor
     use_chat, use_notice, group = event_group_settings(event)
     if group and use_chat:
         enqueue_bot_message(
-            source, message_type, body,
+            source,
+            message_type,
+            body,
             target_group_uuid=group,
-            delivery_channel='group_chat',
+            delivery_channel="group_chat",
             metadata=meta,
             priority=priority,
         )
     if group and use_notice:
         enqueue_bot_message(
-            source, message_type, body,
+            source,
+            message_type,
+            body,
             target_group_uuid=group,
-            delivery_channel='group_notice',
+            delivery_channel="group_notice",
             notice_subject=subject,
             metadata=meta,
             priority=priority,
@@ -123,12 +145,12 @@ def claim_pending_messages(limit=20):
         )
         rows = cursor.fetchall()
     for row in rows:
-        if row.get('metadata') and isinstance(row['metadata'], str):
+        if row.get("metadata") and isinstance(row["metadata"], str):
             try:
-                row['metadata'] = json.loads(row['metadata'])
+                row["metadata"] = json.loads(row["metadata"])
             except json.JSONDecodeError:
-                row['metadata'] = {}
-        row.setdefault('delivery_channel', 'region')
+                row["metadata"] = {}
+        row.setdefault("delivery_channel", "region")
     return rows
 
 
@@ -160,7 +182,7 @@ def ack_message(message_id, success=True, error=None):
                 """,
                 (message_id,),
             )
-        elif error == 'wrong_region':
+        elif error == "wrong_region":
             cursor.execute(
                 """
                 UPDATE bot_message_queue
@@ -180,7 +202,7 @@ def ack_message(message_id, success=True, error=None):
                     last_error = %s
                 WHERE id = %s
                 """,
-                ((error or 'unknown')[:512], message_id),
+                ((error or "unknown")[:512], message_id),
             )
     conn.commit()
 
@@ -190,7 +212,7 @@ def retry_failed_messages(message_ids=None):
     conn = get_pariah_db()
     with conn.cursor() as cursor:
         if message_ids:
-            placeholders = ','.join(['%s'] * len(message_ids))
+            placeholders = ",".join(["%s"] * len(message_ids))
             cursor.execute(
                 f"""
                 UPDATE bot_message_queue
@@ -217,7 +239,7 @@ def get_queue_stats():
         cursor.execute(
             "SELECT status, COUNT(*) AS c FROM bot_message_queue GROUP BY status"
         )
-        stats = {row['status']: row['c'] for row in cursor.fetchall()}
+        stats = {row["status"]: row["c"] for row in cursor.fetchall()}
         cursor.execute(
             """
             SELECT id, source, message_type, delivery_channel, status, priority,
@@ -233,45 +255,51 @@ def get_queue_stats():
 
 def format_message_text_line(msg):
     """LSL-friendly pipe-delimited line (8 fields)."""
-    body = (msg.get('message_body') or '').replace('|', '/').replace('\n', ' ')
-    subject = (msg.get('notice_subject') or '').replace('|', '/').replace('\n', ' ')
-    return '|'.join([
-        str(msg['id']),
-        msg.get('message_type') or '',
-        msg.get('target_uuid') or '',
-        msg.get('target_region_name') or '',
-        msg.get('target_group_uuid') or '',
-        msg.get('delivery_channel') or 'region',
-        subject,
-        body,
-    ])
+    body = (msg.get("message_body") or "").replace("|", "/").replace("\n", " ")
+    subject = (msg.get("notice_subject") or "").replace("|", "/").replace("\n", " ")
+    return "|".join(
+        [
+            str(msg["id"]),
+            msg.get("message_type") or "",
+            msg.get("target_uuid") or "",
+            msg.get("target_region_name") or "",
+            msg.get("target_group_uuid") or "",
+            msg.get("delivery_channel") or "region",
+            subject,
+            body,
+        ]
+    )
 
 
 def verify_bot_api_request():
-    token = (get_dynamic_config('grid_bot_api_token') or '').strip()
+    token = (get_dynamic_config("grid_bot_api_token") or "").strip()
     if not token:
-        current_app.logger.warning('Grid bot API token not configured')
+        current_app.logger.warning("Grid bot API token not configured")
         return False
-    supplied = (request.headers.get('X-Grid-Bot-Token') or request.args.get('token') or '').strip()
+    supplied = (
+        request.headers.get("X-Grid-Bot-Token") or request.args.get("token") or ""
+    ).strip()
     return bool(supplied and supplied == token)
 
 
 def enrich_bot_messages(messages):
     if not messages:
         return messages
-    region_uuids = {m['target_region_uuid'] for m in messages if m.get('target_region_uuid')}
+    region_uuids = {
+        m["target_region_uuid"] for m in messages if m.get("target_region_uuid")
+    }
     names = {}
     if region_uuids:
         conn = get_pariah_db()
-        placeholders = ','.join(['%s'] * len(region_uuids))
+        placeholders = ",".join(["%s"] * len(region_uuids))
         with conn.cursor() as cursor:
             cursor.execute(
                 f"SELECT region_uuid, region_name FROM region_configs WHERE region_uuid IN ({placeholders})",
                 list(region_uuids),
             )
             for row in cursor.fetchall():
-                names[row['region_uuid']] = row['region_name']
+                names[row["region_uuid"]] = row["region_name"]
     for msg in messages:
-        ru = msg.get('target_region_uuid')
-        msg['target_region_name'] = names.get(ru, '') if ru else ''
+        ru = msg.get("target_region_uuid")
+        msg["target_region_name"] = names.get(ru, "") if ru else ""
     return messages

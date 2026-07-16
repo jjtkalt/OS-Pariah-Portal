@@ -39,7 +39,9 @@ def create_password_reset_token(
 
     with conn.cursor() as cursor:
         if delete_existing_for_user:
-            cursor.execute("DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,))
+            cursor.execute(
+                "DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,)
+            )
 
         token = secrets.token_urlsafe(32)
         cursor.execute(
@@ -49,4 +51,3 @@ def create_password_reset_token(
 
     conn.commit()
     return token, expires_at
-

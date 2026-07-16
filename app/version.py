@@ -6,4 +6,3 @@ but it also serves as a safe fallback for manual installs.
 """
 
 __version__ = "1.0.0"
-

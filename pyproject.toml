@@ -1,0 +1,19 @@
+# Ruff lint + format (PlatformStandards ADR-015 / docs/LINTING.md).
+# target-version matches packaging/os-pariah.spec Requires (python312).
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+extend-exclude = ["migrations", "venv", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
+# Line length is enforced by the formatter; the linter should not double-report E501.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# scripts/worker.py bootstraps sys.path before importing app.*; keep that import after the path setup.
+"scripts/worker.py" = ["E402", "I001"]
+
+[tool.ruff.format]
+quote-style = "double"

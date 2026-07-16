@@ -1,11 +1,13 @@
 import re
-from flask import Blueprint, request, session, current_app
+
+from flask import Blueprint, current_app, request, session
+
 from app import cache
 from app.utils.auth_helpers import has_permission
-from app.utils.db import get_robust_db, get_pariah_db
+from app.utils.db import get_pariah_db, get_robust_db
 from app.utils.schema import PERM_ONLINE_HUD_ALL, PERM_SUPER_ADMIN
 
-api_bp = Blueprint('api', __name__, url_prefix='/api')
+api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
 def _rbac_mask_allows_full_online_list(mask):
@@ -25,26 +27,31 @@ def has_admin_view_access():
         mask includes that permission (or super-admin).
     Otherwise only HUD-listable regions are shown (region_configs.hud_list_users).
     """
-    if session.get('uuid') and has_permission(PERM_ONLINE_HUD_ALL):
+    if session.get("uuid") and has_permission(PERM_ONLINE_HUD_ALL):
         return True
 
-    owner_uuid = (request.headers.get('X-Secondlife-Owner-Key') or '').strip()
+    owner_uuid = (request.headers.get("X-Secondlife-Owner-Key") or "").strip()
     if not owner_uuid:
         return False
 
     client_ip = request.remote_addr
     pariah_conn = get_pariah_db()
     with pariah_conn.cursor() as cursor:
-        cursor.execute("SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,))
+        cursor.execute(
+            "SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,)
+        )
         if not cursor.fetchone():
             return False
-        cursor.execute("SELECT permissions FROM user_rbac WHERE user_uuid = %s", (owner_uuid,))
+        cursor.execute(
+            "SELECT permissions FROM user_rbac WHERE user_uuid = %s", (owner_uuid,)
+        )
         rbac_row = cursor.fetchone()
 
     perms = rbac_row["permissions"] if rbac_row else 0
     return _rbac_mask_allows_full_online_list(perms)
 
-@cache.cached(timeout=30, key_prefix='raw_online_users')
+
+@cache.cached(timeout=30, key_prefix="raw_online_users")
 def fetch_all_online_users():
     """
     Queries the Robust database for all online users (Local and Hypergrid).
@@ -52,48 +59,52 @@ def fetch_all_online_users():
     """
     robust_conn = get_robust_db()
     users_online = []
-    
+
     try:
         with robust_conn.cursor() as cursor:
             # 1. Local Users
             cursor.execute("""
-                SELECT UA.FirstName, UA.LastName, r.regionName 
-                FROM useraccounts UA 
-                INNER JOIN presence p ON UA.PrincipalID = p.UserID 
+                SELECT UA.FirstName, UA.LastName, r.regionName
+                FROM useraccounts UA
+                INNER JOIN presence p ON UA.PrincipalID = p.UserID
                 JOIN regions r ON r.uuid = p.RegionID
             """)
             for row in cursor.fetchall():
                 # Clean up region name formatting as per original script
-                region_use = re.sub(r"\s\d+$", "", row['regionName'])
-                users_online.append({
-                    'name': f"{row['FirstName']} {row['LastName']}",
-                    'region': region_use,
-                    'is_hg': False
-                })
+                region_use = re.sub(r"\s\d+$", "", row["regionName"])
+                users_online.append(
+                    {
+                        "name": f"{row['FirstName']} {row['LastName']}",
+                        "region": region_use,
+                        "is_hg": False,
+                    }
+                )
 
             # 2. Hypergrid Users
             cursor.execute("""
-                SELECT 
-                    SUBSTRING_INDEX(SUBSTRING_INDEX(g.UserId, ';', -1), ' ', 1) As FirstName, 
-                    SUBSTRING_INDEX(SUBSTRING_INDEX(g.UserId, ';', -1), ' ', -1) As LastName, 
-                    r.regionName 
-                FROM griduser g 
-                INNER JOIN presence p ON p.UserID = SUBSTRING(g.UserId, 1, 36) 
-                JOIN regions r ON r.uuid = p.RegionID 
+                SELECT
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(g.UserId, ';', -1), ' ', 1) As FirstName,
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(g.UserId, ';', -1), ' ', -1) As LastName,
+                    r.regionName
+                FROM griduser g
+                INNER JOIN presence p ON p.UserID = SUBSTRING(g.UserId, 1, 36)
+                JOIN regions r ON r.uuid = p.RegionID
                 WHERE LOCATE(';', g.UserId) <> 0
             """)
             for row in cursor.fetchall():
-                region_use = re.sub(r"\s\d+$", "", row['regionName'])
-                users_online.append({
-                    'name': f"{row['FirstName']} {row['LastName']} (HG)",
-                    'region': region_use,
-                    'is_hg': True
-                })
+                region_use = re.sub(r"\s\d+$", "", row["regionName"])
+                users_online.append(
+                    {
+                        "name": f"{row['FirstName']} {row['LastName']} (HG)",
+                        "region": region_use,
+                        "is_hg": True,
+                    }
+                )
     except Exception as e:
         current_app.logger.error(f"Error fetching online users: {e}")
-        
+
     # Sort alphabetically by name
-    return sorted(users_online, key=lambda k: k['name'])
+    return sorted(users_online, key=lambda k: k["name"])
 
 
 def filter_online_users_by_region(all_users, show_all):
@@ -101,10 +112,7 @@ def filter_online_users_by_region(all_users, show_all):
     if show_all:
         return list(all_users)
     listable_regions = _hud_listable_region_names()
-    return [
-        user for user in all_users
-        if user["region"].lower() in listable_regions
-    ]
+    return [user for user in all_users if user["region"].lower() in listable_regions]
 
 
 def get_online_snapshot(show_all):
@@ -145,7 +153,7 @@ def _hud_listable_region_names():
     return names
 
 
-@api_bp.route('/online', methods=['GET'])
+@api_bp.route("/online", methods=["GET"])
 def online_lister():
     """
     The main endpoint for the in-world HUD and website widget.
@@ -159,10 +167,10 @@ def online_lister():
     for user in snapshot["users"]:
         output_lines.append(f"{user['name']},{user['region']}<br>")
 
-    return "".join(output_lines), 200, {'Content-Type': 'text/html; charset=utf-8'}
+    return "".join(output_lines), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
-@api_bp.route('/bot/queue', methods=['GET'])
+@api_bp.route("/bot/queue", methods=["GET"])
 def bot_queue():
     """In-world Grid Service Bot polls pending messages.
 
@@ -171,58 +179,62 @@ def bot_queue():
       format=json  — default
     """
     from flask import Response
+
     from app.utils.grid_bot import (
-        verify_bot_api_request, claim_pending_messages,
-        mark_message_claimed, enrich_bot_messages, format_message_text_line,
+        claim_pending_messages,
+        enrich_bot_messages,
+        format_message_text_line,
+        mark_message_claimed,
+        verify_bot_api_request,
     )
 
     if not verify_bot_api_request():
-        return {'error': 'Unauthorized'}, 401
+        return {"error": "Unauthorized"}, 401
 
     messages = enrich_bot_messages(claim_pending_messages(limit=20))
     for msg in messages:
-        mark_message_claimed(msg['id'])
+        mark_message_claimed(msg["id"])
 
-    if request.args.get('format') == 'text':
+    if request.args.get("format") == "text":
         lines = [format_message_text_line(msg) for msg in messages]
-        return Response('\n'.join(lines), mimetype='text/plain; charset=utf-8')
+        return Response("\n".join(lines), mimetype="text/plain; charset=utf-8")
 
-    return {'messages': messages}, 200
+    return {"messages": messages}, 200
 
 
-@api_bp.route('/bot/ack/<int:message_id>', methods=['GET', 'POST'])
+@api_bp.route("/bot/ack/<int:message_id>", methods=["GET", "POST"])
 def bot_ack(message_id):
-    from app.utils.grid_bot import verify_bot_api_request, ack_message
+    from app.utils.grid_bot import ack_message, verify_bot_api_request
 
     if not verify_bot_api_request():
-        return {'error': 'Unauthorized'}, 401
+        return {"error": "Unauthorized"}, 401
 
-    if request.method == 'GET':
-        success = request.args.get('success', '1') not in ('0', 'false', 'no')
-        error = request.args.get('error')
+    if request.method == "GET":
+        success = request.args.get("success", "1") not in ("0", "false", "no")
+        error = request.args.get("error")
     else:
         data = request.get_json(silent=True) or {}
-        success = data.get('success', True)
-        error = data.get('error')
+        success = data.get("success", True)
+        error = data.get("error")
 
     ack_message(message_id, success=success, error=error)
-    if request.method == 'GET' and request.args.get('format') == 'text':
-        return 'OK', 200, {'Content-Type': 'text/plain; charset=utf-8'}
-    return {'ok': True}, 200
+    if request.method == "GET" and request.args.get("format") == "text":
+        return "OK", 200, {"Content-Type": "text/plain; charset=utf-8"}
+    return {"ok": True}, 200
 
 
-@api_bp.route('/bot/status', methods=['GET'])
+@api_bp.route("/bot/status", methods=["GET"])
 def bot_status():
-    from app.utils.grid_bot import verify_bot_api_request
     from app.utils.db import get_pariah_db
+    from app.utils.grid_bot import verify_bot_api_request
 
     if not verify_bot_api_request():
-        return {'error': 'Unauthorized'}, 401
+        return {"error": "Unauthorized"}, 401
 
     conn = get_pariah_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT status, COUNT(*) AS c FROM bot_message_queue GROUP BY status"
         )
-        counts = {row['status']: row['c'] for row in cursor.fetchall()}
-    return {'queue': counts}, 200
+        counts = {row["status"]: row["c"] for row in cursor.fetchall()}
+    return {"queue": counts}, 200

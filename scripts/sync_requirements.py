@@ -1,4 +1,5 @@
 """Install or upgrade venv packages to match requirements.txt before service start."""
+
 import subprocess
 import sys
 from pathlib import Path

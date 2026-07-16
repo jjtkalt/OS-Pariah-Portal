@@ -1,0 +1,10 @@
+# Shared pre-commit hooks (PlatformStandards ADR-015).
+# Setup: pip install pre-commit && pre-commit install
+# Keep `rev` pinned to the same Ruff version as requirements-dev.txt and the CI lint job.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
