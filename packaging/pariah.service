@@ -1,8 +1,8 @@
 [Unit]
 Description=Gunicorn instance to serve OS Pariah Portal
 After=network.target mariadb.service
-Before=pariah-worker-iar.service pariah-worker-log.service pariah-worker-log.timer pariah-worker-calendar.timer
-Requires=pariah-worker-iar.service pariah-worker-log.timer pariah-worker-calendar.timer
+Before=pariah-worker-iar.service pariah-worker-log.service pariah-worker-log.timer pariah-worker-calendar.timer pariah-cloudflare-ip.timer
+Requires=pariah-worker-iar.service pariah-worker-log.timer pariah-worker-calendar.timer pariah-cloudflare-ip.timer
 
 [Service]
 # The will automatically create this user during installation

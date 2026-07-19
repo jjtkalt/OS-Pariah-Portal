@@ -60,10 +60,12 @@ cp packaging/pariah-worker-log.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-log.timer %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-calendar.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-calendar.timer %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-cloudflare-ip.service %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-cloudflare-ip.timer %{buildroot}/usr/lib/systemd/system/
 
 # Add the Nginx files (Please install certbot, don't use dummy certs!)
 cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
-cp packaging/cloudflare-real-ip.conf %{buildroot}/etc/nginx/conf.d/
+cp packaging/pariah-cloudflare-ip.conf %{buildroot}/etc/nginx/conf.d/
 cp packaging/dummypariah.crt packaging/dummypariah.key %{buildroot}/etc/nginx/
 
 %post
@@ -85,6 +87,12 @@ chmod 0750 /etc/os_pariah
 
 # Reload systemd so it sees the new service files
 systemctl daemon-reload
+
+# Drop pre-rename Cloudflare conf so conf.d/*.conf does not load duplicates.
+if [ -f /etc/nginx/conf.d/cloudflare-real-ip.conf ]; then
+    rm -f /etc/nginx/conf.d/cloudflare-real-ip.conf
+fi
+
 nginx -t && systemctl reload nginx.service || echo "Need to manually fix and start Nginx"
 
 echo "========================================================="
@@ -107,9 +115,11 @@ echo "========================================================="
 /usr/lib/systemd/system/pariah-worker-log.timer
 /usr/lib/systemd/system/pariah-worker-calendar.service
 /usr/lib/systemd/system/pariah-worker-calendar.timer
+/usr/lib/systemd/system/pariah-cloudflare-ip.service
+/usr/lib/systemd/system/pariah-cloudflare-ip.timer
 %doc packaging/inworld/README.md
 %config(noreplace) /etc/nginx/vhosts.d/OS-Pariah.conf
-%config(noreplace) /etc/nginx/conf.d/cloudflare-real-ip.conf
+%config(noreplace) /etc/nginx/conf.d/pariah-cloudflare-ip.conf
 /etc/nginx/dummypariah.crt
 /etc/nginx/dummypariah.key
 /etc/sudoers.d/pariah_worker

@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh OS Pariah Cloudflare real-IP ranges daily
+After=network-online.target nginx.service
+Requires=pariah.service
+
+[Timer]
+# Runs at 2:15 AM daily (after pariah-worker-log at 02:00)
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

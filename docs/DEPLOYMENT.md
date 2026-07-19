@@ -47,7 +47,7 @@ The RPM:
 - Creates the `pariah` system user
 - Installs code to `/opt/os_pariah/`
 - Ships config template as `/etc/os_pariah/os-pariah.conf` (`%config(noreplace)`)
-- Installs systemd units, the nginx vhost, and `cloudflare-real-ip.conf`
+- Installs systemd units, the nginx vhost, and `pariah-cloudflare-ip.conf`
 - Builds the Python 3.12 virtualenv and installs `requirements.txt`
 
 ## 3. Manual install (unsupported; for development)
@@ -74,9 +74,10 @@ sudo chown pariah:opensim /etc/os_pariah/os-pariah.conf
 # Edit PARIAH_DB_* and ROBUST_DB_* (leave SECRET_KEY unset)
 
 sudo cp packaging/pariah.service packaging/pariah-worker-*.service \
-        packaging/pariah-worker-*.timer /usr/lib/systemd/system/
+        packaging/pariah-worker-*.timer packaging/pariah-cloudflare-ip.service \
+        packaging/pariah-cloudflare-ip.timer /usr/lib/systemd/system/
 sudo cp packaging/OS-Pariah.conf /etc/nginx/vhosts.d/
-sudo cp packaging/cloudflare-real-ip.conf /etc/nginx/conf.d/
+sudo cp packaging/pariah-cloudflare-ip.conf /etc/nginx/conf.d/
 sudo cp packaging/pariah_worker.sudo /etc/sudoers.d/pariah_worker
 sudo chmod 0440 /etc/sudoers.d/pariah_worker
 
@@ -126,7 +127,8 @@ Numbered SQL files live in `migrations/` and are tracked in the `schema_versions
 
 1. Install a valid certificate on the origin (paths in `packaging/OS-Pariah.conf`).
 2. Cloudflare dashboard → SSL/TLS → **Full (strict)**.
-3. Confirm `/etc/nginx/conf.d/cloudflare-real-ip.conf` is installed so `$remote_addr` reflects the real visitor via `CF-Connecting-IP`. Refresh Cloudflare IP ranges periodically.
+3. Confirm `/etc/nginx/conf.d/pariah-cloudflare-ip.conf` is installed so `$remote_addr` reflects the real visitor via `CF-Connecting-IP`. Enabling `pariah` also starts `pariah-cloudflare-ip.timer` (daily refresh); run `systemctl start pariah-cloudflare-ip.service` for a one-shot update.
+4. **Upgrading from an older package:** remove leftover `/etc/nginx/conf.d/cloudflare-real-ip.conf` if present, so nginx does not load duplicate `set_real_ip_from` / `real_ip_header` directives.
 
 ## 8. Verification
 

@@ -25,11 +25,12 @@ sudo systemctl restart pariah.service
 | `pariah-worker-iar.service` | Process user-requested IAR inventory backups |
 | `pariah-worker-log.service` + `.timer` | Ingest gatekeeper logs; clean texture cache |
 | `pariah-worker-calendar.service` + `.timer` | Deliver calendar notification emails / in-world messages |
+| `pariah-cloudflare-ip.service` + `.timer` | Refresh Cloudflare proxy ranges in nginx real-IP conf (root; pulled in by `pariah.service`) |
 
 ```bash
 sudo systemctl list-timers 'pariah-*'
 sudo journalctl -u pariah-worker-iar.service -u pariah-worker-log.service \
-                 -u pariah-worker-calendar.service -n 100
+                 -u pariah-worker-calendar.service -u pariah-cloudflare-ip.service -n 100
 ```
 
 Worker logs also land in `/var/log/os_pariah/` when that directory is writable by the
@@ -48,7 +49,7 @@ Worker logs also land in `/var/log/os_pariah/` when that directory is writable b
 | Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (override in System Settings) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
 | Nginx vhost | `/etc/nginx/vhosts.d/OS-Pariah.conf` |
-| Cloudflare real-IP | `/etc/nginx/conf.d/cloudflare-real-ip.conf` |
+| Cloudflare real-IP | `/etc/nginx/conf.d/pariah-cloudflare-ip.conf` |
 
 ## Secrets rotation
 
@@ -74,7 +75,7 @@ All sessions are invalidated. Back up the secrets file **separately** from Maria
 | Symptom | Check |
 |---------|-------|
 | Service fails at start | `journalctl -u pariah -n 100` — usually MariaDB unreachable or a migration error |
-| Wrong visitor IP / bans misfire | Confirm Cloudflare Full (strict) and `cloudflare-real-ip.conf` is included |
+| Wrong visitor IP / bans misfire | Confirm Cloudflare Full (strict) and `pariah-cloudflare-ip.conf` is included; check `pariah-cloudflare-ip.timer` |
 | Sessions keep dropping after restart | `/etc/os_pariah/secrets` was regenerated or is missing from backups |
 | No Super Admin after install | Log in once with a `userLevel >= 250` account, or set `ADMIN_UUID` and restart |
 | Static CSS 404 after upgrade | `custom_css_path` still points at `/static/css/central.css` — migration `010` should have fixed the default; clear or update the setting |
