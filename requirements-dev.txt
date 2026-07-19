@@ -1,6 +1,6 @@
 # Development / CI tooling. Not installed by the production RPM.
 # Install: pip install -r requirements-dev.txt
 ruff==0.15.22
-pre-commit==4.5.1
+pre-commit==4.6.0
 pytest==9.1.1
 pytest-flask==1.3.0
