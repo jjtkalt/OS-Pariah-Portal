@@ -5,4 +5,4 @@ This file is intended to be updated automatically during RPM builds (from the re
 but it also serves as a safe fallback for manual installs.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"

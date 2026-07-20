@@ -12,6 +12,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.0.1] – 2026-07-20
+
+Maintenance release focused on dependency security updates and Platform Standards alignment. Changes since [1.0.0](#100--2026-05-31).
+
+### Security
+
+- **Dependency updates** addressing current advisories and supply-chain freshness: `cryptography` 46.0.7 → 49.0.0, `PyJWT` 2.12.0 → 2.13.0, plus `certifi`, `bleach`, and related transitive pins.
+- **Secrets separation (ADR-013):** `SECRET_KEY` is generated and stored in `/etc/os_pariah/secrets` (mode 0600, owned by `pariah`), not in the main config file; development uses a project-root `.secrets` fallback via `scripts/ensure_secrets.py`.
+- **Cloudflare client IP trust:** packaged `pariah-cloudflare-ip` timer/service keeps nginx `set_real_ip_from` ranges current so access control and audit logs see true client addresses behind Cloudflare Full (strict).
+
+### Added
+
+- Daily Cloudflare IP range updater (`scripts/update_cloudflare_real_ip.py`, `pariah-cloudflare-ip.service` / `.timer`), pulled in by the master `pariah.service`.
+- Dependabot configuration for pip dependency PRs.
+- Ruff lint and format with pre-commit hooks and a CI `lint` job.
+- Platform Standards packaging and docs depth: tabbed `/manual.html`, `app/static/css/base.css` tokens, `docs/DEPLOYMENT.md`, and `docs/OPERATIONS.md`.
+
+### Changed
+
+- Align portal install layout with Platform Standards (secrets path, CSS rename `central.css` → `base.css` with migration `010_rename_central_css.sql`, Cloudflare conf naming).
+- Admin template markup cleanup for consistency with shared form styling.
+
+### Dependencies
+
+- Bumped: `cachelib`, `certifi`, `charset-normalizer`, `cryptography`, `DBUtils`, `Flask-Caching`, `packaging`, `PyJWT`, `PyMySQL`, `pytest`, `markdown`, `bleach`.
+
+---
+
 ## [1.0.0] – 2026-05-31
 
 First stable release. Changes since [0.10.1](#0101).
