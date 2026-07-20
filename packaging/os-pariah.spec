@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah-portal
-Version:        1.0.0
+Version:        1.0.1
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
