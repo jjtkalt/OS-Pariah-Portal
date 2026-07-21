@@ -10,9 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - None recorded. Track new findings as GitHub issues or append here before tagging a release.
 
+### Fixed
+
+- **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
+- **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).
+
 ---
 
 ## [1.0.1] – 2026-07-20
+
+> **WITHDRAWN — do not install.** GitHub release artifacts removed. Packaging regression: `/etc/os_pariah` was owned `pariah:pariah` mode `0750`, so `opensim` workers could not read the config and failed with `Access denied for user 'pariah_user'@'localhost'`. Stay on **v1.0.0** or apply the workaround in [#61](https://github.com/jjtkalt/OS-Pariah-Portal/issues/61) until **v1.0.2**.
 
 Maintenance release focused on dependency security updates and Platform Standards alignment. Changes since [1.0.0](#100--2026-05-31).
 

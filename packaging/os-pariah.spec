@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah-portal
-Version:        1.0.1
+Version:        1.0.2
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
@@ -78,11 +78,16 @@ echo "Installing Python Dependencies..."
 /opt/os_pariah/venv/bin/pip install -r /opt/os_pariah/requirements.txt
 
 # Lock down permissions
-chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
+chown -R pariah:pariah /opt/os_pariah
+# Shared with User=opensim workers (texture JPG cache cleanup, worker logs)
+chown -R pariah:opensim /var/log/os_pariah /home/opensim/FSAssets/pariahcache
+chmod 0770 /var/log/os_pariah
+chmod 0775 /home/opensim/FSAssets/pariahcache
 
 # Ensure the pariah user can create /etc/os_pariah/secrets on first start (ADR-013).
-# The secrets file itself is NOT shipped in the RPM; it is generated at runtime.
-chown pariah:pariah /etc/os_pariah
+# Directory group must be opensim so worker units (User=opensim) can traverse and
+# read os-pariah.conf (0640 pariah:opensim). Secrets remain 0600 pariah-only.
+chown pariah:opensim /etc/os_pariah
 chmod 0750 /etc/os_pariah
 
 # Reload systemd so it sees the new service files
@@ -106,7 +111,7 @@ echo "========================================================="
 %files
 # We claim ownership of these directories and files
 /opt/os_pariah/
-/home/opensim/FSAssets/pariahcache/
+%dir %attr(0775, pariah, opensim) /home/opensim/FSAssets/pariahcache/
 %attr(0775, pariah, opensim) /home/opensim/Backups/downloads/
 %dir %attr(0770, pariah, opensim) /var/log/os_pariah/
 /usr/lib/systemd/system/pariah.service
@@ -123,7 +128,7 @@ echo "========================================================="
 /etc/nginx/dummypariah.crt
 /etc/nginx/dummypariah.key
 /etc/sudoers.d/pariah_worker
-%dir %attr(0750, pariah, pariah) /etc/os_pariah/
+%dir %attr(0750, pariah, opensim) /etc/os_pariah/
 %config(noreplace) %attr(0640, pariah, opensim) /etc/os_pariah/os-pariah.conf
 %doc README.md
 %doc CHANGELOG.md
