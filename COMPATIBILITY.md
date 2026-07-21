@@ -10,8 +10,9 @@ While the portal *may* work with standard OpenSimulator Core or other forks, we 
 
 | OS Pariah Portal | NGC-Tranquility | Status | Notes |
 | :--- | :--- | :--- | :--- |
-| **v1.0.1** | 🟢`v0.9.3.9333` | 🟢Active | Current stable release (security/deps + Platform Standards). |
-| **v1.0.0** | 🟢`v0.9.3.9333` | 🟢Supported | First stable release. |
+| **v1.0.2** | 🟢`v0.9.3.9333` | 🟡Pending | Hotfix for `/etc/os_pariah` group ownership (opensim workers). Ship ASAP. |
+| **v1.0.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Packaging set `/etc/os_pariah` to `pariah:pariah` `0750`, so `opensim` workers cannot read conf (see #61). Use v1.0.0 until v1.0.2, or apply the ownership workaround. |
+| **v1.0.0** | 🟢`v0.9.3.9333` | 🟢Active | Current supported stable release until v1.0.2. |
 | **v0.10.1** | 🟢`v0.9.3.9333` | 🟡Beta | Beta release (not tagged; see v1.0.0). |
 | **v0.10.0** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
 | **v0.9.4** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
