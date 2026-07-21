@@ -461,11 +461,54 @@ def clean_texture_cache():
         print(f"Failed during texture cache cleanup: {e}")
 
 
+def refresh_texture_gallery_snapshot():
+    """Pull recent textures from Robust into Pariah texture_gallery_snapshot."""
+    from contextlib import suppress
+
+    from app.utils.texture_gallery import (
+        fetch_textures_for_snapshot,
+        replace_texture_gallery_snapshot,
+    )
+
+    try:
+        limit = int(
+            str(get_dynamic_config("texture_gallery_snapshot_limit") or "2000").strip()
+        )
+    except (TypeError, ValueError):
+        limit = 2000
+    if limit < 48:
+        limit = 48
+    if limit > 20000:
+        limit = 20000
+
+    robust_conn = None
+    pariah_conn = None
+    try:
+        robust_conn = get_robust_db()
+        rows = fetch_textures_for_snapshot(robust_conn, limit=limit)
+        pariah_conn = get_pariah_db()
+        count = replace_texture_gallery_snapshot(pariah_conn, rows)
+        print(f"Texture Gallery Snapshot: refreshed {count} rows (limit={limit}).")
+    except Exception as e:
+        print(f"Texture Gallery Snapshot refresh failed: {e}")
+        if pariah_conn is not None:
+            with suppress(Exception):
+                pariah_conn.rollback()
+    finally:
+        if robust_conn is not None:
+            with suppress(Exception):
+                robust_conn.close()
+        if pariah_conn is not None:
+            with suppress(Exception):
+                pariah_conn.close()
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "logs":
             parse_gatekeeper_logs()
-            clean_texture_cache()  # <--- Integrated Here
+            clean_texture_cache()
+            refresh_texture_gallery_snapshot()
         elif sys.argv[1] == "iar":
             process_iar_backups()
             cleanup_old_iars()

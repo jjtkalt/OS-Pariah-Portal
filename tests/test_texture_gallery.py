@@ -1,8 +1,15 @@
 import os
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from app.utils.schema import PERM_VIEW_ASSETS
+from app.utils.texture_gallery import (
+    fetch_textures_from_snapshot,
+    fetch_textures_inverted,
+    normalize_owner_names,
+    replace_texture_gallery_snapshot,
+    snapshot_count,
+)
 
 # --- 1. TEST THE CACHE CLEANUP ROUTINE ---
 
@@ -53,19 +60,110 @@ def test_clean_texture_cache(
     )
 
 
-# --- 2. TEST THE GALLERY ROUTE ---
+# --- 2. GALLERY LISTING HELPERS ---
 
 
-@patch("app.blueprints.admin.routes.get_robust_db")
-def test_texture_gallery_access(mock_get_db, client):
-    """Test that admins can view the gallery, and db queries execute."""
-    mock_conn = MagicMock()
-    mock_cursor = MagicMock()
-    mock_get_db.return_value = mock_conn
-    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+def test_normalize_owner_names_fills_missing():
+    rows = [{"owner_name": None}, {"owner_name": "Ada Lovelace"}]
+    out = normalize_owner_names(rows)
+    assert out[0]["owner_name"] == "System / Orphaned / HG"
+    assert out[1]["owner_name"] == "Ada Lovelace"
 
-    # UPDATED: Match the new SQL structure!
-    mock_cursor.fetchall.return_value = [
+
+def test_fetch_textures_inverted_global_uses_candidate_subquery():
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [
+        {
+            "id": "asset-1",
+            "hash": "abc",
+            "name": "Tex",
+            "create_time": 100,
+            "owner_uuid": "u1",
+            "owner_name": "Owner",
+        }
+    ]
+
+    rows = fetch_textures_inverted(conn, limit=48, offset=0)
+    assert len(rows) == 1
+    sql = cursor.execute.call_args[0][0]
+    params = cursor.execute.call_args[0][1]
+    assert "FROM (" in sql
+    assert "FROM fsassets" in sql
+    assert "ORDER BY create_time DESC" in sql
+    assert "LIMIT %s" in sql
+    # candidate limit, baked, mesh, page limit, offset
+    assert params[0] >= 200
+    assert params[-2:] == (48, 0)
+
+
+def test_fetch_textures_inverted_owner_filters_avatar():
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = []
+
+    fetch_textures_inverted(conn, limit=48, offset=96, owner_uuid="user-uuid")
+    sql = cursor.execute.call_args[0][0]
+    params = cursor.execute.call_args[0][1]
+    assert "i.avatarID = %s" in sql
+    assert params[0] == "user-uuid"
+    assert params[-2:] == (48, 96)
+
+
+def test_snapshot_round_trip_helpers():
+    count_conn = MagicMock()
+    count_cursor = MagicMock()
+    count_conn.cursor.return_value.__enter__.return_value = count_cursor
+    count_cursor.fetchone.return_value = {"c": 2}
+    assert snapshot_count(count_conn) == 2
+
+    fetch_conn = MagicMock()
+    fetch_cursor = MagicMock()
+    fetch_conn.cursor.return_value.__enter__.return_value = fetch_cursor
+    fetch_cursor.fetchall.return_value = [
+        {
+            "id": "a1",
+            "hash": "h1",
+            "name": "N",
+            "create_time": 1,
+            "owner_uuid": "u",
+            "owner_name": None,
+        }
+    ]
+    rows = fetch_textures_from_snapshot(fetch_conn, limit=48, offset=0)
+    assert rows[0]["owner_name"] == "System / Orphaned / HG"
+
+    write_conn = MagicMock()
+    write_cursor = MagicMock()
+    write_conn.cursor.return_value.__enter__.return_value = write_cursor
+    replace_texture_gallery_snapshot(
+        write_conn,
+        [
+            {
+                "hash": "h1",
+                "id": "a1",
+                "name": "N",
+                "create_time": 1,
+                "owner_uuid": "u",
+                "owner_name": "Name",
+            }
+        ],
+    )
+    assert write_cursor.execute.call_args_list[0] == call(
+        "DELETE FROM texture_gallery_snapshot"
+    )
+    assert write_cursor.executemany.called
+    write_conn.commit.assert_called()
+
+
+# --- 3. TEST THE GALLERY ROUTE ---
+
+
+def test_texture_gallery_uses_snapshot_when_populated(client):
+    """Global gallery reads Pariah snapshot when rows exist."""
+    snap_rows = [
         {
             "id": "123",
             "hash": "abcdef",
@@ -80,15 +178,85 @@ def test_texture_gallery_access(mock_get_db, client):
         sess["uuid"] = "admin-uuid"
         sess["permissions"] = PERM_VIEW_ASSETS
 
-    response = client.get("/admin/gallery")
+    with (
+        patch("app.blueprints.admin.routes.snapshot_count", return_value=1),
+        patch(
+            "app.blueprints.admin.routes.fetch_textures_from_snapshot",
+            return_value=snap_rows,
+        ) as mock_fetch,
+        patch("app.blueprints.admin.routes.fetch_textures_inverted") as mock_inverted,
+        patch("app.blueprints.admin.routes.get_pariah_db", return_value=MagicMock()),
+    ):
+        response = client.get("/admin/gallery")
+
     assert response.status_code == 200
     assert b"Texture Gallery" in response.data
     assert b"Test Texture" in response.data
     assert b"abcdef" in response.data
     assert b"Test Avatar" in response.data
+    mock_fetch.assert_called_once()
+    mock_inverted.assert_not_called()
 
 
-# --- 3. TEST THE OPENCV SMART PROXY ---
+def test_texture_gallery_uuid_uses_inverted_robust(client):
+    with client.session_transaction() as sess:
+        sess["uuid"] = "admin-uuid"
+        sess["permissions"] = PERM_VIEW_ASSETS
+
+    with patch(
+        "app.blueprints.admin.routes.fetch_textures_inverted",
+        return_value=[
+            {
+                "id": "123",
+                "hash": "aabbcc",
+                "name": "User Tex",
+                "create_time": 1600000000,
+                "owner_uuid": "target-uuid",
+                "owner_name": "Target User",
+            }
+        ],
+    ) as mock_inverted:
+        response = client.get("/admin/gallery?uuid=target-uuid")
+
+    assert response.status_code == 200
+    assert b"User Tex" in response.data
+    mock_inverted.assert_called_once()
+    assert mock_inverted.call_args.kwargs["owner_uuid"] == "target-uuid"
+
+
+@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_robust_db")
+@patch("scripts.worker.get_dynamic_config")
+def test_refresh_texture_gallery_snapshot(
+    mock_get_config, mock_get_robust, mock_get_pariah
+):
+    from scripts.worker import refresh_texture_gallery_snapshot
+
+    mock_get_config.return_value = "100"
+    robust = MagicMock()
+    pariah = MagicMock()
+    mock_get_robust.return_value = robust
+    mock_get_pariah.return_value = pariah
+
+    with (
+        patch(
+            "app.utils.texture_gallery.fetch_textures_for_snapshot",
+            return_value=[{"hash": "h", "id": "i", "name": "n", "create_time": 1}],
+        ) as mock_fetch,
+        patch(
+            "app.utils.texture_gallery.replace_texture_gallery_snapshot",
+            return_value=1,
+        ) as mock_replace,
+    ):
+        refresh_texture_gallery_snapshot()
+
+    mock_fetch.assert_called_once_with(robust, limit=100)
+    mock_replace.assert_called_once()
+    robust.close.assert_called_once()
+    pariah.close.assert_called_once()
+
+
+# --- 4. TEST THE OPENCV SMART PROXY ---
 
 
 @patch("app.blueprints.admin.routes.os.makedirs")

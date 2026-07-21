@@ -337,6 +337,11 @@ KNOWN_SETTINGS = {
             "type": "number",
             "default": "30",
         },
+        "texture_gallery_snapshot_limit": {
+            "label": "Texture Gallery Snapshot Size (rows refreshed into Pariah)",
+            "type": "number",
+            "default": "2000",
+        },
         "robust_main_ini_path": {
             "label": "Robust main.ini Path (MAC ban sync)",
             "type": "text",

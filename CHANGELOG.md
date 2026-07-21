@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - None recorded. Track new findings as GitHub issues or append here before tagging a release.
 
+### Fixed
+
+- **Texture gallery hang:** global listing no longer drives from a full `inventoryitems` ⨝ `fsassets` join on the request path. Recent rows are served from Pariah `texture_gallery_snapshot` (refreshed by `pariah-worker-log`); Robust queries use an fsassets-first plan. Optional additive Robust indexes via `scripts/apply_robust_texture_indexes.py` (see #59).
+
+### Added
+
+- Migration `011_texture_gallery_snapshot.sql` and setting `texture_gallery_snapshot_limit`.
+- Ops one-off: `scripts/apply_robust_texture_indexes.py` + `scripts/sql/robust_texture_gallery_indexes.sql`.
+
 ---
 
 ## [1.0.1] – 2026-07-20
