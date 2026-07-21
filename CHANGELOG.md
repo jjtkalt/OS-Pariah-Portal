@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
+- **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).
 
 ---
 

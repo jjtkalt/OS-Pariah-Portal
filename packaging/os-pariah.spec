@@ -78,7 +78,11 @@ echo "Installing Python Dependencies..."
 /opt/os_pariah/venv/bin/pip install -r /opt/os_pariah/requirements.txt
 
 # Lock down permissions
-chown -R pariah:pariah /opt/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
+chown -R pariah:pariah /opt/os_pariah
+# Shared with User=opensim workers (texture JPG cache cleanup, worker logs)
+chown -R pariah:opensim /var/log/os_pariah /home/opensim/FSAssets/pariahcache
+chmod 0770 /var/log/os_pariah
+chmod 0775 /home/opensim/FSAssets/pariahcache
 
 # Ensure the pariah user can create /etc/os_pariah/secrets on first start (ADR-013).
 # Directory group must be opensim so worker units (User=opensim) can traverse and
@@ -107,7 +111,7 @@ echo "========================================================="
 %files
 # We claim ownership of these directories and files
 /opt/os_pariah/
-/home/opensim/FSAssets/pariahcache/
+%dir %attr(0775, pariah, opensim) /home/opensim/FSAssets/pariahcache/
 %attr(0775, pariah, opensim) /home/opensim/Backups/downloads/
 %dir %attr(0770, pariah, opensim) /var/log/os_pariah/
 /usr/lib/systemd/system/pariah.service

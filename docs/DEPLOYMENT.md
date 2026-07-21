@@ -58,10 +58,11 @@ sudo useradd -r -g nginx -d /opt/os_pariah -s /sbin/nologin \
 
 sudo mkdir -p /opt/os_pariah /etc/os_pariah /var/log/os_pariah \
     /home/opensim/FSAssets/pariahcache /home/opensim/Backups/downloads
-sudo chown pariah:pariah /opt/os_pariah /home/opensim/FSAssets/pariahcache
-sudo chown pariah:opensim /etc/os_pariah /var/log/os_pariah
+sudo chown pariah:pariah /opt/os_pariah
+sudo chown pariah:opensim /etc/os_pariah /var/log/os_pariah /home/opensim/FSAssets/pariahcache
 sudo chmod 0750 /etc/os_pariah
 sudo chmod 0770 /var/log/os_pariah
+sudo chmod 0775 /home/opensim/FSAssets/pariahcache
 
 # Deploy application code to /opt/os_pariah (git clone / rsync)
 cd /opt/os_pariah

@@ -47,7 +47,7 @@ Worker logs also land in `/var/log/os_pariah/` when that directory is writable b
 | Secrets (`SECRET_KEY`) | `/etc/os_pariah/secrets` (auto-generated; mode `0600`, `pariah` only) |
 | Runtime socket | `/run/os_pariah/pariah.sock` |
 | Logs | `/var/log/os_pariah/` |
-| Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (override in System Settings) |
+| Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (`0775 pariah:opensim`; override path in System Settings) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
 | Nginx vhost | `/etc/nginx/vhosts.d/OS-Pariah.conf` |
 | Cloudflare real-IP | `/etc/nginx/conf.d/pariah-cloudflare-ip.conf` |
@@ -77,6 +77,7 @@ All sessions are invalidated. Back up the secrets file **separately** from Maria
 |---------|-------|
 | Service fails at start | `journalctl -u pariah -n 100` — usually MariaDB unreachable or a migration error |
 | Worker fails with `pariah_user` access denied | `/etc/os_pariah` must be `0750 pariah:opensim` (not `pariah:pariah`). v1.0.1 had this bug — see [#61](https://github.com/jjtkalt/OS-Pariah-Portal/issues/61). Workaround: `sudo chown pariah:opensim /etc/os_pariah && sudo chmod 0750 /etc/os_pariah` |
+| Texture cache cleanup cannot delete JPGs | `/home/opensim/FSAssets/pariahcache` must be `0775 pariah:opensim` so `opensim` workers can write. Workaround: `sudo chown -R pariah:opensim /home/opensim/FSAssets/pariahcache && sudo chmod 0775 /home/opensim/FSAssets/pariahcache` |
 | Wrong visitor IP / bans misfire | Confirm Cloudflare Full (strict) and `pariah-cloudflare-ip.conf` is included; check `pariah-cloudflare-ip.timer` |
 | Sessions keep dropping after restart | `/etc/os_pariah/secrets` was regenerated or is missing from backups |
 | No Super Admin after install | Log in once with a `userLevel >= 250` account, or set `ADMIN_UUID` and restart |
