@@ -224,15 +224,40 @@ def test_texture_gallery_uuid_uses_inverted_robust(client):
     assert mock_inverted.call_args.kwargs["owner_uuid"] == "target-uuid"
 
 
+def test_fetch_textures_for_snapshot_uses_time_window():
+    from app.utils.texture_gallery import fetch_textures_for_snapshot
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = []
+
+    fetch_textures_for_snapshot(conn, since_unix=1_700_000_000, max_rows=50000)
+    sql = cursor.execute.call_args[0][0]
+    params = cursor.execute.call_args[0][1]
+    assert "f.create_time >= %s" in sql
+    assert "FROM fsassets f" in sql
+    assert "FROM (" not in sql
+    assert params[-2:] == (1_700_000_000, 50000)
+
+
 @patch("scripts.worker.get_pariah_db")
 @patch("scripts.worker.get_robust_db")
 @patch("scripts.worker.get_dynamic_config")
+@patch("scripts.worker.time.time", return_value=1_720_000_000)
 def test_refresh_texture_gallery_snapshot(
-    mock_get_config, mock_get_robust, mock_get_pariah
+    _mock_time, mock_get_config, mock_get_robust, mock_get_pariah
 ):
     from scripts.worker import refresh_texture_gallery_snapshot
 
-    mock_get_config.return_value = "100"
+    def fake_config(key, default=None):
+        if key == "texture_gallery_snapshot_days":
+            return "14"
+        if key == "texture_gallery_snapshot_limit":
+            return "50000"
+        return default
+
+    mock_get_config.side_effect = fake_config
     robust = MagicMock()
     pariah = MagicMock()
     mock_get_robust.return_value = robust
@@ -250,7 +275,9 @@ def test_refresh_texture_gallery_snapshot(
     ):
         refresh_texture_gallery_snapshot()
 
-    mock_fetch.assert_called_once_with(robust, limit=100)
+    mock_fetch.assert_called_once_with(
+        robust, since_unix=1_720_000_000 - (14 * 86400), max_rows=50000
+    )
     mock_replace.assert_called_once()
     robust.close.assert_called_once()
     pariah.close.assert_called_once()

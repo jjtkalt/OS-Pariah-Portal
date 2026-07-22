@@ -337,10 +337,15 @@ KNOWN_SETTINGS = {
             "type": "number",
             "default": "30",
         },
-        "texture_gallery_snapshot_limit": {
-            "label": "Texture Gallery Snapshot Size (rows refreshed into Pariah)",
+        "texture_gallery_snapshot_days": {
+            "label": "Texture Gallery Snapshot Window (Days of recent textures)",
             "type": "number",
-            "default": "2000",
+            "default": "14",
+        },
+        "texture_gallery_snapshot_limit": {
+            "label": "Texture Gallery Snapshot Max Rows (safety cap)",
+            "type": "number",
+            "default": "50000",
         },
         "robust_main_ini_path": {
             "label": "Robust main.ini Path (MAC ban sync)",

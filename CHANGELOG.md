@@ -12,11 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- **Texture gallery hang:** global listing no longer drives from a full `inventoryitems` ⨝ `fsassets` join on the request path. Recent rows are served from Pariah `texture_gallery_snapshot` (refreshed by `pariah-worker-log`); Robust queries use an fsassets-first plan. Optional additive Robust indexes via `scripts/apply_robust_texture_indexes.py` (see #59).
+- **Texture gallery hang:** global listing no longer drives from a full `inventoryitems` ⨝ `fsassets` join on the request path. Recent rows are served from Pariah `texture_gallery_snapshot` (refreshed by `pariah-worker-log` for the last **14 days** by default, with a max-row safety cap); Robust queries use an fsassets-first plan. Optional additive Robust indexes via `scripts/apply_robust_texture_indexes.py` (see #59).
 
 ### Added
 
-- Migration `011_texture_gallery_snapshot.sql` and setting `texture_gallery_snapshot_limit`.
+- Migration `011_texture_gallery_snapshot.sql` and settings `texture_gallery_snapshot_days` (default 14) / `texture_gallery_snapshot_limit` (max-row safety cap).
 - Ops one-off: `scripts/apply_robust_texture_indexes.py` + `scripts/sql/robust_texture_gallery_indexes.sql`.
 - **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
 - **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).

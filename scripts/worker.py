@@ -462,7 +462,11 @@ def clean_texture_cache():
 
 
 def refresh_texture_gallery_snapshot():
-    """Pull recent textures from Robust into Pariah texture_gallery_snapshot."""
+    """Pull recent textures from Robust into Pariah texture_gallery_snapshot.
+
+    Defaults to at least the last 14 days (configurable) so admins have a useful
+    casual-monitoring window without loading the entire asset catalog.
+    """
     from contextlib import suppress
 
     from app.utils.texture_gallery import (
@@ -471,24 +475,42 @@ def refresh_texture_gallery_snapshot():
     )
 
     try:
-        limit = int(
-            str(get_dynamic_config("texture_gallery_snapshot_limit") or "2000").strip()
+        days = int(
+            str(get_dynamic_config("texture_gallery_snapshot_days") or "14").strip()
         )
     except (TypeError, ValueError):
-        limit = 2000
-    if limit < 48:
-        limit = 48
-    if limit > 20000:
-        limit = 20000
+        days = 14
+    if days < 1:
+        days = 1
+    if days > 365:
+        days = 365
+
+    try:
+        max_rows = int(
+            str(get_dynamic_config("texture_gallery_snapshot_limit") or "50000").strip()
+        )
+    except (TypeError, ValueError):
+        max_rows = 50000
+    if max_rows < 48:
+        max_rows = 48
+    if max_rows > 200000:
+        max_rows = 200000
+
+    since_unix = int(time.time()) - (days * 86400)
 
     robust_conn = None
     pariah_conn = None
     try:
         robust_conn = get_robust_db()
-        rows = fetch_textures_for_snapshot(robust_conn, limit=limit)
+        rows = fetch_textures_for_snapshot(
+            robust_conn, since_unix=since_unix, max_rows=max_rows
+        )
         pariah_conn = get_pariah_db()
         count = replace_texture_gallery_snapshot(pariah_conn, rows)
-        print(f"Texture Gallery Snapshot: refreshed {count} rows (limit={limit}).")
+        print(
+            f"Texture Gallery Snapshot: refreshed {count} rows "
+            f"(days={days}, since={since_unix}, max_rows={max_rows})."
+        )
     except Exception as e:
         print(f"Texture Gallery Snapshot refresh failed: {e}")
         if pariah_conn is not None:

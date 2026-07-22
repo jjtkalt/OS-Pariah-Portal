@@ -3,7 +3,8 @@
 The gallery used to drive from inventoryitems JOIN fsassets with GROUP BY/ORDER BY
 before LIMIT, which pegs a single MariaDB thread on large grids. Callers should:
 
-1. Prefer reading ``texture_gallery_snapshot`` in the Pariah DB (filled by the worker).
+1. Prefer reading ``texture_gallery_snapshot`` in the Pariah DB (filled by the worker
+   for a recent time window — default last 14 days — for casual admin monitoring).
 2. Fall back to ``fetch_textures_inverted`` against Robust (fsassets-first plan).
 """
 
@@ -102,9 +103,44 @@ def fetch_textures_inverted(
         return normalize_owner_names(list(cursor.fetchall() or []))
 
 
-def fetch_textures_for_snapshot(robust_conn, *, limit: int) -> list[dict[str, Any]]:
-    """Fetch the newest textures to materialize into the Pariah snapshot table."""
-    return fetch_textures_inverted(robust_conn, limit=limit, offset=0, owner_uuid=None)
+def fetch_textures_for_snapshot(
+    robust_conn,
+    *,
+    since_unix: int,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    """Fetch textures with fsassets.create_time >= since_unix for the Pariah snapshot.
+
+    Uses a time window (not a candidate oversample) so quiet grids still get a
+    full recent set for casual admin monitoring. ``max_rows`` is a safety cap.
+    """
+    if max_rows < 1:
+        return []
+
+    baked = "%Baked%"
+    mesh = "%Mesh%"
+    sql = """
+        SELECT f.id AS id,
+               f.hash AS hash,
+               MAX(i.inventoryName) AS name,
+               f.create_time AS create_time,
+               MAX(i.avatarID) AS owner_uuid,
+               MAX(CONCAT(u.FirstName, ' ', u.LastName)) AS owner_name
+        FROM fsassets f
+        INNER JOIN inventoryitems i
+                ON i.assetID = f.id
+               AND i.assetType = 0
+               AND i.inventoryName NOT LIKE %s
+               AND i.inventoryName NOT LIKE %s
+        LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
+        WHERE f.create_time >= %s
+        GROUP BY f.id, f.hash, f.create_time
+        ORDER BY f.create_time DESC
+        LIMIT %s
+    """
+    with robust_conn.cursor() as cursor:
+        cursor.execute(sql, (baked, mesh, int(since_unix), int(max_rows)))
+        return normalize_owner_names(list(cursor.fetchall() or []))
 
 
 def replace_texture_gallery_snapshot(pariah_conn, rows: list[dict[str, Any]]) -> int:
