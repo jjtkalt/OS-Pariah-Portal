@@ -38,6 +38,11 @@ from app.utils.schema import (
     PERM_VIEW_ASSETS,
     PERM_VIEW_AUDIT,
 )
+from app.utils.texture_gallery import (
+    fetch_textures_from_snapshot,
+    fetch_textures_inverted,
+    snapshot_count,
+)
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -463,8 +468,13 @@ def serve_texture(hash_val):
 @admin_bp.route("/gallery")
 @rbac_required(PERM_VIEW_ASSETS)
 def texture_gallery():
-    """Renders a paginated gallery of grid textures."""
+    """Renders a paginated gallery of grid textures.
 
+    Global listings prefer the Pariah ``texture_gallery_snapshot`` table (filled by
+    the log worker) so the request path avoids the heavy Robust join. Per-user
+    UUID filters use an inverted / selective Robust query. If the snapshot is
+    empty, global view falls back to the inverted Robust plan.
+    """
     # Check permissions and warn Admin (RESTORED)
     cache_dir = get_dynamic_config("texture_cache_path")
     try:
@@ -485,51 +495,30 @@ def texture_gallery():
     target_uuid = request.args.get("uuid", "").strip()
 
     textures = []
-    robust_conn = get_robust_db()
 
     try:
-        with robust_conn.cursor() as cursor:
-            # Base query joining inventoryitems (i), fsassets (f), and useraccounts (u)
-            base_query = """
-                SELECT f.id, f.hash, MAX(i.inventoryName) as name, MAX(f.create_time) as create_time,
-                       MAX(i.avatarID) as owner_uuid, MAX(CONCAT(u.FirstName, ' ', u.LastName)) as owner_name
-                FROM inventoryitems i
-                JOIN fsassets f ON i.assetID = f.id
-                LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
-                WHERE i.assetType = 0
-                  AND i.inventoryName NOT LIKE '%%Baked%%'
-                  AND i.inventoryName NOT LIKE '%%Mesh%%'
-            """
-
-            if target_uuid:
-                cursor.execute(
-                    base_query
-                    + """
-                  AND i.avatarID = %s
-                  GROUP BY f.hash
-                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
-                """,
-                    (target_uuid, per_page, offset),
+        if target_uuid:
+            textures = fetch_textures_inverted(
+                get_robust_db(),
+                limit=per_page,
+                offset=offset,
+                owner_uuid=target_uuid,
+            )
+        else:
+            pariah_conn = get_pariah_db()
+            if snapshot_count(pariah_conn) > 0:
+                textures = fetch_textures_from_snapshot(
+                    pariah_conn, limit=per_page, offset=offset
                 )
             else:
-                cursor.execute(
-                    base_query
-                    + """
-                  GROUP BY f.hash
-                  ORDER BY MAX(f.create_time) DESC LIMIT %s OFFSET %s
-                """,
-                    (per_page, offset),
+                textures = fetch_textures_inverted(
+                    get_robust_db(), limit=per_page, offset=offset
                 )
-
-            raw_textures = cursor.fetchall()
-
-            # Map unresolved names for Hypergrid or orphaned system items
-            for t in raw_textures:
-                if not t["owner_name"]:
-                    t["owner_name"] = "System / Orphaned / HG"
-
-            textures = raw_textures
-
+                flash(
+                    "Texture gallery snapshot is empty. Showing a live Robust query; "
+                    "it will populate after the next pariah-worker-log run.",
+                    "warning",
+                )
     except Exception as e:
         current_app.logger.error(f"Gallery Query Failed: {e}")
         flash("Failed to load textures from the database.", "error")
