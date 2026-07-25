@@ -342,6 +342,11 @@ KNOWN_SETTINGS = {
             "type": "number",
             "default": "14",
         },
+        "texture_gallery_snapshot_min_rows": {
+            "label": "Texture Gallery Snapshot Minimum Rows (top up older textures)",
+            "type": "number",
+            "default": "2000",
+        },
         "texture_gallery_snapshot_limit": {
             "label": "Texture Gallery Snapshot Max Rows (safety cap)",
             "type": "number",

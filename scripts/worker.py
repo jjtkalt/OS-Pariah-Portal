@@ -464,8 +464,9 @@ def clean_texture_cache():
 def refresh_texture_gallery_snapshot():
     """Pull recent textures from Robust into Pariah texture_gallery_snapshot.
 
-    Defaults to at least the last 14 days (configurable) so admins have a useful
-    casual-monitoring window without loading the entire asset catalog.
+    Defaults: at least the last 14 days, and at least 2000 rows (top up with
+    older textures on quiet grids; take all if fewer exist). Cap with max_rows
+    on busy grids.
     """
     from contextlib import suppress
 
@@ -486,6 +487,19 @@ def refresh_texture_gallery_snapshot():
         days = 365
 
     try:
+        min_rows = int(
+            str(
+                get_dynamic_config("texture_gallery_snapshot_min_rows") or "2000"
+            ).strip()
+        )
+    except (TypeError, ValueError):
+        min_rows = 2000
+    if min_rows < 48:
+        min_rows = 48
+    if min_rows > 200000:
+        min_rows = 200000
+
+    try:
         max_rows = int(
             str(get_dynamic_config("texture_gallery_snapshot_limit") or "50000").strip()
         )
@@ -495,6 +509,8 @@ def refresh_texture_gallery_snapshot():
         max_rows = 48
     if max_rows > 200000:
         max_rows = 200000
+    if min_rows > max_rows:
+        min_rows = max_rows
 
     since_unix = int(time.time()) - (days * 86400)
 
@@ -503,13 +519,17 @@ def refresh_texture_gallery_snapshot():
     try:
         robust_conn = get_robust_db()
         rows = fetch_textures_for_snapshot(
-            robust_conn, since_unix=since_unix, max_rows=max_rows
+            robust_conn,
+            since_unix=since_unix,
+            min_rows=min_rows,
+            max_rows=max_rows,
         )
         pariah_conn = get_pariah_db()
         count = replace_texture_gallery_snapshot(pariah_conn, rows)
         print(
             f"Texture Gallery Snapshot: refreshed {count} rows "
-            f"(days={days}, since={since_unix}, max_rows={max_rows})."
+            f"(days={days}, since={since_unix}, min_rows={min_rows}, "
+            f"max_rows={max_rows})."
         )
     except Exception as e:
         print(f"Texture Gallery Snapshot refresh failed: {e}")

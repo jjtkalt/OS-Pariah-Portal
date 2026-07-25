@@ -230,15 +230,76 @@ def test_fetch_textures_for_snapshot_uses_time_window():
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchall.return_value = []
+    # Window already meets min_rows — no top-up query.
+    cursor.fetchall.return_value = [
+        {
+            "id": f"a{i}",
+            "hash": f"h{i}",
+            "name": "N",
+            "create_time": 1000 - i,
+            "owner_uuid": "u",
+            "owner_name": "O",
+        }
+        for i in range(2000)
+    ]
 
-    fetch_textures_for_snapshot(conn, since_unix=1_700_000_000, max_rows=50000)
+    rows = fetch_textures_for_snapshot(
+        conn, since_unix=1_700_000_000, min_rows=2000, max_rows=50000
+    )
+    assert len(rows) == 2000
+    assert cursor.execute.call_count == 1
     sql = cursor.execute.call_args[0][0]
     params = cursor.execute.call_args[0][1]
     assert "f.create_time >= %s" in sql
     assert "FROM fsassets f" in sql
     assert "FROM (" not in sql
     assert params[-2:] == (1_700_000_000, 50000)
+
+
+def test_fetch_textures_for_snapshot_tops_up_to_min_rows():
+    from app.utils.texture_gallery import fetch_textures_for_snapshot
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+
+    window = [
+        {
+            "id": "a1",
+            "hash": "h1",
+            "name": "W",
+            "create_time": 200,
+            "owner_uuid": "u",
+            "owner_name": "O",
+        }
+    ]
+    newest = window + [
+        {
+            "id": "a2",
+            "hash": "h2",
+            "name": "Older",
+            "create_time": 100,
+            "owner_uuid": "u",
+            "owner_name": "O",
+        },
+        {
+            "id": "a3",
+            "hash": "h3",
+            "name": "Older2",
+            "create_time": 50,
+            "owner_uuid": "u",
+            "owner_name": None,
+        },
+    ]
+    cursor.fetchall.side_effect = [window, newest]
+
+    rows = fetch_textures_for_snapshot(
+        conn, since_unix=150, min_rows=2000, max_rows=50000
+    )
+    assert cursor.execute.call_count == 2
+    assert {r["hash"] for r in rows} == {"h1", "h2", "h3"}
+    assert rows[0]["hash"] == "h1"  # newest create_time first
+    assert rows[-1]["owner_name"] == "System / Orphaned / HG"
 
 
 @patch("scripts.worker.get_pariah_db")
@@ -253,6 +314,8 @@ def test_refresh_texture_gallery_snapshot(
     def fake_config(key, default=None):
         if key == "texture_gallery_snapshot_days":
             return "14"
+        if key == "texture_gallery_snapshot_min_rows":
+            return "2000"
         if key == "texture_gallery_snapshot_limit":
             return "50000"
         return default
@@ -276,7 +339,10 @@ def test_refresh_texture_gallery_snapshot(
         refresh_texture_gallery_snapshot()
 
     mock_fetch.assert_called_once_with(
-        robust, since_unix=1_720_000_000 - (14 * 86400), max_rows=50000
+        robust,
+        since_unix=1_720_000_000 - (14 * 86400),
+        min_rows=2000,
+        max_rows=50000,
     )
     mock_replace.assert_called_once()
     robust.close.assert_called_once()

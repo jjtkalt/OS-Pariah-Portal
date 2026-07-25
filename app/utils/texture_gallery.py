@@ -4,7 +4,8 @@ The gallery used to drive from inventoryitems JOIN fsassets with GROUP BY/ORDER 
 before LIMIT, which pegs a single MariaDB thread on large grids. Callers should:
 
 1. Prefer reading ``texture_gallery_snapshot`` in the Pariah DB (filled by the worker
-   for a recent time window — default last 14 days — for casual admin monitoring).
+   for a recent time window — default last 14 days, topped up to at least 2000 rows —
+   for casual admin monitoring).
 2. Fall back to ``fetch_textures_inverted`` against Robust (fsassets-first plan).
 """
 
@@ -103,23 +104,9 @@ def fetch_textures_inverted(
         return normalize_owner_names(list(cursor.fetchall() or []))
 
 
-def fetch_textures_for_snapshot(
-    robust_conn,
-    *,
-    since_unix: int,
-    max_rows: int,
-) -> list[dict[str, Any]]:
-    """Fetch textures with fsassets.create_time >= since_unix for the Pariah snapshot.
-
-    Uses a time window (not a candidate oversample) so quiet grids still get a
-    full recent set for casual admin monitoring. ``max_rows`` is a safety cap.
-    """
-    if max_rows < 1:
-        return []
-
-    baked = "%Baked%"
-    mesh = "%Mesh%"
-    sql = """
+def _texture_select_sql(*, where_extra: str = "") -> str:
+    """Shared SELECT for inventory textures joined to fsassets/useraccounts."""
+    return f"""
         SELECT f.id AS id,
                f.hash AS hash,
                MAX(i.inventoryName) AS name,
@@ -133,14 +120,76 @@ def fetch_textures_for_snapshot(
                AND i.inventoryName NOT LIKE %s
                AND i.inventoryName NOT LIKE %s
         LEFT JOIN useraccounts u ON i.avatarID = u.PrincipalID
-        WHERE f.create_time >= %s
+        {where_extra}
         GROUP BY f.id, f.hash, f.create_time
         ORDER BY f.create_time DESC
         LIMIT %s
     """
+
+
+def fetch_textures_for_snapshot(
+    robust_conn,
+    *,
+    since_unix: int,
+    min_rows: int = 2000,
+    max_rows: int = 50000,
+) -> list[dict[str, Any]]:
+    """Build the Pariah snapshot row set for casual monitoring.
+
+    1. Include **all** textures with ``create_time >= since_unix`` (default window:
+       last 14 days), up to ``max_rows``.
+    2. If that window has fewer than ``min_rows`` (default 2000), top up with the
+       next-newest textures outside the window until ``min_rows`` (or until the
+       grid runs out — take all we can).
+    3. Never exceed ``max_rows`` (busy-grid safety cap).
+    """
+    if max_rows < 1:
+        return []
+    if min_rows < 1:
+        min_rows = 1
+    if min_rows > max_rows:
+        min_rows = max_rows
+
+    baked = "%Baked%"
+    mesh = "%Mesh%"
+
     with robust_conn.cursor() as cursor:
-        cursor.execute(sql, (baked, mesh, int(since_unix), int(max_rows)))
-        return normalize_owner_names(list(cursor.fetchall() or []))
+        # Pass 1: everything in the time window (capped).
+        cursor.execute(
+            _texture_select_sql(where_extra="WHERE f.create_time >= %s"),
+            (baked, mesh, int(since_unix), int(max_rows)),
+        )
+        window_rows = list(cursor.fetchall() or [])
+
+        if len(window_rows) >= min_rows or len(window_rows) >= max_rows:
+            return normalize_owner_names(window_rows[:max_rows])
+
+        # Pass 2: newest overall to top up quiet / low-population grids.
+        cursor.execute(
+            _texture_select_sql(where_extra=""),
+            (baked, mesh, int(min_rows)),
+        )
+        newest_rows = list(cursor.fetchall() or [])
+
+    by_hash: dict[str, dict[str, Any]] = {}
+    for row in window_rows:
+        h = row.get("hash")
+        if h:
+            by_hash[h] = row
+    for row in newest_rows:
+        h = row.get("hash")
+        if not h or h in by_hash:
+            continue
+        by_hash[h] = row
+        if len(by_hash) >= min_rows:
+            break
+
+    merged = sorted(
+        by_hash.values(),
+        key=lambda r: int(r.get("create_time") or 0),
+        reverse=True,
+    )
+    return normalize_owner_names(merged[:max_rows])
 
 
 def replace_texture_gallery_snapshot(pariah_conn, rows: list[dict[str, Any]]) -> int:

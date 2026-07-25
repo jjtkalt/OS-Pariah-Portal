@@ -47,7 +47,7 @@ Worker logs also land in `/var/log/os_pariah/` when that directory is writable b
 | Secrets (`SECRET_KEY`) | `/etc/os_pariah/secrets` (auto-generated; mode `0600`, `pariah` only) |
 | Runtime socket | `/run/os_pariah/pariah.sock` |
 | Logs | `/var/log/os_pariah/` |
-| Texture gallery snapshot | Pariah table `texture_gallery_snapshot` (log worker; default last **14 days**, see System Settings) |
+| Texture gallery snapshot | Pariah table `texture_gallery_snapshot` (log worker; ≥14 days and ≥2000 rows by default, see System Settings) |
 | Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (`0775 pariah:opensim`; override path in System Settings) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
 | Nginx vhost | `/etc/nginx/vhosts.d/OS-Pariah.conf` |
