@@ -66,7 +66,7 @@
 
     <span class="text-muted">Page {{ page }}</span>
 
-    {% if textures|length == 48 %}
+    {% if textures|length == per_page %}
         <a href="{{ url_for('admin.texture_gallery', page=page+1, uuid=target_uuid) }}" class="btn">Next Page &rarr;</a>
     {% else %}
         <div></div> 

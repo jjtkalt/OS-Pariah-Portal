@@ -490,7 +490,7 @@ def texture_gallery():
         )
 
     page = int(request.args.get("page", 1))
-    per_page = 48
+    per_page = 120
     offset = (page - 1) * per_page
     target_uuid = request.args.get("uuid", "").strip()
 
@@ -524,7 +524,11 @@ def texture_gallery():
         flash("Failed to load textures from the database.", "error")
 
     return render_template(
-        "admin/gallery.html", textures=textures, page=page, target_uuid=target_uuid
+        "admin/gallery.html",
+        textures=textures,
+        page=page,
+        per_page=per_page,
+        target_uuid=target_uuid,
     )
 
 

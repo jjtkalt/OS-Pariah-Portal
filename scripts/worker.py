@@ -494,8 +494,8 @@ def refresh_texture_gallery_snapshot():
         )
     except (TypeError, ValueError):
         min_rows = 2000
-    if min_rows < 48:
-        min_rows = 48
+    if min_rows < 120:
+        min_rows = 120
     if min_rows > 200000:
         min_rows = 200000
 
@@ -505,8 +505,8 @@ def refresh_texture_gallery_snapshot():
         )
     except (TypeError, ValueError):
         max_rows = 50000
-    if max_rows < 48:
-        max_rows = 48
+    if max_rows < 120:
+        max_rows = 120
     if max_rows > 200000:
         max_rows = 200000
     if min_rows > max_rows:
