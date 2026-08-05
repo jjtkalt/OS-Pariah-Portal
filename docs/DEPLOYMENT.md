@@ -2,11 +2,11 @@
 
 Production stack for OS-Pariah-Portal:
 
-- **OS:** openSUSE Leap 15.6 (currently supported; Leap 16 tracked as a future target)
+- **OS:** openSUSE Leap 16 (matches Platform Standards; Python 3.13)
 - **Database:** MariaDB (two databases: portal `os_pariah` and OpenSimulator `robust`)
 - **App server:** Gunicorn bound to a Unix socket
 - **Reverse proxy:** Nginx on the origin with **HTTPS** and **Cloudflare** at the edge
-- **Python:** 3.12
+- **Python:** 3.13
 
 Before installing or upgrading, check [COMPATIBILITY.md](../COMPATIBILITY.md) for the OpenSimulator version matrix.
 
@@ -48,7 +48,7 @@ The RPM:
 - Installs code to `/opt/os_pariah/`
 - Ships config template as `/etc/os_pariah/os-pariah.conf` (`%config(noreplace)`)
 - Installs systemd units, the nginx vhost, and `pariah-cloudflare-ip.conf`
-- Builds the Python 3.12 virtualenv and installs `requirements.txt`
+- Builds the Python 3.13 virtualenv and installs `requirements.txt`
 
 ## 3. Manual install (unsupported; for development)
 
@@ -66,7 +66,7 @@ sudo chmod 0775 /home/opensim/FSAssets/pariahcache
 
 # Deploy application code to /opt/os_pariah (git clone / rsync)
 cd /opt/os_pariah
-python3.12 -m venv venv
+python3.13 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 

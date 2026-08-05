@@ -16,12 +16,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Local CI gate:** `scripts/check_local.py` runs Ruff lint/format check, pytest, and `pip-audit` (wired as a pre-commit hook; see Contributing in `README.md`). Ruff is pinned to **0.16.1** across CI, pre-commit, and `requirements-dev.txt`.
 - Migration `011_texture_gallery_snapshot.sql` and settings `texture_gallery_snapshot_days` (default 14), `texture_gallery_snapshot_min_rows` (default 2000), `texture_gallery_snapshot_limit` (max-row safety cap).
 - Ops one-off: `scripts/apply_robust_texture_indexes.py` + `scripts/sql/robust_texture_gallery_indexes.sql`.
 - **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
 - **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).
 - **Portal favicon:** default `app/static/images/pariah.ico` linked from `base.html`, splash, and the user manual; override via System Settings → Grid Identity → `portal_favicon`. `/favicon.ico` redirects to the configured icon for clients that probe the site root (nginx now proxies that path instead of swallowing it).
 - **Dependabot:** group all pip dependency updates into a single monthly PR (`groups.all-dependencies` with `patterns: ["*"]`).
+
+### Changed
+
+- **Python 3.13:** runtime target bumped from 3.12 (CI, RPM `Requires: python313`, Ruff `target-version = "py313"`, deployment docs). Aligns with Platform Standards packaging template and openSUSE Leap 16. RPM `%post` uses `python3.13 -m venv --clear` so upgrades recreate the venv cleanly.
+- **Registration password rationale** documented under Portal → Registration Page in `PHILOSOPHY.md` (createuser immediately, park at `UserLevel -1`, never store plaintext in Pariah).
+
+### Removed
+
+- **`DesignProcess.md`:** retired design-era draft (~3.5k lines of stale code snapshots). Living docs are `PHILOSOPHY.md`, `docs/DEPLOYMENT.md`, `docs/OPERATIONS.md`, and the codebase.
 
 ---
 
