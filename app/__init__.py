@@ -13,6 +13,17 @@ robust_pool = None
 pariah_pool = None
 
 
+def resolve_grid_identity_asset(key):
+    """Grid Identity asset paths fall back to the schema default when blanked out."""
+    from app.utils.db import get_dynamic_config
+    from app.utils.schema import KNOWN_SETTINGS
+
+    value = (get_dynamic_config(key) or "").strip()
+    if not value:
+        value = KNOWN_SETTINGS["Grid Identity"][key]["default"]
+    return value
+
+
 def create_app(config_class="app.config.Config"):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -62,16 +73,11 @@ def create_app(config_class="app.config.Config"):
     def inject_globals():
         from app.utils import auth_helpers
         from app.utils.db import get_dynamic_config
-        from app.utils.schema import KNOWN_SETTINGS, RBAC_SCHEMA
+        from app.utils.schema import RBAC_SCHEMA
         from app.utils.version import get_portal_version
 
-        portal_background_image = (
-            get_dynamic_config("portal_background_image") or ""
-        ).strip()
-        if not portal_background_image:
-            portal_background_image = KNOWN_SETTINGS["Grid Identity"][
-                "portal_background_image"
-            ]["default"]
+        portal_background_image = resolve_grid_identity_asset("portal_background_image")
+        portal_favicon = resolve_grid_identity_asset("portal_favicon")
 
         return {
             "grid_name": get_dynamic_config("grid_name"),
@@ -79,6 +85,7 @@ def create_app(config_class="app.config.Config"):
             "turnstile_site_key": get_dynamic_config("TURNSTILE_SITE_KEY"),
             "custom_css_path": get_dynamic_config("custom_css_path"),
             "portal_background_image": portal_background_image,
+            "portal_favicon": portal_favicon,
             "portal_version": get_portal_version(),
             "has_permission": auth_helpers.has_permission,
             "has_any_permissions": auth_helpers.has_any_permissions,
@@ -129,6 +136,7 @@ def create_app(config_class="app.config.Config"):
             if request.blueprint in ["auth", "api"] or request.endpoint in [
                 "static",
                 "manual",
+                "favicon",
                 "user.policy_agreement",
                 "policies.view_policy",
             ]:
@@ -143,6 +151,7 @@ def create_app(config_class="app.config.Config"):
         if request.blueprint in exempt_blueprints or request.endpoint in [
             "static",
             "manual",
+            "favicon",
             "user.policy_agreement",
             "policies.view_policy",
         ]:
@@ -185,6 +194,11 @@ def create_app(config_class="app.config.Config"):
         from flask import render_template
 
         return render_template("manual.html")
+
+    @app.route("/favicon.ico")
+    def favicon():
+        """Root shortcut icon for clients that probe /favicon.ico without a link tag."""
+        return redirect(resolve_grid_identity_asset("portal_favicon"))
 
     @app.route("/docs")
     def docs():

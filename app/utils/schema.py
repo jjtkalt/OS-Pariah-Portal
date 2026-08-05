@@ -56,6 +56,11 @@ KNOWN_SETTINGS = {
             "type": "text",
             "default": "/static/images/background.png",
         },
+        "portal_favicon": {
+            "label": "Portal Favicon / Shortcut Icon URL or Path (.ico)",
+            "type": "text",
+            "default": "/static/images/pariah.ico",
+        },
     },
     "Registration & Captcha": {
         "require_admin_approval": {

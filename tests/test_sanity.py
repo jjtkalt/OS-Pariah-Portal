@@ -20,3 +20,16 @@ def test_manual_page_loads(client):
     assert response.status_code == 200
     assert b"User Manual" in response.data
     assert b"For Members" in response.data
+
+
+def test_favicon_redirects_to_configured_icon(client):
+    """Clients probing /favicon.ico are pointed at the portal_favicon setting."""
+    response = client.get("/favicon.ico")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/static/images/pariah.ico")
+
+
+def test_pages_link_shortcut_icon(client):
+    """Every base.html page advertises the shortcut icon."""
+    response = client.get("/manual.html")
+    assert b'rel="shortcut icon"' in response.data
