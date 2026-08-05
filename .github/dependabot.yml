@@ -9,3 +9,8 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "monthly"
+    # Bundle every pip dependency update into a single PR
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"

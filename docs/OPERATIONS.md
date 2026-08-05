@@ -23,7 +23,7 @@ sudo systemctl restart pariah.service
 | Unit | Purpose |
 |------|---------|
 | `pariah-worker-iar.service` | Process user-requested IAR inventory backups |
-| `pariah-worker-log.service` + `.timer` | Ingest gatekeeper logs; clean texture cache |
+| `pariah-worker-log.service` + `.timer` | Ingest gatekeeper logs; clean texture JPG cache; refresh texture gallery snapshot |
 | `pariah-worker-calendar.service` + `.timer` | Deliver calendar notification emails / in-world messages |
 | `pariah-cloudflare-ip.service` + `.timer` | Refresh Cloudflare proxy ranges in nginx real-IP conf (root; pulled in by `pariah.service`) |
 
@@ -42,11 +42,13 @@ Worker logs also land in `/var/log/os_pariah/` when that directory is writable b
 |----------|------|
 | Application | `/opt/os_pariah/` |
 | Virtualenv | `/opt/os_pariah/venv/` |
-| Config | `/etc/os_pariah/os-pariah.conf` |
-| Secrets (`SECRET_KEY`) | `/etc/os_pariah/secrets` (auto-generated; mode `0600`) |
+| Config | `/etc/os_pariah/os-pariah.conf` (`0640 pariah:opensim`) |
+| Config directory | `/etc/os_pariah/` (`0750 pariah:opensim` — workers need group traverse) |
+| Secrets (`SECRET_KEY`) | `/etc/os_pariah/secrets` (auto-generated; mode `0600`, `pariah` only) |
 | Runtime socket | `/run/os_pariah/pariah.sock` |
 | Logs | `/var/log/os_pariah/` |
-| Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (override in System Settings) |
+| Texture gallery snapshot | Pariah table `texture_gallery_snapshot` (log worker; ≥14 days and ≥2000 rows by default, see System Settings) |
+| Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (`0775 pariah:opensim`; override path in System Settings) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
 | Nginx vhost | `/etc/nginx/vhosts.d/OS-Pariah.conf` |
 | Cloudflare real-IP | `/etc/nginx/conf.d/pariah-cloudflare-ip.conf` |
@@ -70,15 +72,45 @@ All sessions are invalidated. Back up the secrets file **separately** from Maria
 4. Confirm `journalctl -u pariah -n 50` shows a clean migrate.
 5. Spot-check `/manual.html`, login, and one admin page.
 
+## Robust indexes (Texture Gallery)
+
+The gallery listing can peg MariaDB on large grids without indexes on Robust
+`fsassets` / `inventoryitems`. These are **additive only** (no schema/data
+changes) and do not require restarting OpenSim/Robust.
+
+After upgrading Pariah (or before first use of the optimized gallery on a large
+grid), apply once as a MariaDB admin (not the portal `robust_ro` user):
+
+```bash
+# Dry-run: report missing indexes
+sudo /opt/os_pariah/venv/bin/python \
+  /opt/os_pariah/scripts/apply_robust_texture_indexes.py --dry-run
+
+# Apply (unix_socket as root when run via sudo)
+sudo /opt/os_pariah/venv/bin/python \
+  /opt/os_pariah/scripts/apply_robust_texture_indexes.py
+```
+
+Equivalent SQL: `scripts/sql/robust_texture_gallery_indexes.sql`.
+
+Then force a snapshot refresh (or wait for the log timer):
+
+```bash
+sudo systemctl start pariah-worker-log.service
+```
+
 ## Common troubleshooting
 
 | Symptom | Check |
 |---------|-------|
 | Service fails at start | `journalctl -u pariah -n 100` — usually MariaDB unreachable or a migration error |
+| Worker fails with `pariah_user` access denied | `/etc/os_pariah` must be `0750 pariah:opensim` (not `pariah:pariah`). v1.0.1 had this bug — see [#61](https://github.com/jjtkalt/OS-Pariah-Portal/issues/61). Workaround: `sudo chown pariah:opensim /etc/os_pariah && sudo chmod 0750 /etc/os_pariah` |
+| Texture cache cleanup cannot delete JPGs | `/home/opensim/FSAssets/pariahcache` must be `0775 pariah:opensim` so `opensim` workers can write. Workaround: `sudo chown -R pariah:opensim /home/opensim/FSAssets/pariahcache && sudo chmod 0775 /home/opensim/FSAssets/pariahcache` |
 | Wrong visitor IP / bans misfire | Confirm Cloudflare Full (strict) and `pariah-cloudflare-ip.conf` is included; check `pariah-cloudflare-ip.timer` |
 | Sessions keep dropping after restart | `/etc/os_pariah/secrets` was regenerated or is missing from backups |
 | No Super Admin after install | Log in once with a `userLevel >= 250` account, or set `ADMIN_UUID` and restart |
 | Static CSS 404 after upgrade | `custom_css_path` still points at `/static/css/central.css` — migration `010` should have fixed the default; clear or update the setting |
+| Texture gallery hangs before tiles | Confirm migration `011` applied; run `apply_robust_texture_indexes.py`; start `pariah-worker-log` to fill `texture_gallery_snapshot` |
 
 ## Related docs
 

@@ -461,11 +461,96 @@ def clean_texture_cache():
         print(f"Failed during texture cache cleanup: {e}")
 
 
+def refresh_texture_gallery_snapshot():
+    """Pull recent textures from Robust into Pariah texture_gallery_snapshot.
+
+    Defaults: at least the last 14 days, and at least 2000 rows (top up with
+    older textures on quiet grids; take all if fewer exist). Cap with max_rows
+    on busy grids.
+    """
+    from contextlib import suppress
+
+    from app.utils.texture_gallery import (
+        fetch_textures_for_snapshot,
+        replace_texture_gallery_snapshot,
+    )
+
+    try:
+        days = int(
+            str(get_dynamic_config("texture_gallery_snapshot_days") or "14").strip()
+        )
+    except (TypeError, ValueError):
+        days = 14
+    if days < 1:
+        days = 1
+    if days > 365:
+        days = 365
+
+    try:
+        min_rows = int(
+            str(
+                get_dynamic_config("texture_gallery_snapshot_min_rows") or "2000"
+            ).strip()
+        )
+    except (TypeError, ValueError):
+        min_rows = 2000
+    if min_rows < 120:
+        min_rows = 120
+    if min_rows > 200000:
+        min_rows = 200000
+
+    try:
+        max_rows = int(
+            str(get_dynamic_config("texture_gallery_snapshot_limit") or "50000").strip()
+        )
+    except (TypeError, ValueError):
+        max_rows = 50000
+    if max_rows < 120:
+        max_rows = 120
+    if max_rows > 200000:
+        max_rows = 200000
+    if min_rows > max_rows:
+        min_rows = max_rows
+
+    since_unix = int(time.time()) - (days * 86400)
+
+    robust_conn = None
+    pariah_conn = None
+    try:
+        robust_conn = get_robust_db()
+        rows = fetch_textures_for_snapshot(
+            robust_conn,
+            since_unix=since_unix,
+            min_rows=min_rows,
+            max_rows=max_rows,
+        )
+        pariah_conn = get_pariah_db()
+        count = replace_texture_gallery_snapshot(pariah_conn, rows)
+        print(
+            f"Texture Gallery Snapshot: refreshed {count} rows "
+            f"(days={days}, since={since_unix}, min_rows={min_rows}, "
+            f"max_rows={max_rows})."
+        )
+    except Exception as e:
+        print(f"Texture Gallery Snapshot refresh failed: {e}")
+        if pariah_conn is not None:
+            with suppress(Exception):
+                pariah_conn.rollback()
+    finally:
+        if robust_conn is not None:
+            with suppress(Exception):
+                robust_conn.close()
+        if pariah_conn is not None:
+            with suppress(Exception):
+                pariah_conn.close()
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "logs":
             parse_gatekeeper_logs()
-            clean_texture_cache()  # <--- Integrated Here
+            clean_texture_cache()
+            refresh_texture_gallery_snapshot()
         elif sys.argv[1] == "iar":
             process_iar_backups()
             cleanup_old_iars()

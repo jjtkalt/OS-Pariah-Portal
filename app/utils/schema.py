@@ -56,6 +56,11 @@ KNOWN_SETTINGS = {
             "type": "text",
             "default": "/static/images/background.png",
         },
+        "portal_favicon": {
+            "label": "Portal Favicon / Shortcut Icon URL or Path (.ico)",
+            "type": "text",
+            "default": "/static/images/pariah.ico",
+        },
     },
     "Registration & Captcha": {
         "require_admin_approval": {
@@ -336,6 +341,21 @@ KNOWN_SETTINGS = {
             "label": "Texture Gallery Cache Retention (Days)",
             "type": "number",
             "default": "30",
+        },
+        "texture_gallery_snapshot_days": {
+            "label": "Texture Gallery Snapshot Window (Days of recent textures)",
+            "type": "number",
+            "default": "14",
+        },
+        "texture_gallery_snapshot_min_rows": {
+            "label": "Texture Gallery Snapshot Minimum Rows (top up older textures)",
+            "type": "number",
+            "default": "2000",
+        },
+        "texture_gallery_snapshot_limit": {
+            "label": "Texture Gallery Snapshot Max Rows (safety cap)",
+            "type": "number",
+            "default": "50000",
         },
         "robust_main_ini_path": {
             "label": "Robust main.ini Path (MAC ban sync)",

@@ -10,7 +10,7 @@
             {% if target_uuid %}
                 Viewing inventory for UUID: <strong>{{ target_uuid }}</strong>
             {% else %}
-                Viewing Global Recent Uploads
+                Viewing Global Recent Uploads (from the Pariah snapshot window)
             {% endif %}
         </p>
     </div>
@@ -66,7 +66,7 @@
 
     <span class="text-muted">Page {{ page }}</span>
 
-    {% if textures|length == 48 %}
+    {% if textures|length == per_page %}
         <a href="{{ url_for('admin.texture_gallery', page=page+1, uuid=target_uuid) }}" class="btn">Next Page &rarr;</a>
     {% else %}
         <div></div> 
