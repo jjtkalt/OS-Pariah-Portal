@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     # THIS is the magic: GitHub will pull a native openSUSE container to run our commands!
     container:
-      image: opensuse/leap:15.6
+      image: opensuse/leap:16.0
 
     steps:
     # 1. OpenSUSE minimal containers don't come with git or tar, so we install them first

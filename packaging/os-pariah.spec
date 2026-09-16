@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah-portal
-Version:        1.0.2
+Version:        1.1.0
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS Pariah Portal - OpenSim CMS and Grid Management
 
@@ -12,13 +12,20 @@ URL:            https://github.com/jjtkalt/OS-Pariah-Portal
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      x86_64
 
-Requires:       python313
-Requires:       python313-devel
+# File require so Leap 16's python313 *or* a local/altinstall of 3.13 on Leap 15.6
+# (symlink /usr/bin/python3.13) can satisfy the dependency. See docs/DEPLOYMENT.md.
+Requires:       /usr/bin/python3.13
 Requires:       nginx
 Requires:       mariadb
+Recommends:     python313
+Recommends:     python313-devel
 
 %description
 A high-performance, Flask-based CMS, Support Portal, and Grid Management interface for OpenSimulator.
+
+Runtime requires Python 3.13. On openSUSE Leap 16, install python313 from OSS.
+On Leap 15.6 (no stock 3.13), provide /usr/bin/python3.13 before installing —
+see docs/DEPLOYMENT.md § "Python 3.13 on Leap 15.6".
 
 %prep
 %setup -q
@@ -29,6 +36,17 @@ getent group pariah >/dev/null || groupadd -r pariah
 getent passwd pariah >/dev/null || \
     useradd -r -g pariah -d /opt/os_pariah -s /sbin/nologin \
     -c "OS Pariah Portal Daemon User" pariah
+
+if [ ! -x /usr/bin/python3.13 ]; then
+    echo "=========================================================" >&2
+    echo "ERROR: /usr/bin/python3.13 is required for os-pariah-portal." >&2
+    echo "" >&2
+    echo "  Leap 16:  sudo zypper install python313 python313-devel" >&2
+    echo "  Leap 15.6: no stock Python 3.13 — upgrade to Leap 16, or" >&2
+    echo "             install 3.13 locally (docs/DEPLOYMENT.md)." >&2
+    echo "=========================================================" >&2
+    exit 1
+fi
 
 %install
 # This tells the RPM builder where to put everything on the target server.
@@ -71,7 +89,7 @@ cp packaging/dummypariah.crt packaging/dummypariah.key %{buildroot}/etc/nginx/
 %post
 # This runs AFTER the files are copied to the server.
 echo "Building Python 3.13 Virtual Environment..."
-# --clear recreates the venv so upgrades from python312 land on a clean 3.13 tree.
+# --clear recreates the venv so upgrades from python312 (or an older 3.13 tree) land clean.
 /usr/bin/python3.13 -m venv --clear /opt/os_pariah/venv
 
 echo "Installing Python Dependencies..."

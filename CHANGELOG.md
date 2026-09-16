@@ -10,23 +10,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - None recorded. Track new findings as GitHub issues or append here before tagging a release.
 
+---
+
+## [1.1.0] – 2026-09-15
+
+Minor release: Python **3.13** runtime, packaging ownership hotfixes (#61), texture gallery performance, and ops/docs polish. Prefer this over withdrawn **v1.0.1**. Operators still on **v1.0.0** should upgrade here (not via 1.0.1).
+
 ### Fixed
 
 - **Texture gallery hang:** global listing no longer drives from a full `inventoryitems` ⨝ `fsassets` join on the request path. Recent rows are served from Pariah `texture_gallery_snapshot` (refreshed by `pariah-worker-log`: at least the last **14 days**, topped up to at least **2000** rows on quiet grids, capped for busy grids); Robust queries use an fsassets-first plan. Optional additive Robust indexes via `scripts/apply_robust_texture_indexes.py` (see #59).
+- **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
+- **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).
 
 ### Added
 
 - **Local CI gate:** `scripts/check_local.py` runs Ruff lint/format check, pytest, and `pip-audit` (wired as a pre-commit hook; see Contributing in `README.md`). Ruff is pinned to **0.16.1** across CI, pre-commit, and `requirements-dev.txt`.
 - Migration `011_texture_gallery_snapshot.sql` and settings `texture_gallery_snapshot_days` (default 14), `texture_gallery_snapshot_min_rows` (default 2000), `texture_gallery_snapshot_limit` (max-row safety cap).
 - Ops one-off: `scripts/apply_robust_texture_indexes.py` + `scripts/sql/robust_texture_gallery_indexes.sql`.
-- **`/etc/os_pariah` directory ownership:** restore group `opensim` (`0750 pariah:opensim`) so worker units (`User=opensim`) can read `os-pariah.conf`. v1.0.1 incorrectly used `pariah:pariah`, which made workers fall back to default `pariah_user` and fail MariaDB auth (#61). Secrets remain `0600` / `pariah`-only.
-- **Texture cache directory ownership:** `/home/opensim/FSAssets/pariahcache/` is `0775 pariah:opensim` so the portal can write JPGs and `opensim` workers can run cache cleanup (#61).
 - **Portal favicon:** default `app/static/images/pariah.ico` linked from `base.html`, splash, and the user manual; override via System Settings → Grid Identity → `portal_favicon`. `/favicon.ico` redirects to the configured icon for clients that probe the site root (nginx now proxies that path instead of swallowing it).
 - **Dependabot:** group all pip dependency updates into a single monthly PR (`groups.all-dependencies` with `patterns: ["*"]`).
+- Deployment notes for providing Python 3.13 on **Leap 15.6** (no stock 3.13) versus Leap 16 OSS packages.
 
 ### Changed
 
-- **Python 3.13:** runtime target bumped from 3.12 (CI, RPM `Requires: python313`, Ruff `target-version = "py313"`, deployment docs). Aligns with Platform Standards packaging template and openSUSE Leap 16. RPM `%post` uses `python3.13 -m venv --clear` so upgrades recreate the venv cleanly.
+- **Python 3.13:** runtime target bumped from 3.12 (CI, Ruff `target-version = "py313"`, deployment docs). Aligns with Platform Standards and openSUSE Leap 16. RPM requires `/usr/bin/python3.13` (recommends `python313` / `python313-devel`); `%post` uses `python3.13 -m venv --clear` so upgrades recreate the venv cleanly. `%pre` fails early with install hints when 3.13 is missing.
 - **Registration password rationale** documented under Portal → Registration Page in `PHILOSOPHY.md` (createuser immediately, park at `UserLevel -1`, never store plaintext in Pariah).
 
 ### Removed
@@ -37,7 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [1.0.1] – 2026-07-20
 
-> **WITHDRAWN — do not install.** GitHub release artifacts removed. Packaging regression: `/etc/os_pariah` was owned `pariah:pariah` mode `0750`, so `opensim` workers could not read the config and failed with `Access denied for user 'pariah_user'@'localhost'`. Stay on **v1.0.0** or apply the workaround in [#61](https://github.com/jjtkalt/OS-Pariah-Portal/issues/61) until **v1.0.2**.
+> **WITHDRAWN — do not install.** GitHub release artifacts removed. Packaging regression: `/etc/os_pariah` was owned `pariah:pariah` mode `0750`, so `opensim` workers could not read the config and failed with `Access denied for user 'pariah_user'@'localhost'`. Stay on **v1.0.0** or apply the workaround in [#61](https://github.com/jjtkalt/OS-Pariah-Portal/issues/61) until **v1.1.0**.
 
 Maintenance release focused on dependency security updates and Platform Standards alignment. Changes since [1.0.0](#100--2026-05-31).
 
