@@ -72,6 +72,8 @@ All sessions are invalidated. Back up the secrets file **separately** from Maria
 4. Confirm `journalctl -u pariah -n 50` shows a clean migrate.
 5. Spot-check `/manual.html`, login, and one admin page.
 
+When the RPM bumps the system Python (for example **3.12 → 3.13**), `%post` recreates `/opt/os_pariah/venv` with `python3.13 -m venv --clear`. Ensure `python313` is installed (`zypper` pulls it via `Requires`). For a manual install, recreate the venv the same way before restarting.
+
 ## Robust indexes (Texture Gallery)
 
 The gallery listing can peg MariaDB on large grids without indexes on Robust

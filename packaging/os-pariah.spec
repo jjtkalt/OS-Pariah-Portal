@@ -12,8 +12,8 @@ URL:            https://github.com/jjtkalt/OS-Pariah-Portal
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      x86_64
 
-Requires:       python312
-Requires:       python312-devel
+Requires:       python313
+Requires:       python313-devel
 Requires:       nginx
 Requires:       mariadb
 
@@ -70,8 +70,9 @@ cp packaging/dummypariah.crt packaging/dummypariah.key %{buildroot}/etc/nginx/
 
 %post
 # This runs AFTER the files are copied to the server.
-echo "Building Python 3.12 Virtual Environment..."
-/usr/bin/python3.12 -m venv /opt/os_pariah/venv
+echo "Building Python 3.13 Virtual Environment..."
+# --clear recreates the venv so upgrades from python312 land on a clean 3.13 tree.
+/usr/bin/python3.13 -m venv --clear /opt/os_pariah/venv
 
 echo "Installing Python Dependencies..."
 /opt/os_pariah/venv/bin/pip install --upgrade pip

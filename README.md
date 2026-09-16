@@ -10,7 +10,7 @@ The following basic assumptions are in place:
 - The OpenSimulator setup is Grid (not standalone)
 - Users should be respected and not treated like a lesser group because they are not part of the grid staff
 - Security, privacy, respect, and functionality should be core values of any Grid and or community.
-- Python 3.12 is available (the code MIGHT be compatible with later versions, but it is untested)
+- Python 3.13 is available (matches the RPM `python313` requirement and CI)
 - The web server is Nginx.  Apache or other webserver packages could well work, but you are on your own with them
 
 OS Pariah is an enterprise-grade portal built for scale and stability. Because it heavily integrates with native OS-level process management (like systemd, firewalld, and screen), the portal backend requires a Linux environment (Currently only OpenSUSE is officially supported for reliability reasons - Technically, there is no known reason why a Ubuntu, CentOS, or other Linux variant wouldn't work assuming a manual install, but your milage may vary.). Windows Server is not supported for the portal installation.
@@ -78,14 +78,12 @@ iyWwmFIxjnomhjqAiESjJXAFw/6jC1zb8jIxfTcD
 
 ## Contributing
 
-Linting and formatting use **Ruff** (see `pyproject.toml`). To match CI before you push:
+Linting and formatting use **Ruff** (see `pyproject.toml`). The local gate mirrors CI (`ruff` + `pytest`) and adds `pip-audit` for known dependency advisories:
 
 ```bash
 source venv/bin/activate          # Windows: venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-ruff format .
-ruff check --fix .
-pytest -v tests/
+pip install -r requirements.txt -r requirements-dev.txt
+python3 scripts/check_local.py
 ```
 
-Optional but recommended: `pre-commit install` (uses `.pre-commit-config.yaml`) so Ruff runs on every commit.
+Recommended: `pre-commit install` so every commit runs Ruff auto-fix/format, then `scripts/check_local.py` (lint/format check, pytest, pip-audit). Needs network access for `pip-audit`. Skip once with `git commit --no-verify` only when you intentionally need to bypass the gate.
