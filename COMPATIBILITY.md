@@ -10,9 +10,9 @@ While the portal *may* work with standard OpenSimulator Core or other forks, we 
 
 | OS Pariah Portal | NGC-Tranquility | Status | Notes |
 | :--- | :--- | :--- | :--- |
-| **v1.1.0** | 🟢`v0.9.3.9333` | 🟡Pending | Python 3.13 runtime; #61 ownership hotfixes; texture gallery snapshot. Prefer Leap 16 (`python313`); Leap 15.6 needs a local 3.13 — see `docs/DEPLOYMENT.md`. |
-| **v1.0.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Packaging set `/etc/os_pariah` to `pariah:pariah` `0750`, so `opensim` workers cannot read conf (see #61). Use v1.0.0 until v1.1.0, or apply the ownership workaround. |
-| **v1.0.0** | 🟢`v0.9.3.9333` | 🟢Active | Current supported stable release until v1.1.0. |
+| **v1.1.0** | 🟢`v0.9.3.9333` | 🟢Active | Current supported stable release. Python 3.13 runtime; #61 ownership hotfixes; texture gallery snapshot. Prefer Leap 16 (`python313`); Leap 15.6 needs a local 3.13 — see `docs/DEPLOYMENT.md`. |
+| **v1.0.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Packaging set `/etc/os_pariah` to `pariah:pariah` `0750`, so `opensim` workers cannot read conf (see #61). Upgrade to v1.1.0, or apply the ownership workaround on v1.0.0. |
+| **v1.0.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.1.0 recommended. |
 | **v0.10.1** | 🟢`v0.9.3.9333` | 🟡Beta | Beta release (not tagged; see v1.0.0). |
 | **v0.10.0** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
 | **v0.9.4** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |

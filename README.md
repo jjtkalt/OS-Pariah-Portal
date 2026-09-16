@@ -35,7 +35,7 @@ For all the various reasons that one thing or another was chosen, or to learn mo
 
 Before installing or upgrading, check the [Compatibility Matrix](COMPATIBILITY.md) to ensure your grid's OpenSimulator version is supported.
 
-> **Do not install v1.0.1.** That release is withdrawn (#61): `/etc/os_pariah` ownership broke `opensim` workers. Prefer **v1.0.0** until **v1.1.0** is published, or go straight to **v1.1.0**.
+> **Do not install v1.0.1.** That release is withdrawn (#61): `/etc/os_pariah` ownership broke `opensim` workers. Use **v1.1.0** (current stable).
 
 **Full install and first-boot guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)  
 **Day-to-day operations (workers, upgrades, troubleshooting):** [docs/OPERATIONS.md](docs/OPERATIONS.md)  
