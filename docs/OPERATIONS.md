@@ -67,10 +67,13 @@ All sessions are invalidated. Back up the secrets file **separately** from Maria
 ## Upgrades
 
 1. Check [COMPATIBILITY.md](../COMPATIBILITY.md) for the OpenSimulator version.
-2. Install the new RPM (`zypper install` / `rpm -Uvh`). Config is `%config(noreplace)`.
-3. `systemctl restart pariah` — migrations and dependency sync run automatically.
-4. Confirm `journalctl -u pariah -n 50` shows a clean migrate.
-5. Spot-check `/manual.html`, login, and one admin page.
+2. Ensure `/usr/bin/python3.13` exists **before** installing v1.1.0+ (Leap 16: `zypper install python313`; Leap 15.6: see [DEPLOYMENT.md](DEPLOYMENT.md#python-313-on-leap-156)).
+3. Install the new RPM (`zypper install` / `rpm -Uvh`). Config is `%config(noreplace)`.
+4. `systemctl restart pariah` — migrations and dependency sync run automatically.
+5. Confirm `journalctl -u pariah -n 50` shows a clean migrate.
+6. Spot-check `/manual.html`, login, and one admin page.
+
+When the RPM bumps the system Python (for example **3.12 → 3.13**), `%post` recreates `/opt/os_pariah/venv` with `python3.13 -m venv --clear`. On Leap 16, `zypper` can pull `python313` via the package recommends; on Leap 15.6 you must already have provided `/usr/bin/python3.13`. For a manual install, recreate the venv the same way before restarting.
 
 ## Robust indexes (Texture Gallery)
 

@@ -1,9 +1,9 @@
 # Ruff lint + format (PlatformStandards ADR-015 / docs/LINTING.md).
-# target-version matches packaging/os-pariah.spec Requires (python312).
+# target-version matches packaging/os-pariah.spec Requires (python313).
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 extend-exclude = ["migrations", "venv", ".venv"]
 
 [tool.ruff.lint]

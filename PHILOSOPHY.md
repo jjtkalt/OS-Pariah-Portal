@@ -37,6 +37,11 @@ Sadly, not all of those can be applied to OpenSimulator because of the very natu
 ### OS Authentication Bridge
 ### Ticket System
 ### Registration Page
+
+Robust's `createuser` API requires the chosen password in plain text so OpenSimulator can hash and salt it internally. Deferring that call until after admin approval would force the portal to store plaintext passwords in `OS_Pariah` while applicants wait — unacceptable.
+
+**Decision:** On a valid registration, call `createuser` immediately so Robust owns the credential, then call `setaccount` to set `UserLevel` to `-1` (cannot log in). Track email verification and admin approval in `OS_Pariah`. On approval, raise `UserLevel` to `0` via the same Robust API path. Never persist registration passwords in the portal database.
+
 ### Rental System
 ### Patreon/PayPal/Venmo
 ### Gatekeeper Logs & Ban Records

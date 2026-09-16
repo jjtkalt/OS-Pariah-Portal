@@ -2,13 +2,62 @@
 
 Production stack for OS-Pariah-Portal:
 
-- **OS:** openSUSE Leap 15.6 (currently supported; Leap 16 tracked as a future target)
+- **OS:** openSUSE Leap **16** preferred (Platform Standards; stock Python 3.13). Leap **15.6** is supported only if you provide `/usr/bin/python3.13` yourself (see below).
 - **Database:** MariaDB (two databases: portal `os_pariah` and OpenSimulator `robust`)
 - **App server:** Gunicorn bound to a Unix socket
 - **Reverse proxy:** Nginx on the origin with **HTTPS** and **Cloudflare** at the edge
-- **Python:** 3.12
+- **Python:** 3.13 (`/usr/bin/python3.13`)
 
 Before installing or upgrading, check [COMPATIBILITY.md](../COMPATIBILITY.md) for the OpenSimulator version matrix.
+
+## Python 3.13 prerequisite
+
+The RPM requires `/usr/bin/python3.13` (and recommends the Leap 16 `python313` / `python313-devel` packages). `%post` builds `/opt/os_pariah/venv` with that interpreter.
+
+### Leap 16 (recommended)
+
+```bash
+sudo zypper install python313 python313-devel
+python3.13 --version
+```
+
+### Python 3.13 on Leap 15.6
+
+Leap 15.6 official repositories stop at Python **3.12**. The OBS `devel:languages:python:Factory` repo for 15.6 currently publishes 3.12 as well, so there is **no reliable stock package** for 3.13 on 15.6.
+
+**Preferred:** upgrade the host to Leap 16, then install `python313` as above.
+
+**If you must stay on Leap 15.6**, install CPython 3.13 from source (altinstall) and expose it as `/usr/bin/python3.13` **before** installing the Pariah RPM:
+
+```bash
+# Build dependencies
+sudo zypper install -y gcc make tar wget \
+  openssl-devel libffi-devel zlib-devel readline-devel \
+  sqlite3-devel xz-devel libbz2-devel ncurses-devel libuuid-devel
+
+PYTHON_VER=3.13.14   # pin to a current 3.13.x patch you trust
+cd /usr/local/src
+sudo wget "https://www.python.org/ftp/python/${PYTHON_VER}/Python-${PYTHON_VER}.tgz"
+sudo tar xf "Python-${PYTHON_VER}.tgz"
+cd "Python-${PYTHON_VER}"
+
+# --prefix=/usr/local keeps system /usr/bin/python3 untouched
+sudo ./configure --prefix=/usr/local --enable-optimizations --with-ensurepip=install
+sudo make -j"$(nproc)"
+sudo make altinstall
+
+# Satisfy the RPM file require used by packaging/os-pariah.spec
+sudo ln -sf /usr/local/bin/python3.13 /usr/bin/python3.13
+python3.13 --version
+python3.13 -m venv --help >/dev/null
+```
+
+Notes for Leap 15.6 altinstalls:
+
+- Do **not** replace `/usr/bin/python3` (system tools still expect the distro Python).
+- After upgrading Pariah from a 3.12-based install, `%post` runs `python3.13 -m venv --clear /opt/os_pariah/venv` so the old venv is discarded.
+- If `pip install` later needs to compile a wheel, install matching headers (`openssl-devel`, etc.) — there is no `python313-devel` package on 15.6.
+- Leap 15.6 is past its normal support window; plan a Leap 16 migration when you can.
 
 ## 1. MariaDB
 
@@ -31,6 +80,8 @@ Automated tests mock both DB pools (no MariaDB service required for `pytest`).
 
 ## 2. Install via RPM (recommended)
 
+On Leap 15.6, finish the [Python 3.13 prerequisite](#python-313-prerequisite) first.
+
 ```bash
 # Optional: import the Pariah ecosystem signing key (see README.md)
 sudo zypper install ./os-pariah-portal-*.rpm
@@ -48,7 +99,7 @@ The RPM:
 - Installs code to `/opt/os_pariah/`
 - Ships config template as `/etc/os_pariah/os-pariah.conf` (`%config(noreplace)`)
 - Installs systemd units, the nginx vhost, and `pariah-cloudflare-ip.conf`
-- Builds the Python 3.12 virtualenv and installs `requirements.txt`
+- Requires `/usr/bin/python3.13`; builds the Python 3.13 virtualenv and installs `requirements.txt`
 
 ## 3. Manual install (unsupported; for development)
 
@@ -66,7 +117,7 @@ sudo chmod 0775 /home/opensim/FSAssets/pariahcache
 
 # Deploy application code to /opt/os_pariah (git clone / rsync)
 cd /opt/os_pariah
-python3.12 -m venv venv
+python3.13 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 
