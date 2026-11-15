@@ -59,6 +59,7 @@ mkdir -p %{buildroot}/etc/nginx/conf.d
 mkdir -p %{buildroot}/var/log/os_pariah
 mkdir -p %{buildroot}/home/opensim/FSAssets/pariahcache
 mkdir -p %{buildroot}/home/opensim/Backups/downloads
+mkdir -p %{buildroot}/home/opensim/Backups/portal
 
 # Copy application files
 cp -r app scripts migrations wsgi.py requirements.txt %{buildroot}/opt/os_pariah/
@@ -74,12 +75,15 @@ cp packaging/pariah_worker.sudo %{buildroot}/etc/sudoers.d/pariah_worker
 # Install the systemd services
 cp packaging/pariah.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-iar.service %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-worker-iar.timer %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-log.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-log.timer %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-calendar.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-worker-calendar.timer %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-cloudflare-ip.service %{buildroot}/usr/lib/systemd/system/
 cp packaging/pariah-cloudflare-ip.timer %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-backup.service %{buildroot}/usr/lib/systemd/system/
+cp packaging/pariah-backup.timer %{buildroot}/usr/lib/systemd/system/
 
 # Add the Nginx files (Please install certbot, don't use dummy certs!)
 cp packaging/OS-Pariah.conf %{buildroot}/etc/nginx/vhosts.d/
@@ -132,15 +136,19 @@ echo "========================================================="
 /opt/os_pariah/
 %dir %attr(0775, pariah, opensim) /home/opensim/FSAssets/pariahcache/
 %attr(0775, pariah, opensim) /home/opensim/Backups/downloads/
+%dir %attr(0750, root, root) /home/opensim/Backups/portal/
 %dir %attr(0770, pariah, opensim) /var/log/os_pariah/
 /usr/lib/systemd/system/pariah.service
 /usr/lib/systemd/system/pariah-worker-iar.service
+/usr/lib/systemd/system/pariah-worker-iar.timer
 /usr/lib/systemd/system/pariah-worker-log.service
 /usr/lib/systemd/system/pariah-worker-log.timer
 /usr/lib/systemd/system/pariah-worker-calendar.service
 /usr/lib/systemd/system/pariah-worker-calendar.timer
 /usr/lib/systemd/system/pariah-cloudflare-ip.service
 /usr/lib/systemd/system/pariah-cloudflare-ip.timer
+/usr/lib/systemd/system/pariah-backup.service
+/usr/lib/systemd/system/pariah-backup.timer
 %doc packaging/inworld/README.md
 %config(noreplace) /etc/nginx/vhosts.d/OS-Pariah.conf
 %config(noreplace) /etc/nginx/conf.d/pariah-cloudflare-ip.conf

@@ -18,9 +18,15 @@ from app.utils.texture_gallery import (
 @patch("scripts.worker.os.path.getmtime")
 @patch("scripts.worker.os.remove")
 @patch("scripts.worker.os.path.exists")
+@patch("scripts.worker.get_dynamic_config_int")
 @patch("scripts.worker.get_dynamic_config")
 def test_clean_texture_cache(
-    mock_get_config, mock_exists, mock_remove, mock_getmtime, mock_listdir
+    mock_get_config,
+    mock_get_config_int,
+    mock_exists,
+    mock_remove,
+    mock_getmtime,
+    mock_listdir,
 ):
     """Test that the cleanup routine correctly identifies and deletes old files."""
     from scripts.worker import clean_texture_cache
@@ -28,11 +34,10 @@ def test_clean_texture_cache(
     def fake_get_config(key, default=None):
         if key == "texture_cache_path":
             return "/fake/cache/dir"
-        if key == "texture_cache_retention_days":
-            return "30"
         return default
 
     mock_get_config.side_effect = fake_get_config
+    mock_get_config_int.return_value = 30
     mock_exists.return_value = True
     # Provide two fake files in the directory
     mock_listdir.return_value = [

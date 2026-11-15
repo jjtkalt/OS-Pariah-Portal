@@ -128,7 +128,10 @@ sudo chown pariah:opensim /etc/os_pariah/os-pariah.conf
 
 sudo cp packaging/pariah.service packaging/pariah-worker-*.service \
         packaging/pariah-worker-*.timer packaging/pariah-cloudflare-ip.service \
-        packaging/pariah-cloudflare-ip.timer /usr/lib/systemd/system/
+        packaging/pariah-cloudflare-ip.timer packaging/pariah-backup.service \
+        packaging/pariah-backup.timer /usr/lib/systemd/system/
+sudo mkdir -p /home/opensim/Backups/portal
+sudo chmod 0750 /home/opensim/Backups/portal
 sudo cp packaging/OS-Pariah.conf /etc/nginx/vhosts.d/
 sudo cp packaging/pariah-cloudflare-ip.conf /etc/nginx/conf.d/
 sudo cp packaging/pariah_worker.sudo /etc/sudoers.d/pariah_worker
@@ -155,7 +158,12 @@ sudo systemctl start pariah
 
 All users must log in again.
 
-**Backups:** Include `/etc/os_pariah/secrets` in ops backups **separately** from MariaDB dumps.
+**Backups:** `pariah-backup.timer` (pulled in by `pariah.service`) runs
+`scripts/backup_portal.py` daily. Each run dumps the Pariah MariaDB database and
+copies significant files (`os-pariah.conf`, `secrets`, nginx vhost, Cloudflare
+real-IP conf) under `portal_backup_dir` (default `/home/opensim/Backups/portal`).
+Texture cache and user IAR download trees are not included. Keep an off-host copy
+of that directory; treat backup trees that contain `secrets` as sensitive.
 
 **Override:** Set `SECRET_KEY` in the process environment to skip auto-generation (useful for HA — every node must share the same key).
 

@@ -48,6 +48,7 @@ def get_pariah_db():
 
 
 def get_dynamic_config(key, default=None):
+    """Resolve a setting: DB override → KNOWN_SETTINGS schema default → call-site default."""
     conn = get_pariah_db()
     try:
         with conn.cursor() as cursor:
@@ -56,19 +57,31 @@ def get_dynamic_config(key, default=None):
             )
             result = cursor.fetchone()
 
-            # 1. Return the DB override if it exists
             if result:
                 return result["config_value"]
 
-            # 2. DRY Fix: Look up the default value in our global schema
             for _category, settings in KNOWN_SETTINGS.items():
                 if key in settings:
                     return settings[key].get("default", default)
 
-            # 3. Ultimate fallback
             return default
     finally:
         conn.close()
+
+
+def get_dynamic_config_int(key, default=None, minimum=1):
+    """Integer setting with schema/DB authority; clamps to minimum on bad values."""
+    raw = get_dynamic_config(key, default)
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError, AttributeError):
+        try:
+            value = int(default) if default is not None else minimum
+        except (TypeError, ValueError):
+            value = minimum
+    if value < minimum:
+        value = minimum
+    return value
 
 
 def get_robust_db():
@@ -356,7 +369,7 @@ def process_iar_backups():
 def cleanup_old_iars():
     """Deletes old IAR files, database records, and user notices that exceed the retention policy."""
     conn = get_pariah_db()
-    retention_days = int(get_dynamic_config("iar_retention_days", 30))
+    retention_days = get_dynamic_config_int("iar_retention_days", minimum=1)
     iar_output_dir = get_dynamic_config("IAR_OUTPUT_DIR")
 
     try:
@@ -422,14 +435,7 @@ def clean_texture_cache():
     cache_dir = get_dynamic_config(
         "texture_cache_path", "/home/opensim/FSAssets/pariahcache"
     )
-    try:
-        days_old = int(
-            str(get_dynamic_config("texture_cache_retention_days") or "30").strip()
-        )
-    except (TypeError, ValueError):
-        days_old = 30
-    if days_old < 1:
-        days_old = 1
+    days_old = get_dynamic_config_int("texture_cache_retention_days", minimum=1)
 
     if not cache_dir or not os.path.exists(cache_dir):
         print(f"Texture Cache Cleanup: Directory {cache_dir} not found. Skipping.")
