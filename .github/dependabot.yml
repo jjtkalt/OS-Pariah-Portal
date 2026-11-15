@@ -8,7 +8,8 @@ updates:
   - package-ecosystem: "pip" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+    target-branch: "develop"
     # Bundle every pip dependency update into a single PR
     groups:
       all-dependencies:
