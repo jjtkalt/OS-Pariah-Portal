@@ -314,6 +314,26 @@ KNOWN_SETTINGS = {
             "type": "number",
             "default": "7",
         },
+        "iar_sweep_interval_days": {
+            "label": "IAR Worker Sweep Interval (Days)",
+            "type": "number",
+            "default": "7",
+            "desc": (
+                "Minimum days between scheduled IAR worker runs "
+                "(pending/failed catch-up + retention cleanup). "
+                "Packaged timer default is weekly; portal backup syncs systemd to this value."
+            ),
+        },
+        "portal_backup_dir": {
+            "label": "Portal Backup Directory",
+            "type": "text",
+            "default": "/home/opensim/Backups/portal",
+        },
+        "portal_backup_retention_days": {
+            "label": "Portal Backup Retention (Days)",
+            "type": "number",
+            "default": "14",
+        },
     },
     "System & Backend (Requires Restart)": {
         "CACHE_TYPE": {"label": "Cache Type", "type": "text", "default": "SimpleCache"},

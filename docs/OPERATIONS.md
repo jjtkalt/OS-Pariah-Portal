@@ -22,15 +22,18 @@ sudo systemctl restart pariah.service
 
 | Unit | Purpose |
 |------|---------|
-| `pariah-worker-iar.service` | Process user-requested IAR inventory backups |
+| `pariah-worker-iar.service` | Process user-requested IAR inventory backups (same entrypoint as the sweep timer) |
+| `pariah-worker-iar.timer` | Periodic full IAR worker run (pending catch-up + retention cleanup); default every **7 days**, synced from `iar_sweep_interval_days` by the portal backup job |
 | `pariah-worker-log.service` + `.timer` | Ingest gatekeeper logs; clean texture JPG cache; refresh texture gallery snapshot |
 | `pariah-worker-calendar.service` + `.timer` | Deliver calendar notification emails / in-world messages |
 | `pariah-cloudflare-ip.service` + `.timer` | Refresh Cloudflare proxy ranges in nginx real-IP conf (root; pulled in by `pariah.service`) |
+| `pariah-backup.service` + `.timer` | Daily self-backup of the Pariah DB + significant conf/secrets (not cache/IAR downloads) |
 
 ```bash
 sudo systemctl list-timers 'pariah-*'
 sudo journalctl -u pariah-worker-iar.service -u pariah-worker-log.service \
-                 -u pariah-worker-calendar.service -u pariah-cloudflare-ip.service -n 100
+                 -u pariah-worker-calendar.service -u pariah-cloudflare-ip.service \
+                 -u pariah-backup.service -n 100
 ```
 
 Worker logs also land in `/var/log/os_pariah/` when that directory is writable by the
@@ -50,6 +53,7 @@ Worker logs also land in `/var/log/os_pariah/` when that directory is writable b
 | Texture gallery snapshot | Pariah table `texture_gallery_snapshot` (log worker; ≥14 days and ≥2000 rows by default, see System Settings) |
 | Texture gallery cache | `/home/opensim/FSAssets/pariahcache/` (`0775 pariah:opensim`; override path in System Settings) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
+| Portal self-backups | `/home/opensim/Backups/portal/` (override with `portal_backup_dir`; contains DB dump + conf/secrets copies) |
 | Nginx vhost | `/etc/nginx/vhosts.d/OS-Pariah.conf` |
 | Cloudflare real-IP | `/etc/nginx/conf.d/pariah-cloudflare-ip.conf` |
 
