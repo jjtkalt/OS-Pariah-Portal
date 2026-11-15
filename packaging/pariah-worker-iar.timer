@@ -1,0 +1,14 @@
+[Unit]
+Description=Periodic OS Pariah IAR worker sweep (pending catch-up + retention cleanup)
+After=network.target mariadb.service pariah.service
+Requires=pariah.service
+
+[Timer]
+# Default: at least weekly. OnUnitActiveSec is overridden by portal setting
+# iar_sweep_interval_days via scripts/backup_portal.py drop-in.
+OnBootSec=15min
+OnUnitActiveSec=7d
+Persistent=true
+
+[Install]
+WantedBy=timers.target

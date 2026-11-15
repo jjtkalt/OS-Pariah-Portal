@@ -41,7 +41,7 @@ def get_dynamic_config(key, default=None):
         return f"{get_dynamic_config('robust_protocol')}://{get_dynamic_config('robust_subdomain')}.{get_dynamic_config('grid_domain')}:{get_dynamic_config('robust_private_port')}"
     # --------------------------------
 
-    # 1. Try to get it from the live database first
+    # Authority order: DB override → KNOWN_SETTINGS schema default → call-site default.
     conn = get_pariah_db()
     with conn.cursor() as cursor:
         cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
@@ -49,14 +49,11 @@ def get_dynamic_config(key, default=None):
         if result:
             return result["config_value"]
 
-    # 2. If a specific default was hardcoded in the function call, honor it
+    for _category, fields in KNOWN_SETTINGS.items():
+        if key in fields:
+            return fields[key].get("default", default)
+
     if default is not None:
         return default
 
-    # 3. SSOT Magic: Look it up in our Master Schema
-    for _category, fields in KNOWN_SETTINGS.items():
-        if key in fields:
-            return fields[key]["default"]
-
-    # 4. Completely unknown variable? Fail gracefully.
     return ""

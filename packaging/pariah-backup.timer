@@ -1,0 +1,12 @@
+[Unit]
+Description=Run OS Pariah portal self-backup daily
+After=network.target mariadb.service pariah.service
+Requires=pariah.service
+
+[Timer]
+# Quiet hour; keeps DB dumps and conf copies fresh without overlapping log worker (02:00).
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
