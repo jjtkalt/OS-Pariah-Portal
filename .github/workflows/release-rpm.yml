@@ -22,11 +22,31 @@ jobs:
         zypper refresh
         zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
 
-    # 2. Checkout the code (now that git is installed)
+    # 2. Checkout the code (now that git is installed). Full history so we can
+    #    verify the release tag is reachable from main.
     - name: Checkout Code
       uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
 
-    # 3. Setup the build tree, extract version, and pack the tarball
+    # 3. Stable releases must come from main (develop is integration-only).
+    - name: Require release commit on main
+      env:
+        TARGET: ${{ github.event.release.target_commitish }}
+      run: |
+        set -euo pipefail
+        if [ "$TARGET" = "develop" ]; then
+          echo "::error::Releases must be created from main (got target_commitish=develop)."
+          exit 1
+        fi
+        git fetch --no-tags origin main
+        if ! git merge-base --is-ancestor HEAD origin/main; then
+          echo "::error::Release commit ${GITHUB_SHA} is not on main. Tag and publish releases from main only."
+          exit 1
+        fi
+        echo "OK: release commit is on main (target_commitish=${TARGET})"
+
+    # 4. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
       run: |
         # Grab the GitHub Release Tag and strip the "v" prefix (should be in the vx.x.x format)
@@ -56,11 +76,11 @@ jobs:
         cp packaging/os-pariah.spec $HOME/rpmbuild/SPECS/
         sed -i "s/^Version:.*/Version: $APP_VERSION/" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 4. Compile the RPM natively on openSUSE!
+    # 5. Compile the RPM natively on openSUSE!
     - name: Compile the RPM
       run: rpmbuild -ba --define "build_number ${{ github.run_number }}" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 5. Sign the RPM using our injected GPG Key
+    # 6. Sign the RPM using our injected GPG Key
     - name: Sign the RPM
       env:
         GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -94,7 +114,7 @@ jobs:
         # 7. Sign the package!
         rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/*.rpm
 
-    # 6. Attach the finished .rpm file to your GitHub Release
+    # 7. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@v3
       with:

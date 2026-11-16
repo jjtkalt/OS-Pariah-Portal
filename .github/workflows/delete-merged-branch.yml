@@ -1,0 +1,25 @@
+# .github/workflows/delete-merged-branch.yml
+name: Delete merged branch
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  contents: write
+jobs:
+  delete:
+    # Merged only, our own branches only, never the long-lived ones.
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'main' &&
+      github.event.pull_request.head.ref != 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete head branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          gh api -X DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/heads/${BRANCH}" || \
+            echo "branch already gone"
