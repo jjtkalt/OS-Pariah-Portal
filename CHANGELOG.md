@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Known issues
+
+- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+
+---
+
+## [1.2.0] – 2026-11-20
+
+Minor release with a **breaking rename** to the `os-pariah` slug and a focused security/hardening pass. Operators on v1.1.x must reinstall against the new paths/units (no in-place path migration).
+
 ### Breaking
 
 - **Rename to the `os-pariah` slug** ([docs/NAMING.md](docs/NAMING.md)): product name **OS-Pariah**; RPM `os-pariah` (was `os-pariah-portal`); install root `/opt/os-pariah`, config `/etc/os-pariah`, runtime `/run/os-pariah` (socket `os-pariah.sock`), logs `/var/log/os-pariah`; Linux user/group `os-pariah` (was `pariah`); master unit `os-pariah.service` with `os-pariah-worker-{iar,log,calendar}`, `os-pariah-cloudflare-ip`, `os-pariah-backup` (was `pariah*`); sudoers `/etc/sudoers.d/os-pariah-worker`; nginx `os-pariah.conf` / `os-pariah-cloudflare-ip.conf`; texture cache `/home/opensim/FSAssets/os-pariah-cache`. Database name stays `os_pariah`; env vars are `OS_PARIAH_DB_*`. Enable only `os-pariah.service`. No in-place migration from v1.x paths/units is provided (zero installed base during QA).
@@ -37,7 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Firewall sync:** `scripts/sync_firewall.py` diffs against `firewall-cmd --permanent --direct --get-all-rules`, removing Host-ID DROP rules for hosts no longer banned and only adding missing rules.
 - **Backup:** IAR timer drop-in now resets `OnUnitActiveSec=` before setting the configured interval.
 - **Pre-commit:** only Ruff runs on commit; the full `check-local` gate runs on `pre-push`.
-- **requirements.txt:** test-only packages and unused `dicttoxml` / `Pygments` removed; added `Flask-WTF`.
+- **requirements.txt:** test-only packages and unused `dicttoxml` / `Pygments` removed; added `Flask-WTF`. Dependabot + follow-up pins including `icalendar` 7.3.2 and `ruff` 0.17.6 (CI / pre-commit aligned).
 
 ### Added
 
@@ -48,7 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Known issues
 
-- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+- None recorded.
 
 ---
 
