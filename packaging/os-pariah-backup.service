@@ -1,0 +1,11 @@
+[Unit]
+Description=OS-Pariah portal self-backup (MariaDB + significant config files)
+After=network.target mariadb.service os-pariah.service
+Requires=os-pariah.service
+
+[Service]
+Type=oneshot
+# Root so we can read secrets/nginx conf and write the IAR timer drop-in.
+WorkingDirectory=/opt/os-pariah
+ExecStartPre=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/check_mariadb.py
+ExecStart=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/backup_portal.py

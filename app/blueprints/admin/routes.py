@@ -23,7 +23,7 @@ from flask import (
 
 from app.utils.audit import log_audit_action
 from app.utils.auth_helpers import has_permission, rbac_required
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.notifications import (
     send_approval_email,
     send_matrix_discord_webhook,
@@ -56,10 +56,10 @@ def pending_approvals():
         view = "approval"
 
     status = "pending_email" if view == "email" else "pending_approval"
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     pending_users = []
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             """
             SELECT user_uuid, email, inviter, discord, matrix, other_info, created_at
@@ -115,14 +115,14 @@ def approve_user():
     try:
         # ROBUST Call: setaccount
         if set_user_level(uuid, 0):
-            # 2. Update Pariah DB state
-            pariah_conn = get_pariah_db()
-            with pariah_conn.cursor() as cursor:
+            # 2. Update OS-Pariah DB state
+            app_conn = get_app_db()
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "UPDATE pending_registrations SET status = 'approved' WHERE user_uuid = %s",
                     (uuid,),
                 )
-            pariah_conn.commit()
+            app_conn.commit()
             log_audit_action("Approvals", "Approved new user", target_uuid=uuid)
 
             # 3. Asynchronous Notifications
@@ -163,8 +163,8 @@ def resend_verification():
 
     try:
         new_token = uuid.uuid4().hex
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE pending_registrations SET verification_token = %s WHERE user_uuid = %s AND status = 'pending_email'",
                 (new_token, user_uuid),
@@ -175,7 +175,7 @@ def resend_verification():
                     (user_uuid,),
                 )
                 reg = cursor.fetchone()
-                pariah_conn.rollback()
+                app_conn.rollback()
                 if not reg:
                     return jsonify(
                         {"status": "error", "message": "Registration not found."}
@@ -193,7 +193,7 @@ def resend_verification():
             )
             reg = cursor.fetchone()
 
-        pariah_conn.commit()
+        app_conn.commit()
 
         send_verification_email(reg["email"], new_token)
         log_audit_action(
@@ -224,13 +224,13 @@ def reject_user():
         # We will update this -5 logic in our next sweep to use the dynamic config!
         rejected_level = int(get_dynamic_config("rejected_user_level"))
 
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE pending_registrations SET status = 'rejected' WHERE user_uuid = %s",
                 (uuid,),
             )
-        pariah_conn.commit()
+        app_conn.commit()
         log_audit_action("Approvals", "Rejected new user", target_uuid=uuid)
 
         set_user_level(uuid, rejected_level)
@@ -250,10 +250,10 @@ def reject_user():
 @rbac_required(PERM_MANAGE_SETTINGS)
 def system_settings():
     """Admin dashboard to configure dynamic portal settings."""
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     # Fetch existing DB settings
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT config_key, config_value FROM config")
         db_rows = cursor.fetchall()
 
@@ -300,9 +300,9 @@ def update_single_setting():
                 {"status": "error", "message": "Value is not allowed for this setting."}
             ), 400
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # If it is the default, DELETE it from the DB to keep things clean
             if is_default:
                 cursor.execute(
@@ -318,7 +318,7 @@ def update_single_setting():
                 """,
                     (actual_key, val),
                 )
-        pariah_conn.commit()
+        app_conn.commit()
         log_audit_action("System Setting", f"Changed '{actual_key}' to '{val}'")
         return jsonify({"status": "success", "is_default": is_default})
     except Exception as e:
@@ -336,7 +336,7 @@ def add_setting():
 
     if new_key and new_value:
         try:
-            conn = get_pariah_db()
+            conn = get_app_db()
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
@@ -367,7 +367,7 @@ def delete_setting():
 
     if target_key:
         try:
-            conn = get_pariah_db()
+            conn = get_app_db()
             with conn.cursor() as cursor:
                 # We do not prevent deleting KNOWN_SETTINGS because deleting them
                 # simply causes the get_dynamic_config() function to fall back
@@ -470,7 +470,7 @@ def serve_texture(hash_val):
 def texture_gallery():
     """Renders a paginated gallery of grid textures.
 
-    Global listings prefer the Pariah ``texture_gallery_snapshot`` table (filled by
+    Global listings prefer the OS-Pariah ``texture_gallery_snapshot`` table (filled by
     the log worker) so the request path avoids the heavy Robust join. Per-user
     UUID filters use an inverted / selective Robust query. If the snapshot is
     empty, global view falls back to the inverted Robust plan.
@@ -480,7 +480,7 @@ def texture_gallery():
     try:
         if not os.path.exists(cache_dir) or not os.access(cache_dir, os.W_OK):
             flash(
-                f"Warning: Texture cache dir ({cache_dir}) is missing or not writable by the 'pariah' user. Images are decoding in RAM (High CPU overhead).",
+                f"Warning: Texture cache dir ({cache_dir}) is missing or not writable by the 'os-pariah' user. Images are decoding in RAM (High CPU overhead).",
                 "warning",
             )
     except Exception:
@@ -505,10 +505,10 @@ def texture_gallery():
                 owner_uuid=target_uuid,
             )
         else:
-            pariah_conn = get_pariah_db()
-            if snapshot_count(pariah_conn) > 0:
+            app_conn = get_app_db()
+            if snapshot_count(app_conn) > 0:
                 textures = fetch_textures_from_snapshot(
-                    pariah_conn, limit=per_page, offset=offset
+                    app_conn, limit=per_page, offset=offset
                 )
             else:
                 textures = fetch_textures_inverted(
@@ -516,7 +516,7 @@ def texture_gallery():
                 )
                 flash(
                     "Texture gallery snapshot is empty. Showing a live Robust query; "
-                    "it will populate after the next pariah-worker-log run.",
+                    "it will populate after the next os-pariah-worker-log run.",
                     "warning",
                 )
     except Exception as e:
@@ -540,8 +540,8 @@ def audit_log():
     offset = (page - 1) * per_page
     search = request.args.get("q", "").strip()
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         if search:
             like_search = f"%{search}%"
             cursor.execute(

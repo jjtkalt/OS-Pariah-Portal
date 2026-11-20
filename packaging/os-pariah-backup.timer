@@ -1,7 +1,7 @@
 [Unit]
-Description=Run OS Pariah portal self-backup daily
-After=network.target mariadb.service pariah.service
-Requires=pariah.service
+Description=Run OS-Pariah portal self-backup daily
+After=network.target mariadb.service os-pariah.service
+Requires=os-pariah.service
 
 [Timer]
 # Quiet hour; keeps DB dumps and conf copies fresh without overlapping log worker (02:00).

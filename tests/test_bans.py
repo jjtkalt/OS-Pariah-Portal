@@ -1,6 +1,11 @@
 from unittest.mock import patch
 
-from app.utils.schema import KNOWN_SETTINGS, PERM_ISSUE_BANS, PERM_MANAGE_ROLES
+from app.utils.schema import (
+    KNOWN_SETTINGS,
+    PERM_ISSUE_BANS,
+    PERM_MANAGE_ROLES,
+    PERM_SUPER_ADMIN,
+)
 
 
 def _known_setting_default_int(key: str) -> int:
@@ -135,9 +140,11 @@ def test_delete_ban(mock_popen, mock_set_level, client, db_cursor):
 def test_manual_user_promotion(mock_set_level, client):
     """Proves Super Admins can manually adjust a user level (e.g., Promotion)."""
 
+    mock_set_level.return_value = True
+
     with client.session_transaction() as sess:
         sess["uuid"] = "super-admin-uuid"
-        sess["permissions"] = PERM_MANAGE_ROLES
+        sess["permissions"] = PERM_SUPER_ADMIN | PERM_MANAGE_ROLES
 
     response = client.post(
         "/admin/users/good-guy-uuid/set_level",

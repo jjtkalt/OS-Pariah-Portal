@@ -1,4 +1,6 @@
-# OS-Pariah-Portal — Agent Index
+# OS-Pariah — Agent Index
+
+This repository is the web component of **OS-Pariah** (the GitHub repo may still be named `OS-Pariah-Portal`). Naming, on-host layout, and the `ADMIN_UUID` exception are defined in [docs/NAMING.md](docs/NAMING.md); product/merge context is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 This app follows **Platform Standards**. Canonical source (GitHub, not a local path):
 
@@ -18,7 +20,8 @@ Short agent index in that repo: [AGENTS.md](https://github.com/jjtkalt/PlatformS
 
 | Area | Rule |
 |------|------|
-| Install root | `/opt/<app>/` (this app: `/opt/os_pariah/`) |
+| Naming | Product **OS-Pariah**; slug `os-pariah` (paths, units, RPM, Linux user); DB `os_pariah`; env `OS_PARIAH_*` — see [docs/NAMING.md](docs/NAMING.md) |
+| Install root | `/opt/<app>/` (this app: `/opt/os-pariah/`) |
 | Config | `/etc/<app>/<app>.conf` + `/etc/<app>/secrets` + project `.env` for dev |
 | Migrations | `migrations/*.sql` + `scripts/migrate.py` + `ensure_secret_key()` + `ensure_bootstrap_admin()` |
 | Pre-start | `sync_requirements.py`, `check_mariadb.py`, `migrate.py` |
@@ -31,7 +34,7 @@ Short agent index in that repo: [AGENTS.md](https://github.com/jjtkalt/PlatformS
 | CI | **Required** `.github/workflows/ci-tests.yml` (`lint` + `test` jobs); optional `release-rpm.yml` |
 | TLS | HTTPS on origin; Cloudflare Full (strict); `<app>-cloudflare-ip.conf` + daily updater timer pulled in by master unit |
 | Package | RPM spec for openSUSE when deploying to CVG infrastructure |
-| Packaged timers | List on master `<app>.service` `Before=` / `Requires=`; do not separately enable each timer |
+| Packaged timers | List on master `<app>.service` `Before=` / `Requires=`; do not separately enable each timer (this app: enable only `os-pariah.service`) |
 
 ## Explicit exclusions
 
@@ -39,6 +42,6 @@ Short agent index in that repo: [AGENTS.md](https://github.com/jjtkalt/PlatformS
 - Do **not** use Flask-Migrate in production startup paths.
 - Do **not** terminate TLS only at Cloudflare with HTTP origin.
 
-## Portal-specific
+## OS-Pariah-specific
 
-OS-Pariah-Portal is a **reference implementation** for Platform Standards (dev doc depth, CI, release RPM). Do not change those platform patterns without an explicit request. Prefer matching existing layout under `packaging/`, `scripts/`, `.github/workflows/`, and `docs/` over inventing new conventions.
+This OS-Pariah web component is a **reference implementation** for Platform Standards (dev doc depth, CI, release RPM). Do not change those platform patterns without an explicit request. Prefer matching existing layout under `packaging/`, `scripts/`, `.github/workflows/`, and `docs/` over inventing new conventions.

@@ -7,7 +7,7 @@ from app.utils.schema import PERM_APPROVE_USERS
 @patch(
     "app.blueprints.regions.routes._user_owned_region_uuids", return_value={"test-uuid"}
 )
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_owner_can_toggle_hud_when_setting_allows(
     mock_db, _mock_owned, _mock_cfg, client
 ):
@@ -34,7 +34,7 @@ def test_owner_can_toggle_hud_when_setting_allows(
 
 @patch("app.blueprints.regions.routes.get_dynamic_config", return_value="owners")
 @patch("app.blueprints.regions.routes._user_owned_region_uuids", return_value=set())
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_non_owner_denied_without_region_control(
     mock_db, _mock_owned, _mock_cfg, client
 ):
@@ -52,7 +52,7 @@ def test_non_owner_denied_without_region_control(
     "app.blueprints.regions.routes._user_owned_region_uuids", return_value={"test-uuid"}
 )
 @patch("app.blueprints.regions.routes.subprocess.Popen")
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_owner_can_restart_region_when_setting_allows(
     mock_db, mock_popen, _mock_owned, _mock_cfg, client
 ):

@@ -12,7 +12,7 @@ from flask import (
 )
 
 from app.blueprints.auth.routes import verify_turnstile
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.notifications import notify_staff_new_app, send_verification_email
 from app.utils.registration_notes import save_registration_application_note
 from app.utils.robust_api import create_robust_user, set_user_level
@@ -27,7 +27,7 @@ def validate_invite_code(code):
 
 @register_bp.route("/", methods=["GET", "POST"])
 def register():
-    # Fetch dynamic configurations from OS_Pariah DB
+    # Fetch dynamic configurations from OS-Pariah DB
     require_approval = get_dynamic_config("require_admin_approval") == "true"
     require_other_info = get_dynamic_config("require_other_info") == "true"
     require_invite_code = get_dynamic_config("require_invite_code") == "true"
@@ -36,8 +36,8 @@ def register():
         site_key = get_dynamic_config("TURNSTILE_SITE_KEY")
 
         # Fetch the dynamic policy links
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT slug, title
@@ -106,16 +106,16 @@ def register():
     # Immediately lock the account by setting level to -1
     set_user_level(new_uuid, -1)
 
-    # --- 6. Track Registration State in Pariah DB ---
+    # --- 6. Track Registration State in OS-Pariah DB ---
     verification_token = uuid.uuid4().hex
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     registration_record = {
         "inviter": inviter,
         "discord": discord,
         "matrix": matrix,
         "other_info": other_info,
     }
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             """INSERT INTO pending_registrations
                (user_uuid, email, inviter, discord, matrix, other_info, verification_token, requires_approval, status)
@@ -133,7 +133,7 @@ def register():
             ),
         )
         save_registration_application_note(cursor, new_uuid, registration_record)
-    pariah_conn.commit()
+    app_conn.commit()
 
     # --- 7. Dispatch Workflows ---
     send_verification_email(email, verification_token)
@@ -147,11 +147,11 @@ def register():
 
 @register_bp.route("/verify/<token>")
 def verify_email(token):
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     try:
         # 1. Look up the token
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT user_uuid, email, requires_approval, status, inviter, discord, matrix, other_info
@@ -185,7 +185,7 @@ def verify_email(token):
                 first_name, last_name = account["FirstName"], account["LastName"]
 
         # 3. Process the Verification
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             if reg["requires_approval"]:
                 # Change state so it shows up in the Admin Approvals Dashboard
                 cursor.execute(
@@ -219,7 +219,7 @@ def verify_email(token):
                     "success",
                 )
 
-        pariah_conn.commit()
+        app_conn.commit()
 
     except Exception as e:
         current_app.logger.error(f"Error during email verification: {e}")

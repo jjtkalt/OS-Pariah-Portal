@@ -17,16 +17,16 @@ if parent_dir not in sys.path:
 from app.utils.schema import KNOWN_SETTINGS  # after sys.path bootstrap above
 
 # Try the system config first, fallback to local dev file
-if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-    load_dotenv("/etc/os_pariah/os-pariah.conf")
+if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+    load_dotenv("/etc/os-pariah/os-pariah.conf")
 else:
     load_dotenv(".env")
 
-# Database 1: OS Pariah
-PARIAH_DB_HOST = os.environ.get("PARIAH_DB_HOST", "127.0.0.1")
-PARIAH_DB_USER = os.environ.get("PARIAH_DB_USER", "pariah_user")
-PARIAH_DB_PASS = os.environ.get("PARIAH_DB_PASS", "pariah_password")
-PARIAH_DB_NAME = os.environ.get("PARIAH_DB_NAME", "os_pariah")
+# Database 1: OS-Pariah
+OS_PARIAH_DB_HOST = os.environ.get("OS_PARIAH_DB_HOST", "127.0.0.1")
+OS_PARIAH_DB_USER = os.environ.get("OS_PARIAH_DB_USER", "os-pariah")
+OS_PARIAH_DB_PASS = os.environ.get("OS_PARIAH_DB_PASS", "os-pariah-password")
+OS_PARIAH_DB_NAME = os.environ.get("OS_PARIAH_DB_NAME", "os_pariah")
 
 # Database 2: ROBUST (OpenSim)
 ROBUST_DB_HOST = os.environ.get("ROBUST_DB_HOST", "127.0.0.1")
@@ -37,19 +37,19 @@ ROBUST_DB_NAME = os.environ.get("ROBUST_DB_NAME", "robust")
 LOG_DIR = "/home/opensim/Log"
 
 
-def get_pariah_db():
+def get_app_db():
     return pymysql.connect(
-        host=PARIAH_DB_HOST,
-        user=PARIAH_DB_USER,
-        password=PARIAH_DB_PASS,
-        database=PARIAH_DB_NAME,
+        host=OS_PARIAH_DB_HOST,
+        user=OS_PARIAH_DB_USER,
+        password=OS_PARIAH_DB_PASS,
+        database=OS_PARIAH_DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
     )
 
 
 def get_dynamic_config(key, default=None):
     """Resolve a setting: DB override → KNOWN_SETTINGS schema default → call-site default."""
-    conn = get_pariah_db()
+    conn = get_app_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -113,7 +113,7 @@ def parse_gatekeeper_logs():
         directory = os.path.dirname(log_path)
 
         print(f"Ingesting newly rotated log file: {filename}")
-        conn = get_pariah_db()
+        conn = get_app_db()
         inserted_count = 0
 
         try:
@@ -218,7 +218,7 @@ def parse_gatekeeper_logs():
 
 def process_iar_backups():
     """Processes all pending IARs using the GridTools screen injection method."""
-    conn = get_pariah_db()
+    conn = get_app_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -368,7 +368,7 @@ def process_iar_backups():
 
 def cleanup_old_iars():
     """Deletes old IAR files, database records, and user notices that exceed the retention policy."""
-    conn = get_pariah_db()
+    conn = get_app_db()
     retention_days = get_dynamic_config_int("iar_retention_days", minimum=1)
     iar_output_dir = get_dynamic_config("IAR_OUTPUT_DIR")
 
@@ -433,7 +433,7 @@ def cleanup_old_iars():
 def clean_texture_cache():
     """Scans the texture cache directory and deletes JPGs older than texture_cache_retention_days."""
     cache_dir = get_dynamic_config(
-        "texture_cache_path", "/home/opensim/FSAssets/pariahcache"
+        "texture_cache_path", "/home/opensim/FSAssets/os-pariah-cache"
     )
     days_old = get_dynamic_config_int("texture_cache_retention_days", minimum=1)
 
@@ -468,7 +468,7 @@ def clean_texture_cache():
 
 
 def refresh_texture_gallery_snapshot():
-    """Pull recent textures from Robust into Pariah texture_gallery_snapshot.
+    """Pull recent textures from Robust into OS-Pariah texture_gallery_snapshot.
 
     Defaults: at least the last 14 days, and at least 2000 rows (top up with
     older textures on quiet grids; take all if fewer exist). Cap with max_rows
@@ -521,7 +521,7 @@ def refresh_texture_gallery_snapshot():
     since_unix = int(time.time()) - (days * 86400)
 
     robust_conn = None
-    pariah_conn = None
+    app_conn = None
     try:
         robust_conn = get_robust_db()
         rows = fetch_textures_for_snapshot(
@@ -530,8 +530,8 @@ def refresh_texture_gallery_snapshot():
             min_rows=min_rows,
             max_rows=max_rows,
         )
-        pariah_conn = get_pariah_db()
-        count = replace_texture_gallery_snapshot(pariah_conn, rows)
+        app_conn = get_app_db()
+        count = replace_texture_gallery_snapshot(app_conn, rows)
         print(
             f"Texture Gallery Snapshot: refreshed {count} rows "
             f"(days={days}, since={since_unix}, min_rows={min_rows}, "
@@ -539,16 +539,16 @@ def refresh_texture_gallery_snapshot():
         )
     except Exception as e:
         print(f"Texture Gallery Snapshot refresh failed: {e}")
-        if pariah_conn is not None:
+        if app_conn is not None:
             with suppress(Exception):
-                pariah_conn.rollback()
+                app_conn.rollback()
     finally:
         if robust_conn is not None:
             with suppress(Exception):
                 robust_conn.close()
-        if pariah_conn is not None:
+        if app_conn is not None:
             with suppress(Exception):
-                pariah_conn.close()
+                app_conn.close()
 
 
 if __name__ == "__main__":

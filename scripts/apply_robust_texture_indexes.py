@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply additive Robust indexes used by the Texture Gallery (one-off ops).
 
-OpenSimulator does not require these indexes; they only speed Pariah gallery /
+OpenSimulator does not require these indexes; they only speed OS-Pariah gallery /
 snapshot queries. Safe to run while Robust is up (INPLACE / IF NOT EXISTS).
 
 Uses a privileged MariaDB account (root via sudo socket, or ROBUST_DB_ADMIN_*).
@@ -10,11 +10,11 @@ Do NOT use the portal's read-only ``robust_ro`` user — it cannot CREATE INDEX.
 Examples::
 
     # Preferred on the grid host (unix_socket as root):
-    sudo /opt/os_pariah/venv/bin/python \\
-        /opt/os_pariah/scripts/apply_robust_texture_indexes.py
+    sudo /opt/os-pariah/venv/bin/python \\
+        /opt/os-pariah/scripts/apply_robust_texture_indexes.py
 
     # Or pipe SQL:
-    sudo mariadb robust < /opt/os_pariah/scripts/sql/robust_texture_gallery_indexes.sql
+    sudo mariadb robust < /opt/os-pariah/scripts/sql/robust_texture_gallery_indexes.sql
 
     # Dry-run (connect + SHOW INDEX, no DDL):
     sudo .../apply_robust_texture_indexes.py --dry-run
@@ -31,26 +31,26 @@ from dotenv import load_dotenv
 
 INDEXES = (
     {
-        "name": "idx_pariah_fsassets_create_time",
+        "name": "idx_os_pariah_fsassets_create_time",
         "table": "fsassets",
         "ddl": (
-            "CREATE INDEX IF NOT EXISTS idx_pariah_fsassets_create_time "
+            "CREATE INDEX IF NOT EXISTS idx_os_pariah_fsassets_create_time "
             "ON fsassets (create_time)"
         ),
     },
     {
-        "name": "idx_pariah_inventoryitems_assetid",
+        "name": "idx_os_pariah_inventoryitems_assetid",
         "table": "inventoryitems",
         "ddl": (
-            "CREATE INDEX IF NOT EXISTS idx_pariah_inventoryitems_assetid "
+            "CREATE INDEX IF NOT EXISTS idx_os_pariah_inventoryitems_assetid "
             "ON inventoryitems (assetID)"
         ),
     },
     {
-        "name": "idx_pariah_inventoryitems_type_avatar",
+        "name": "idx_os_pariah_inventoryitems_type_avatar",
         "table": "inventoryitems",
         "ddl": (
-            "CREATE INDEX IF NOT EXISTS idx_pariah_inventoryitems_type_avatar "
+            "CREATE INDEX IF NOT EXISTS idx_os_pariah_inventoryitems_type_avatar "
             "ON inventoryitems (assetType, avatarID)"
         ),
     },
@@ -58,8 +58,8 @@ INDEXES = (
 
 
 def _load_env() -> None:
-    if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-        load_dotenv("/etc/os_pariah/os-pariah.conf")
+    if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+        load_dotenv("/etc/os-pariah/os-pariah.conf")
     else:
         load_dotenv(".env")
 

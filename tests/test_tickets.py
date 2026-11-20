@@ -85,3 +85,36 @@ def test_guest_ticket_failed_captcha(mock_turnstile, client):
 
     # Assert the bouncer stopped them
     assert b"Security check failed" in response.data
+
+
+# -------------------------------------------------------------------
+# Test 4: Ticket reply IDOR blocked
+# -------------------------------------------------------------------
+def test_reply_ticket_idor_blocked(client, db_cursor):
+    """A logged-in user must not reply to someone else's ticket."""
+
+    db_cursor.fetchone.side_effect = [
+        {
+            "id": 99,
+            "user_uuid": "owner-uuid",
+            "assigned_to_uuid": None,
+            "assigned_to_name": None,
+            "subject": "Help",
+            "status": "Open",
+        }
+    ] + [None] * 40
+
+    with client.session_transaction() as sess:
+        sess["uuid"] = "attacker-uuid"
+        sess["name"] = "Attacker"
+        sess["permissions"] = 0
+
+    response = client.post(
+        "/tickets/99/reply",
+        data={"message": "sneaky reply"},
+        follow_redirects=True,
+    )
+
+    assert b"Access denied. You do not own this ticket." in response.data
+    sql_queries = [call[0][0] for call in db_cursor.execute.call_args_list]
+    assert not any("INSERT INTO ticket_replies" in q for q in sql_queries)

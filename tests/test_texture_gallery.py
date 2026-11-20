@@ -167,7 +167,7 @@ def test_snapshot_round_trip_helpers():
 
 
 def test_texture_gallery_uses_snapshot_when_populated(client):
-    """Global gallery reads Pariah snapshot when rows exist."""
+    """Global gallery reads OS-Pariah snapshot when rows exist."""
     snap_rows = [
         {
             "id": "123",
@@ -190,7 +190,7 @@ def test_texture_gallery_uses_snapshot_when_populated(client):
             return_value=snap_rows,
         ) as mock_fetch,
         patch("app.blueprints.admin.routes.fetch_textures_inverted") as mock_inverted,
-        patch("app.blueprints.admin.routes.get_pariah_db", return_value=MagicMock()),
+        patch("app.blueprints.admin.routes.get_app_db", return_value=MagicMock()),
     ):
         response = client.get("/admin/gallery")
 
@@ -307,12 +307,12 @@ def test_fetch_textures_for_snapshot_tops_up_to_min_rows():
     assert rows[-1]["owner_name"] == "System / Orphaned / HG"
 
 
-@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_app_db")
 @patch("scripts.worker.get_robust_db")
 @patch("scripts.worker.get_dynamic_config")
 @patch("scripts.worker.time.time", return_value=1_720_000_000)
 def test_refresh_texture_gallery_snapshot(
-    _mock_time, mock_get_config, mock_get_robust, mock_get_pariah
+    _mock_time, mock_get_config, mock_get_robust, mock_get_app
 ):
     from scripts.worker import refresh_texture_gallery_snapshot
 
@@ -327,9 +327,9 @@ def test_refresh_texture_gallery_snapshot(
 
     mock_get_config.side_effect = fake_config
     robust = MagicMock()
-    pariah = MagicMock()
+    app_db = MagicMock()
     mock_get_robust.return_value = robust
-    mock_get_pariah.return_value = pariah
+    mock_get_app.return_value = app_db
 
     with (
         patch(
@@ -351,7 +351,7 @@ def test_refresh_texture_gallery_snapshot(
     )
     mock_replace.assert_called_once()
     robust.close.assert_called_once()
-    pariah.close.assert_called_once()
+    app_db.close.assert_called_once()
 
 
 # --- 4. TEST THE OPENCV SMART PROXY ---

@@ -11,7 +11,7 @@ Deliver calendar announcements, group chat/notices, and follower IMs from the po
    - `grid_bot_announce_region_uuid` — default region for grid-wide announcements (optional)
    - `grid_bot_announce_group_uuid` — default group for chat/notice announcements (optional)
 3. In **Calendar & Events** settings, configure default group chat/notice toggles.
-4. Enable timer: `sudo systemctl enable --now pariah-worker-calendar.timer`
+4. The calendar timer ships with the RPM and is pulled in by the master unit. Enable **only** `sudo systemctl enable --now os-pariah.service`; do not enable `os-pariah-worker-calendar.timer` separately.
 5. Monitor the queue at **Admin → Bot Queue** (requires Manage Settings or Manage Events).
 
 ## Create the bot avatar
@@ -67,7 +67,7 @@ python scripts/grid_bot_client.py --url https://portal.example.com --loop --inte
 
 | Unit | Role |
 |------|------|
-| `pariah-worker-calendar.timer` | Fires every 15 minutes |
-| `pariah-worker-calendar.service` | Runs `worker.py calendar` |
+| `os-pariah-worker-calendar.timer` | Fires every minute (started via `os-pariah.service`; do not enable separately) |
+| `os-pariah-worker-calendar.service` | Runs `worker.py calendar` |
 
-Install with the OS-Pariah RPM or copy from [`../pariah-worker-calendar.service`](../pariah-worker-calendar.service) and [`../pariah-worker-calendar.timer`](../pariah-worker-calendar.timer).
+Install with the OS-Pariah RPM or copy from [`../os-pariah-worker-calendar.service`](../os-pariah-worker-calendar.service) and [`../os-pariah-worker-calendar.timer`](../os-pariah-worker-calendar.timer).

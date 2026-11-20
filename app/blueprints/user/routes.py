@@ -16,7 +16,7 @@ from flask import (
 )
 
 from app.utils.auth_helpers import get_policy_decline_level
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.notifications import (
     send_email_change_verification,
 )
@@ -35,8 +35,8 @@ def profile():
     if not session.get("uuid"):
         return redirect(url_for("auth.login"))
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT status, requested_at, file_path FROM iar_backups WHERE user_uuid = %s ORDER BY requested_at DESC LIMIT 5",
             (session["uuid"],),
@@ -91,8 +91,8 @@ def request_email_change():
     new_email = request.form.get("new_email").strip()
     verification_token = uuid.uuid4().hex
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             """
             INSERT INTO pending_registrations (user_uuid, email, verification_token, requires_approval, status)
@@ -101,7 +101,7 @@ def request_email_change():
         """,
             (session["uuid"], new_email, verification_token),
         )
-    pariah_conn.commit()
+    app_conn.commit()
 
     send_email_change_verification(new_email, verification_token)
     flash("A verification link has been sent to your new email address.", "info")
@@ -111,10 +111,10 @@ def request_email_change():
 @user_bp.route("/verify-email/<token>")
 def verify_email_change(token):
     """Dedicated endpoint for verifying an email update, bypassing the new-user workflow."""
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT user_uuid, email, status
@@ -132,12 +132,12 @@ def verify_email_change(token):
         # Use the Robust API to update the email securely
         if update_robust_email(reg["user_uuid"], reg["email"]):
             # Clean up the pending row
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "DELETE FROM pending_registrations WHERE user_uuid = %s AND status = 'pending_email_change'",
                     (reg["user_uuid"],),
                 )
-            pariah_conn.commit()
+            app_conn.commit()
             flash("Your email address has been successfully updated.", "success")
         else:
             flash("Failed to update email address in the grid database.", "error")
@@ -157,8 +157,8 @@ def request_iar_backup():
     if not session.get("uuid"):
         return redirect(url_for("auth.login"))
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT COUNT(*) as count FROM iar_backups WHERE user_uuid = %s AND status IN ('pending', 'processing')",
             (session["uuid"],),
@@ -171,11 +171,16 @@ def request_iar_backup():
             "INSERT INTO iar_backups (user_uuid, status) VALUES (%s, 'pending')",
             (session["uuid"],),
         )
-    pariah_conn.commit()
+    app_conn.commit()
 
     try:
         subprocess.Popen(
-            ["/usr/bin/sudo", "/bin/systemctl", "start", "pariah-worker-iar.service"],
+            [
+                "/usr/bin/sudo",
+                "/bin/systemctl",
+                "start",
+                "os-pariah-worker-iar.service",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -196,7 +201,7 @@ def policy_agreement():
         return redirect(url_for("auth.login"))
 
     current_version = get_dynamic_config("global_policy_version")
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     if request.method == "POST":
         if request.form.get("policy_action") == "decline":
@@ -229,7 +234,7 @@ def policy_agreement():
             restoring = current_level == decline_level
             if restoring:
                 rbac_row = None
-                with pariah_conn.cursor() as cursor:
+                with app_conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
                         (session["uuid"],),
@@ -244,12 +249,12 @@ def policy_agreement():
                     )
                     return redirect(url_for("user.policy_agreement"))
 
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT IGNORE INTO policy_agreements (user_uuid, policy_version) VALUES (%s, %s)",
                     (session["uuid"], current_version),
                 )
-            pariah_conn.commit()
+            app_conn.commit()
 
             if restoring:
                 session["user_level"] = target_level
@@ -262,7 +267,7 @@ def policy_agreement():
         flash("You must agree to the policies to access the portal.", "error")
 
     last_agreed = None
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT MAX(agreed_at) as last_agreed FROM policy_agreements WHERE user_uuid = %s",
             (session["uuid"],),
@@ -271,7 +276,7 @@ def policy_agreement():
         if row and row["last_agreed"]:
             last_agreed = row["last_agreed"]
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT slug, title, updated_at FROM policies WHERE category = 'Policy' ORDER BY title ASC"
         )
@@ -292,8 +297,8 @@ def download_iar(filename):
         return redirect(url_for("auth.login"))
 
     # Security check: Does this user actually own this file?
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT 1 FROM iar_backups WHERE file_path = %s AND user_uuid = %s",
             (filename, session["uuid"]),

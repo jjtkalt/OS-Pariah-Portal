@@ -1,0 +1,16 @@
+[Unit]
+Description=OS-Pariah IAR Processing Worker
+After=network.target mariadb.service os-pariah.service
+# No Requires=os-pariah.service: stopping/restarting the portal must not stop the worker,
+# and the worker finishing must never cascade back to the portal.
+
+[Service]
+Type=oneshot
+User=opensim
+Group=opensim
+WorkingDirectory=/opt/os-pariah
+ExecStartPre=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/check_mariadb.py
+ExecStart=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/worker.py iar
+
+[Install]
+WantedBy=multi-user.target

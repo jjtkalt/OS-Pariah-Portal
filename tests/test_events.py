@@ -179,7 +179,7 @@ def test_format_message_text_line_eight_fields():
     assert parts[6] == "Party Tonight"
 
 
-@patch("app.utils.grid_bot.get_pariah_db")
+@patch("app.utils.grid_bot.get_app_db")
 def test_ack_wrong_region_requeues(mock_db):
     cursor = mock_db.return_value.cursor.return_value.__enter__.return_value
     ack_message(99, success=False, error="wrong_region")

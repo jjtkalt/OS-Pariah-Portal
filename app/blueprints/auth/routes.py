@@ -22,7 +22,7 @@ from flask import (
 from jwt.algorithms import RSAAlgorithm
 
 from app.utils.auth_helpers import get_policy_decline_level
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.notifications import send_password_reset_email
 from app.utils.password_resets import (
     create_password_reset_token,
@@ -40,7 +40,12 @@ def verify_turnstile(response_token):
     """Verifies the Cloudflare Turnstile token."""
     if not response_token:
         return False
-    secret = get_dynamic_config("TURNSTILE_SECRET_KEY")
+    secret = (get_dynamic_config("TURNSTILE_SECRET_KEY") or "").strip()
+    if not secret:
+        current_app.logger.warning(
+            "TURNSTILE_SECRET_KEY is not configured; rejecting captcha."
+        )
+        return False
     url = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
     data = urllib.parse.urlencode(
         {"secret": secret, "response": response_token}
@@ -48,7 +53,7 @@ def verify_turnstile(response_token):
     req = urllib.request.Request(url, data=data)
 
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=5) as response:
             result = json.loads(response.read().decode())
             return result.get("success", False)
     except Exception as e:
@@ -130,8 +135,8 @@ def login():
                         ul_int = 0
 
                     if ul_int > 0 and ul_int != 200:
-                        pariah_conn = get_pariah_db()
-                        with pariah_conn.cursor() as p_cursor:
+                        app_conn = get_app_db()
+                        with app_conn.cursor() as p_cursor:
                             p_cursor.execute(
                                 "SELECT permissions FROM user_rbac WHERE user_uuid = %s",
                                 (user_uuid,),
@@ -142,25 +147,29 @@ def login():
                                 session["permissions"] = rbac_row["permissions"]
                             else:
                                 # --- THE BOOTSTRAP LOGIC ---
-                                # If they have no RBAC record, but OpenSim says they are a Grid Owner (Specifically 250+)
-                                # The logic here is to allow a grid owner to setup their account that first time into portal so they don't have to edit the database directly or run scripts.
-                                # Note: This WILL NOT allow "recovering access" in the portal without the extra step of deleting the RBAC entry for their UUID first.
-                                if ul_int >= 250:
+                                # Only the explicitly configured ADMIN_UUID (migrate.py /
+                                # PlatformStandards ADR-012) may receive an automatic
+                                # Super Admin grant. userLevel >= 250 alone is not enough —
+                                # that path was a privilege-escalation vector via set_level.
+                                admin_uuid = (
+                                    os.environ.get("ADMIN_UUID") or ""
+                                ).strip()
+                                if admin_uuid and user_uuid == admin_uuid:
                                     p_cursor.execute(
                                         "INSERT INTO user_rbac (user_uuid, permissions) VALUES (%s, %s)",
                                         (user_uuid, PERM_SUPER_ADMIN),
                                     )
-                                    pariah_conn.commit()
+                                    app_conn.commit()
                                     session["permissions"] = PERM_SUPER_ADMIN
                                     flash(
-                                        "Bootstrap: Super Admin permissions automatically synchronized from your OpenSim user level.",
+                                        "Bootstrap: Super Admin permissions granted for configured ADMIN_UUID.",
                                         "info",
                                     )
                                     current_app.logger.info(
                                         f"Bootstrap: Auto-granted PERM_SUPER_ADMIN to {first_name} {last_name}."
                                     )
                                 else:
-                                    # They are staff (1-249), but have no assigned portal roles yet
+                                    # Staff tier with no assigned portal roles yet
                                     session["permissions"] = 0
                     else:
                         session["permissions"] = 0
@@ -169,7 +178,13 @@ def login():
                     # Check if they were trying to log in via an external OIDC app
                     if "next" in session:
                         next_url = session.pop("next")
-                        return redirect(next_url)
+                        # Only allow same-origin relative paths (block open redirects)
+                        if (
+                            isinstance(next_url, str)
+                            and next_url.startswith("/")
+                            and not next_url.startswith("//")
+                        ):
+                            return redirect(next_url)
 
                     if ul == decline_level:
                         flash(
@@ -196,16 +211,16 @@ def login():
 def logout():
     user_uuid = session.get("uuid")
     if user_uuid:
-        pariah_conn = get_pariah_db()
+        app_conn = get_app_db()
         try:
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "DELETE FROM oidc_auth_codes WHERE user_uuid = %s", (user_uuid,)
                 )
                 cursor.execute(
                     "DELETE FROM oidc_access_tokens WHERE user_uuid = %s", (user_uuid,)
                 )
-            pariah_conn.commit()
+            app_conn.commit()
         except Exception as e:
             current_app.logger.error(f"Failed to clear OIDC sessions on logout: {e}")
 
@@ -217,26 +232,62 @@ def logout():
 # --- OIDC / SSO Routes ---
 
 
+def _oidc_key_path():
+    """Prefer /etc/os-pariah/oidc_private.pem; fall back to install-root private.pem."""
+    for path in (
+        "/etc/os-pariah/oidc_private.pem",
+        os.path.join(current_app.root_path, "..", "private.pem"),
+    ):
+        if os.path.isfile(path):
+            return path
+    return "/etc/os-pariah/oidc_private.pem"
+
+
 def get_private_key():
     """Loads the RSA private key for signing JWTs."""
-    key_path = os.path.join(current_app.root_path, "..", "private.pem")
-    with open(key_path, "rb") as f:
+    with open(_oidc_key_path(), "rb") as f:
         return f.read()
+
+
+def _lookup_oidc_client(client_id):
+    """Return oidc_clients row or None. OIDC is disabled when no clients are registered."""
+    if not client_id:
+        return None
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT client_id, client_secret, redirect_uri, app_name FROM oidc_clients WHERE client_id = %s",
+            (client_id,),
+        )
+        return cursor.fetchone()
+
+
+def _oidc_redirect_allowed(client_row, redirect_uri):
+    """Exact match against the registered redirect_uri (comma-separated allowlist)."""
+    if not client_row or not redirect_uri:
+        return False
+    allowed = [
+        u.strip()
+        for u in (client_row.get("redirect_uri") or "").split(",")
+        if u.strip()
+    ]
+    return redirect_uri in allowed
 
 
 @auth_bp.route("/.well-known/openid-configuration")
 def oidc_discovery():
     """Standard OIDC Discovery document."""
-    # The issuer domain must match what is configured in your portal settings
+    from app.utils.urls import absolute_portal_url
+
     domain = get_dynamic_config("portal_url")
 
     return jsonify(
         {
             "issuer": domain,
-            "authorization_endpoint": url_for("auth.authorize", _external=True),
-            "token_endpoint": url_for("auth.token", _external=True),
-            "userinfo_endpoint": url_for("auth.userinfo", _external=True),
-            "jwks_uri": url_for("auth.jwks", _external=True),
+            "authorization_endpoint": absolute_portal_url("auth.authorize"),
+            "token_endpoint": absolute_portal_url("auth.token"),
+            "userinfo_endpoint": absolute_portal_url("auth.userinfo"),
+            "jwks_uri": absolute_portal_url("auth.jwks"),
             "response_types_supported": ["code"],
             "subject_types_supported": ["public"],
             "id_token_signing_alg_values_supported": ["RS256"],
@@ -247,10 +298,8 @@ def oidc_discovery():
 @auth_bp.route("/.well-known/jwks.json")
 def jwks():
     """Serves the Public Key so external apps can verify the JWT signatures."""
-    key_path = os.path.join(current_app.root_path, "..", "private.pem")
-
     try:
-        with open(key_path, "rb") as f:
+        with open(_oidc_key_path(), "rb") as f:
             private_key = serialization.load_pem_private_key(f.read(), password=None)
 
         public_key = private_key.public_key()
@@ -280,9 +329,20 @@ def authorize():
     if not client_id or not redirect_uri:
         return "Missing client_id or redirect_uri", 400
 
+    client = _lookup_oidc_client(client_id)
+    if not client:
+        return (
+            "OIDC client is not registered. Insert a row into oidc_clients before use.",
+            400,
+        )
+    if not _oidc_redirect_allowed(client, redirect_uri):
+        return "redirect_uri does not match the registered client", 400
+
     if "uuid" not in session:
-        # Save the authorize request URL so we can bounce them back here after login
-        session["next"] = request.url
+        # Save only the relative authorize path (never an attacker-controlled host)
+        session["next"] = request.full_path if request.query_string else request.path
+        if session["next"].endswith("?"):
+            session["next"] = session["next"][:-1]
         return redirect(url_for("auth.login"))
 
     from app.utils.auth_helpers import is_policy_decline_session
@@ -295,15 +355,15 @@ def authorize():
         return redirect(url_for("user.policy_agreement"))
 
     auth_code = secrets.token_urlsafe(32)
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO oidc_auth_codes (code, user_uuid, client_id, nonce, expires_at) VALUES (%s, %s, %s, %s, %s)",
                 (auth_code, session["uuid"], client_id, nonce, int(time.time()) + 300),
             )
-        pariah_conn.commit()
+        app_conn.commit()
     except Exception as e:
         current_app.logger.error(f"OIDC Authorize Error: {e}")
         return "Database error", 500
@@ -324,15 +384,29 @@ def authorize():
 @auth_bp.route("/token", methods=["POST"])
 def token():
     """Step 2: Exchange auth code for JWT and Access Token."""
+    import hmac
+
     client_id = request.form.get("client_id")
+    client_secret = request.form.get("client_secret") or ""
     code = request.form.get("code")
+    redirect_uri = request.form.get("redirect_uri")
 
     if not client_id or not code:
         return jsonify({"error": "invalid_request"}), 400
 
-    pariah_conn = get_pariah_db()
+    client = _lookup_oidc_client(client_id)
+    if not client:
+        return jsonify({"error": "invalid_client"}), 401
+    if not hmac.compare_digest(client_secret, client.get("client_secret") or ""):
+        return jsonify({"error": "invalid_client"}), 401
+    if redirect_uri and not _oidc_redirect_allowed(client, redirect_uri):
+        return jsonify({"error": "invalid_grant"}), 400
+
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
+            # Atomic consume: DELETE … RETURNING is unavailable on older MariaDB;
+            # use affected-row count after a single DELETE with the SELECT predicates.
             cursor.execute(
                 "SELECT user_uuid, nonce FROM oidc_auth_codes WHERE code = %s AND client_id = %s AND expires_at > %s",
                 (code, client_id, int(time.time())),
@@ -341,10 +415,22 @@ def token():
             if not row:
                 return jsonify({"error": "invalid_grant"}), 400
 
-            cursor.execute("DELETE FROM oidc_auth_codes WHERE code = %s", (code,))
-        pariah_conn.commit()
+            cursor.execute(
+                "DELETE FROM oidc_auth_codes WHERE code = %s AND client_id = %s",
+                (code, client_id),
+            )
+            if cursor.rowcount != 1:
+                app_conn.rollback()
+                return jsonify({"error": "invalid_grant"}), 400
+        app_conn.commit()
     except Exception as e:
         current_app.logger.error(f"OIDC Token Error: {e}")
+        return jsonify({"error": "server_error"}), 500
+
+    try:
+        private_key = get_private_key()
+    except OSError as e:
+        current_app.logger.error(f"OIDC signing key missing after code consume: {e}")
         return jsonify({"error": "server_error"}), 500
 
     issued_at = int(time.time())
@@ -364,19 +450,19 @@ def token():
     # Sign the token and include the kid header!
     id_token = jwt.encode(
         id_token_payload,
-        get_private_key(),
+        private_key,
         algorithm="RS256",
         headers={"kid": "os-pariah-key-1"},
     )
 
     access_token = secrets.token_urlsafe(32)
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "INSERT INTO oidc_access_tokens (token, user_uuid, client_id, expires_at) VALUES (%s, %s, %s, %s)",
             (access_token, row["user_uuid"], client_id, expires_at),
         )
-    pariah_conn.commit()
+    app_conn.commit()
 
     return jsonify(
         {
@@ -397,8 +483,8 @@ def userinfo():
 
     access_token = auth_header.split(" ")[1]
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT user_uuid FROM oidc_access_tokens WHERE token = %s AND expires_at > %s",
             (access_token, int(time.time())),
@@ -462,9 +548,9 @@ def forgot_password():
                 if account and account["Email"]:
                     user_uuid = account["PrincipalID"]
                     email = account["Email"]
-                    pariah_conn = get_pariah_db()
+                    app_conn = get_app_db()
                     token, _expires_at = create_password_reset_token(
-                        pariah_conn, user_uuid, ttl_seconds=3600
+                        app_conn, user_uuid, ttl_seconds=3600
                     )
 
                     send_password_reset_email(email, token)
@@ -481,11 +567,11 @@ def forgot_password():
 
 @auth_bp.route("/reset/<token>", methods=["GET", "POST"])
 def reset_password(token):
-    pariah_conn = get_pariah_db()
-    purge_expired_password_reset_tokens(pariah_conn)
+    app_conn = get_app_db()
+    purge_expired_password_reset_tokens(app_conn)
 
     # 1. Verify the token is valid and hasn't expired
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT user_uuid FROM password_resets WHERE token = %s AND expires_at > %s",
             (token, int(time.time())),
@@ -511,11 +597,11 @@ def reset_password(token):
 
         if update_user_password(user_uuid, new_password):
             # 3. Burn all outstanding tokens for this user (cleans up duplicates)
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "DELETE FROM password_resets WHERE user_uuid = %s", (user_uuid,)
                 )
-            pariah_conn.commit()
+            app_conn.commit()
 
             flash(
                 "Your password has been successfully updated. You may now log in.",

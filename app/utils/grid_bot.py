@@ -4,7 +4,7 @@ import json
 
 from flask import current_app, request
 
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 
 MAX_WRONG_REGION_RETRIES = 20
 
@@ -35,7 +35,7 @@ def enqueue_bot_message(
     if not body:
         return None
     meta_json = json.dumps(metadata) if metadata is not None else None
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -129,7 +129,7 @@ def enqueue_event_announcements(
 
 
 def claim_pending_messages(limit=20):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -155,7 +155,7 @@ def claim_pending_messages(limit=20):
 
 
 def mark_message_claimed(message_id):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -171,7 +171,7 @@ def mark_message_claimed(message_id):
 
 
 def ack_message(message_id, success=True, error=None):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         if success:
             cursor.execute(
@@ -209,7 +209,7 @@ def ack_message(message_id, success=True, error=None):
 
 def retry_failed_messages(message_ids=None):
     """Admin: reset failed (or selected) messages to pending."""
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         if message_ids:
             placeholders = ",".join(["%s"] * len(message_ids))
@@ -234,7 +234,7 @@ def retry_failed_messages(message_ids=None):
 
 
 def get_queue_stats():
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT status, COUNT(*) AS c FROM bot_message_queue GROUP BY status"
@@ -290,7 +290,7 @@ def enrich_bot_messages(messages):
     }
     names = {}
     if region_uuids:
-        conn = get_pariah_db()
+        conn = get_app_db()
         placeholders = ",".join(["%s"] * len(region_uuids))
         with conn.cursor() as cursor:
             cursor.execute(

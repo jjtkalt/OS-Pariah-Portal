@@ -1,19 +1,26 @@
 # app/utils/audit.py
+import contextlib
+
 from flask import current_app, session
 
-from app.utils.db import get_pariah_db
+import app as main_app
 
 
 def log_audit_action(action, details, target_uuid=None):
     """
     Safely logs an administrative action to the database.
+
+    Uses a dedicated pool connection so audit commits cannot end the caller's
+    request transaction early (partial bans / mid-flow commits).
     Fails gracefully so it doesn't crash the parent process.
     """
-    # Safely grab context even if something weird happens
+    conn = None
     try:
         admin_uuid = session.get("uuid", "SYSTEM")
         admin_name = session.get("name", "SYSTEM")
-        conn = get_pariah_db()
+        if main_app.app_pool is None:
+            raise RuntimeError("app_pool is not initialized")
+        conn = main_app.app_pool.connection()
         with conn.cursor() as cursor:
             cursor.execute(
                 """
@@ -25,3 +32,10 @@ def log_audit_action(action, details, target_uuid=None):
         conn.commit()
     except Exception as e:
         current_app.logger.error(f"CRITICAL: Failed to write audit log ({action}): {e}")
+        if conn is not None:
+            with contextlib.suppress(Exception):
+                conn.rollback()
+    finally:
+        if conn is not None:
+            with contextlib.suppress(Exception):
+                conn.close()

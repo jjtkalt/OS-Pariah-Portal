@@ -3,7 +3,7 @@
 import json
 from datetime import timedelta
 
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 from app.utils.event_notifications import (
     log_notification_sent,
     notification_already_sent,
@@ -16,6 +16,12 @@ from app.utils.events import (
     utc_now_naive,
 )
 from app.utils.grid_bot import enqueue_bot_message, enqueue_event_announcements
+
+# The calendar timer fires every minute. Windows below are slightly wider than the
+# timer period so a delayed/missed tick still fires; notification_already_sent()
+# keeps each notification to exactly one delivery.
+LATE_TOLERANCE_SECONDS = 90
+REMINDER_LATE_TOLERANCE_SECONDS = 60
 
 
 def process_calendar_notifications():
@@ -31,7 +37,7 @@ def process_calendar_notifications():
         str(get_dynamic_config("calendar_bot_halfway_enabled")).lower() == "true"
     )
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     for occ in occurrences:
         if occ["cancelled"]:
             continue
@@ -47,7 +53,8 @@ def process_calendar_notifications():
                 enqueue_event_announcements("calendar", ntype, msg, ev)
                 log_notification_sent(eid, None, start, ntype)
 
-        if -60 <= delta <= 60:
+        # Already started, but no more than LATE_TOLERANCE_SECONDS ago.
+        if -LATE_TOLERANCE_SECONDS <= delta <= 0:
             ntype = "event_starting"
             if not notification_already_sent(eid, None, start, ntype):
                 msg = f'Starting now: "{ev["title"]}" — {ev.get("location") or "see calendar"}.'
@@ -57,7 +64,8 @@ def process_calendar_notifications():
         if halfway_enabled and ev.get("ends_at"):
             end = occ["occurrence_end"]
             mid = start + (end - start) / 2
-            if abs((now - mid).total_seconds()) <= 90:
+            # Midpoint has passed within the last LATE_TOLERANCE_SECONDS.
+            if 0 <= (now - mid).total_seconds() <= LATE_TOLERANCE_SECONDS:
                 ntype = "event_halfway"
                 if not notification_already_sent(eid, None, start, ntype):
                     msg = f'Halfway: "{ev["title"]}" is underway.'
@@ -99,7 +107,10 @@ def process_calendar_notifications():
             start = occ["occurrence_start"]
             seconds_until = (start - now).total_seconds()
             for offset in offsets:
-                if abs(seconds_until - int(offset)) <= 120:
+                # Due once seconds_until <= offset; deliver if no more than
+                # REMINDER_LATE_TOLERANCE_SECONDS late (dedup via notification_already_sent).
+                lateness = int(offset) - seconds_until
+                if 0 <= lateness <= REMINDER_LATE_TOLERANCE_SECONDS:
                     ntype = f"reminder_{offset}"
                     uid = f["user_uuid"]
                     if notification_already_sent(ev["id"], uid, start, ntype):
