@@ -18,7 +18,7 @@ from app.blueprints.auth.routes import verify_turnstile
 from app.blueprints.regions.routes import _user_can_control_region
 from app.utils.audit import log_audit_action
 from app.utils.auth_helpers import has_permission, rbac_required, require_active_user
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 from app.utils.event_notifications import (
     broadcast_event_cancelled,
     notify_followers_cancelled,
@@ -178,7 +178,7 @@ def _event_row_from_form(form, created_by_uuid, created_by_name, status="draft")
 
 
 def _list_regions():
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT region_uuid, region_name FROM region_configs ORDER BY region_name ASC"
@@ -442,7 +442,7 @@ def search():
     q = (request.args.get("q") or "").strip()
     results = []
     if q:
-        conn = get_pariah_db()
+        conn = get_app_db()
         like = f"%{q}%"
         with conn.cursor() as cursor:
             cursor.execute(
@@ -471,7 +471,7 @@ def search():
 @_calendar_required
 @require_active_user
 def withdraw_suggestion(sid):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -506,7 +506,7 @@ def detail(event_id):
         return redirect(url_for("events.calendar_index"))
 
     following = None
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_follows WHERE user_uuid = %s AND event_id = %s",
@@ -551,7 +551,7 @@ def follow(event_id):
         flash("Cannot follow this event.", "error")
         return redirect(url_for("events.calendar_index"))
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_follows WHERE user_uuid = %s AND event_id = %s",
@@ -614,7 +614,7 @@ def suggest():
         flash("Event suggestions are currently disabled.", "error")
         return redirect(url_for("events.calendar_index"))
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     if request.method == "POST":
         if not verify_turnstile(request.form.get("cf-turnstile-response")):
             flash("Captcha verification failed.", "error")
@@ -680,7 +680,7 @@ def suggest():
 @_calendar_required
 @require_active_user
 def my_suggestions():
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -702,7 +702,7 @@ def my_suggestions():
 @_calendar_required
 @rbac_required(PERM_APPROVE_EVENTS)
 def moderation():
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -725,7 +725,7 @@ def moderation():
 @_calendar_required
 @rbac_required(PERM_APPROVE_EVENTS)
 def approve_suggestion(sid):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_suggestions WHERE id = %s AND status = 'pending'",
@@ -786,7 +786,7 @@ def approve_suggestion(sid):
 @rbac_required(PERM_APPROVE_EVENTS)
 def reject_suggestion(sid):
     notes = (request.form.get("staff_notes") or "").strip()
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_suggestions WHERE id = %s AND status = 'pending'",
@@ -852,7 +852,7 @@ def manage_event(event_id=None):
         else:
             row["status"] = "draft"
 
-        conn = get_pariah_db()
+        conn = get_app_db()
         if event_id:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -992,7 +992,7 @@ def cancel_event(event_id):
     scope = request.form.get("cancel_scope", "series")
     occ_raw = request.form.get("occurrence_start")
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     if scope == "occurrence" and occ_raw and event.get("recurrence_rule"):
         occ = datetime.fromisoformat(occ_raw)
         cancelled = json.loads(event.get("cancelled_occurrences") or "[]")
@@ -1026,7 +1026,7 @@ def cancel_event(event_id):
 @_calendar_required
 @rbac_required(PERM_DELETE_EVENTS)
 def delete_event(event_id):
-    conn = get_pariah_db()
+    conn = get_app_db()
     event = get_event_by_id(event_id)
     with conn.cursor() as cursor:
         cursor.execute("DELETE FROM calendar_events WHERE id = %s", (event_id,))
@@ -1046,7 +1046,7 @@ def subscribe():
         categories = request.form.getlist("categories")
         regions = request.form.getlist("regions")
         token = new_subscription_token()
-        conn = get_pariah_db()
+        conn = get_app_db()
         user_uuid = session.get("uuid")
         with conn.cursor() as cursor:
             cursor.execute(
@@ -1085,7 +1085,7 @@ def subscribe():
 @_calendar_required
 @require_active_user
 def my_subscriptions():
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_feed_subscriptions WHERE user_uuid = %s ORDER BY created_at DESC",

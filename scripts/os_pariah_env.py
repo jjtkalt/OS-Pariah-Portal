@@ -1,7 +1,7 @@
 """
 Shared environment loading for CLI scripts under scripts/.
 
-/etc/os_pariah/os-pariah.conf is installed from .env.example (KEY=value), same as
+/etc/os-pariah/os-pariah.conf is installed from .env.example (KEY=value), same as
 worker.py and wsgi — not ConfigParser INI with [sections].
 """
 
@@ -16,10 +16,10 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 
 
-def load_pariah_dotenv():
+def load_app_dotenv():
     """Match worker.py / wsgi.py: system config first, then project .env, then secrets."""
-    if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-        load_dotenv("/etc/os_pariah/os-pariah.conf")
+    if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+        load_dotenv("/etc/os-pariah/os-pariah.conf")
     else:
         load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
@@ -31,13 +31,13 @@ def load_pariah_dotenv():
     load_secrets_file()
 
 
-def get_pariah_db_connection():
-    load_pariah_dotenv()
+def get_app_db_connection():
+    load_app_dotenv()
     return pymysql.connect(
-        host=os.environ.get("PARIAH_DB_HOST", "127.0.0.1"),
-        user=os.environ.get("PARIAH_DB_USER", "pariah_user"),
-        password=os.environ.get("PARIAH_DB_PASS", "pariah_password"),
-        database=os.environ.get("PARIAH_DB_NAME", "os_pariah"),
+        host=os.environ.get("OS_PARIAH_DB_HOST", "127.0.0.1"),
+        user=os.environ.get("OS_PARIAH_DB_USER", "os-pariah"),
+        password=os.environ.get("OS_PARIAH_DB_PASS", "os-pariah-password"),
+        database=os.environ.get("OS_PARIAH_DB_NAME", "os_pariah"),
         cursorclass=pymysql.cursors.DictCursor,
     )
 
@@ -66,7 +66,7 @@ def get_dynamic_config_for_scripts(conn, key, default=None):
 
 
 def configure_sync_logging(name: str) -> logging.Logger:
-    """stderr plus /var/log/os_pariah/sync_workers.log when writable (matches packaged deployments)."""
+    """stderr plus /var/log/os-pariah/sync_workers.log when writable (matches packaged deployments)."""
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
@@ -75,7 +75,7 @@ def configure_sync_logging(name: str) -> logging.Logger:
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setFormatter(fmt)
     logger.addHandler(stderr_handler)
-    log_dir = "/var/log/os_pariah"
+    log_dir = "/var/log/os-pariah"
     try:
         os.makedirs(log_dir, exist_ok=True)
         path = os.path.join(log_dir, "sync_workers.log")

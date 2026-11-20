@@ -15,7 +15,7 @@ from flask import (
 
 from app.utils.audit import log_audit_action
 from app.utils.auth_helpers import has_permission, rbac_required
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.grid_bot import is_grid_bot_uuid
 from app.utils.notifications import send_password_reset_email
 from app.utils.password_resets import create_password_reset_token
@@ -67,7 +67,7 @@ def gatekeeper_lookup():
             "admin/lookup.html", results=None, search_type=search_type, query=""
         )
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     robust_conn = get_robust_db()
     uuids = set()
 
@@ -84,7 +84,7 @@ def gatekeeper_lookup():
         return str(dt) if dt else "Unknown"
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             if search_type == "username":
                 like_query = f"%{query_raw}%"
                 for table in [
@@ -154,7 +154,7 @@ def gatekeeper_lookup():
                 format_strings = ",".join(["%s"] * len(uuids))
                 uuid_tuple = tuple(uuids)
 
-                with pariah_conn.cursor() as cursor:
+                with app_conn.cursor() as cursor:
                     # Fetch Gatekeeper Usernames (from MAC / HostID / inbound — no IP storage)
                     for gk_table in (
                         "gatekeeper_mac",
@@ -219,7 +219,7 @@ def gatekeeper_lookup():
                         robust_data[r["PrincipalID"]] = r
                         results["usernames"].add(f"{r['FirstName']} {r['LastName']}")
 
-                with pariah_conn.cursor() as cursor:
+                with app_conn.cursor() as cursor:
                     # Names from logs for UUIDs not present in Robust (e.g. HG visitors)
                     for gk_table in (
                         "gatekeeper_mac",
@@ -309,7 +309,7 @@ def gatekeeper_lookup():
 @user_mgmt_bp.route("/<uuid>/notes", methods=["GET", "POST"])
 @rbac_required(PERM_VIEW_NOTES)
 def user_notes(uuid):
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     if request.method == "POST":
         if not has_permission(PERM_ADD_NOTES):
@@ -322,16 +322,16 @@ def user_notes(uuid):
         admin_uuid = session.get("uuid")
 
         if note_body:
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)",
                     (uuid, admin_uuid, note_body),
                 )
-            pariah_conn.commit()
+            app_conn.commit()
             flash("Note added successfully.", "success")
             return redirect(url_for("user_mgmt.user_notes", uuid=uuid))
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM user_notes WHERE user_uuid = %s ORDER BY created_at DESC",
             (uuid,),
@@ -367,8 +367,8 @@ def user_notes(uuid):
 @rbac_required(PERM_ISSUE_BANS)
 def manage_bans():
     """Displays all active bans across all vectors."""
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         # Aggregate the linked ban data into a single row per ban
         cursor.execute("""
             SELECT m.banid, m.date, m.reason, m.type, m.notes,
@@ -403,7 +403,7 @@ def manage_bans():
             seen_pid.add(u)
             unique_ids.append(u)
 
-    uuid_to_name = _gatekeeper_latest_display_names(pariah_conn, unique_ids)
+    uuid_to_name = _gatekeeper_latest_display_names(app_conn, unique_ids)
 
     for ban in bans:
         ordered_uuids = []
@@ -437,7 +437,7 @@ def trigger_system_sync_workers(ban_id="Manual/Unknown"):
     current_app.logger.info(
         f"Triggering system synchronizations for Ban ID {ban_id}..."
     )
-    sync_log = "/var/log/os_pariah/sync_workers.log"
+    sync_log = "/var/log/os-pariah/sync_workers.log"
     log_out = None
     try:
         os.makedirs(os.path.dirname(sync_log), exist_ok=True)
@@ -450,13 +450,13 @@ def trigger_system_sync_workers(ban_id="Manual/Unknown"):
         cmds = [
             [
                 "/usr/bin/sudo",
-                "/opt/os_pariah/venv/bin/python",
-                "/opt/os_pariah/scripts/sync_firewall.py",
+                "/opt/os-pariah/venv/bin/python",
+                "/opt/os-pariah/scripts/sync_firewall.py",
             ],
             [
                 "/usr/bin/sudo",
-                "/opt/os_pariah/venv/bin/python",
-                "/opt/os_pariah/scripts/sync_robust.py",
+                "/opt/os-pariah/venv/bin/python",
+                "/opt/os-pariah/scripts/sync_robust.py",
             ],
         ]
         for cmd in cmds:
@@ -512,7 +512,7 @@ def _entered_ts_newer(a, b):
         return False
 
 
-def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
+def _gatekeeper_latest_display_names(app_conn, unique_ids):
     """
     One display name per UUID from gatekeeper_* tables (Hypergrid logins, deleted Robust accounts).
     Picks the user_name from the row with the greatest `entered` across ip/mac/host_id/from tables.
@@ -524,7 +524,7 @@ def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
     best = {}  # uuid -> (entered, display_name)
     tables = ("gatekeeper_mac", "gatekeeper_host_id", "gatekeeper_from")
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             for table in tables:
                 cursor.execute(
                     f"""
@@ -553,7 +553,7 @@ def _gatekeeper_latest_display_names(pariah_conn, unique_ids):
 
 
 def _collect_ban_evidence(
-    pariah_conn, robust_conn, *, seed_uuids, seed_macs, seed_hostids, ban_type
+    app_conn, robust_conn, *, seed_uuids, seed_macs, seed_hostids, ban_type
 ):
     """
     Collects a best-effort snapshot of identifiers + linked accounts for review/reference.
@@ -578,7 +578,7 @@ def _collect_ban_evidence(
         observed["names"].setdefault(uuid, set()).add(str(name).strip())
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # 1) Expand linked UUIDs based on the ban vector(s)
             if ban_type == "mac" and seed_macs:
                 fmt = ",".join(["%s"] * len(seed_macs))
@@ -692,7 +692,7 @@ def _collect_ban_evidence(
                     add_names(r.get("user_uuid"), r.get("user_name"))
 
     except Exception as e:
-        current_app.logger.error(f"Ban evidence collection failed (pariah DB): {e}")
+        current_app.logger.error(f"Ban evidence collection failed (portal DB): {e}")
 
     # 4) Pull Robust names/emails if available (best effort)
     try:
@@ -798,10 +798,10 @@ def create_ban():
     elif ban_type == "mac":
         target_level = int(get_dynamic_config("ban_level_mac"))
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     robust_conn = get_robust_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # 1. Master Record
             cursor.execute(
                 "INSERT INTO bans_master (reason, type) VALUES (%s, %s)",
@@ -810,7 +810,7 @@ def create_ban():
             ban_id = cursor.lastrowid
 
             evidence = _collect_ban_evidence(
-                pariah_conn,
+                app_conn,
                 robust_conn,
                 seed_uuids=uuids,
                 seed_macs=macs,
@@ -880,7 +880,7 @@ def create_ban():
                     (uuid, admin_uuid, staff_note),
                 )
 
-        pariah_conn.commit()
+        app_conn.commit()
 
         # 4. Trigger Firewall & Robust Workers
         if ban_type in ["mac", "hostid"]:
@@ -905,9 +905,9 @@ def create_ban():
 @rbac_required(PERM_ISSUE_BANS)
 def delete_ban(ban_id):
     """Deletes a ban and attempts to restore associated accounts to Level 0."""
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # First, fetch the UUIDs tied to this ban so we can unlock them
             cursor.execute("SELECT uuid FROM bans_uuid WHERE banid = %s", (ban_id,))
             banned_uuids = [row["uuid"] for row in cursor.fetchall()]
@@ -930,7 +930,7 @@ def delete_ban(ban_id):
                     "INSERT INTO user_notes (user_uuid, admin_uuid, note) VALUES (%s, %s, %s)",
                     (uuid, admin_uuid, removed_note),
                 )
-        pariah_conn.commit()
+        app_conn.commit()
 
         # Restore user levels via Robust
         for uuid in banned_uuids:
@@ -959,8 +959,14 @@ def delete_ban(ban_id):
 @rbac_required(PERM_MANAGE_ROLES)
 def update_user_level(uuid):
     """Allows Super Admins to manually adjust a user's level (e.g., Promotions)."""
-    is_super = has_permission(PERM_SUPER_ADMIN)
-    if not is_super and uuid == session.get("uuid"):
+    if not has_permission(PERM_SUPER_ADMIN):
+        flash(
+            "Security Violation: Only Super Admins can change Robust user levels.",
+            "error",
+        )
+        return redirect(url_for("user_mgmt.gatekeeper_lookup", type="uuid", q=uuid))
+
+    if uuid == session.get("uuid"):
         flash("Security Violation: You cannot modify your own permissions.", "error")
         return redirect(url_for("user_mgmt.gatekeeper_lookup", type="uuid", q=uuid))
 
@@ -968,8 +974,14 @@ def update_user_level(uuid):
 
     try:
         new_level = int(new_level)
-        set_user_level(uuid, new_level)
-        flash(f"User level successfully updated to {new_level}.", "success")
+        # Hard bounds: rejected/banned tiers through grid-owner 250.
+        if new_level < -10 or new_level > 250:
+            flash("Invalid level: must be between -10 and 250.", "error")
+            return redirect(url_for("user_mgmt.gatekeeper_lookup", type="uuid", q=uuid))
+        if set_user_level(uuid, new_level):
+            flash(f"User level successfully updated to {new_level}.", "success")
+        else:
+            flash("Failed to update user level via Robust API.", "error")
     except ValueError:
         flash("Invalid level provided.", "error")
     except Exception as e:
@@ -1018,7 +1030,7 @@ def manage_roles(uuid):
         flash("Security Violation: You cannot modify your own permissions.", "error")
         return redirect(url_for("user_mgmt.gatekeeper_lookup", type="uuid", q=uuid))
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     robust_conn = get_robust_db()
 
     # 1. Fetch user's real name and level from Robust
@@ -1037,7 +1049,7 @@ def manage_roles(uuid):
 
     # 2. Fetch current permissions for the target
     current_permissions = 0
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT permissions FROM user_rbac WHERE user_uuid = %s", (uuid,)
         )
@@ -1046,24 +1058,32 @@ def manage_roles(uuid):
             current_permissions = row["permissions"]
 
     if request.method == "POST":
+        from app.utils.schema import all_known_rbac_mask, known_rbac_bits
+
         selected_bits = request.form.getlist("permissions")
         new_bitmask = 0
+        allowed_bits = known_rbac_bits()
 
-        # Calculate new bits from form input
+        # Calculate new bits from form input — accept only known single-bit values
+        # (composite values like 3 would otherwise bypass the super_only key lookup).
         for bit_str in selected_bits:
             try:
                 bit_val = int(bit_str)
-                # Only allow adding this bit if it's not super_only OR if the admin is a Super Admin
-                is_this_bit_super = False
-                for _cat, perms in RBAC_SCHEMA.items():
-                    if bit_val in perms and perms[bit_val].get("super_only"):
-                        is_this_bit_super = True
-                        break
-
-                if not is_this_bit_super or is_super:
-                    new_bitmask |= bit_val
             except ValueError:
-                pass
+                continue
+            if bit_val not in allowed_bits:
+                continue
+
+            is_this_bit_super = False
+            for _cat, perms in RBAC_SCHEMA.items():
+                if bit_val in perms and perms[bit_val].get("super_only"):
+                    is_this_bit_super = True
+                    break
+
+            if not is_this_bit_super or is_super:
+                new_bitmask |= bit_val
+
+        new_bitmask &= all_known_rbac_mask()
 
         # If the admin is NOT a super-user, we MUST preserve any existing super_only bits that were already on the target user.
         if not is_super:
@@ -1081,7 +1101,7 @@ def manage_roles(uuid):
             except (TypeError, ValueError):
                 current_level = 0
 
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 if new_bitmask == 0:
                     cursor.execute(
                         "DELETE FROM user_rbac WHERE user_uuid = %s", (uuid,)
@@ -1095,7 +1115,7 @@ def manage_roles(uuid):
                     """,
                         (uuid, new_bitmask),
                     )
-            pariah_conn.commit()
+            app_conn.commit()
 
             # Normalize Robust level tiers when RBAC is cleared/applied.
             if new_bitmask == 0:
@@ -1171,10 +1191,10 @@ def admin_force_password_reset(uuid):
         )
         return redirect(url_for("user_mgmt.gatekeeper_lookup", type="uuid", q=uuid))
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
         token, _expires_at = create_password_reset_token(
-            pariah_conn, uuid, ttl_seconds=3600
+            app_conn, uuid, ttl_seconds=3600
         )
 
         send_password_reset_email(account["Email"], token)

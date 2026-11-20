@@ -1,0 +1,12 @@
+[Unit]
+Description=Run OS-Pariah Gatekeeper Parser Daily
+After=network.target mariadb.service os-pariah.service
+Requires=os-pariah.service
+
+[Timer]
+# Runs at 2:00 AM every single day
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

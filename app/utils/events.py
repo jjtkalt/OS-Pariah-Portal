@@ -11,7 +11,7 @@ from dateutil import rrule as dateutil_rrule
 from icalendar import Calendar
 from icalendar import Event as ICalEvent
 
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 from app.utils.markdown_safe import strip_markdown_plain
 from app.utils.recurrence_form import normalize_rrule_string
 
@@ -236,7 +236,7 @@ def expand_event_occurrences(event, range_start, range_end):
 
 
 def fetch_published_events(tier_filter=None, category_filter=None, region_filter=None):
-    conn = get_pariah_db()
+    conn = get_app_db()
     query = """
         SELECT e.*, r.region_name
         FROM calendar_events e
@@ -282,7 +282,7 @@ def expand_events_for_range(
 
 
 def get_event_by_id(event_id):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -319,7 +319,7 @@ def parse_feed_filters(request_args, token_row=None):
 def load_subscription_by_token(token):
     if not token:
         return None
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT * FROM event_feed_subscriptions WHERE subscription_token = %s",
@@ -330,7 +330,7 @@ def load_subscription_by_token(token):
 
 def build_ical_feed(events, request_host_url):
     cal = Calendar()
-    cal.add("prodid", "-//OS Pariah Portal//Calendar//EN")
+    cal.add("prodid", "-//OS-Pariah//Calendar//EN")
     cal.add("version", "2.0")
     cal.add("calscale", "GREGORIAN")
     cal.add("X-WR-TIMEZONE", str(grid_tz().key))
@@ -338,7 +338,7 @@ def build_ical_feed(events, request_host_url):
     tz = grid_tz()
     for ev in events[:200]:
         ical_ev = ICalEvent()
-        uid = f"pariah-event-{ev['id']}@portal"
+        uid = f"os-pariah-event-{ev['id']}@portal"
         ical_ev.add("uid", uid)
         ical_ev.add("summary", ev["title"])
         if ev.get("description"):

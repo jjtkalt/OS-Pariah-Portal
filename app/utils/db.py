@@ -13,14 +13,14 @@ def get_robust_db():
     return g.robust_conn
 
 
-def get_pariah_db():
-    if "pariah_conn" not in g:
+def get_app_db():
+    if "app_conn" not in g:
         try:
-            g.pariah_conn = main_app.pariah_pool.connection()
+            g.app_conn = main_app.app_pool.connection()
         except Exception as e:
-            current_app.logger.error(f"Failed to get Pariah DB connection: {e}")
+            current_app.logger.error(f"Failed to get OS-Pariah DB connection: {e}")
             raise
-    return g.pariah_conn
+    return g.app_conn
 
 
 def get_dynamic_config(key, default=None):
@@ -42,7 +42,7 @@ def get_dynamic_config(key, default=None):
     # --------------------------------
 
     # Authority order: DB override → KNOWN_SETTINGS schema default → call-site default.
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute("SELECT config_value FROM config WHERE config_key = %s", (key,))
         result = cursor.fetchone()

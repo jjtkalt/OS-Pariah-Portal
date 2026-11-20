@@ -1,0 +1,10 @@
+# Development / CI tooling. Not installed by the production RPM.
+# Compile with:
+#   venv/bin/python -m piptools compile --generate-hashes --allow-unsafe \
+#       --strip-extras -c requirements.txt -o requirements-dev.txt requirements-dev.in
+ruff
+pre-commit
+pytest
+pytest-flask
+pip-audit
+pip-tools

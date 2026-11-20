@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page not found</title>
+    <link rel="icon" href="/favicon.ico">
+    <!-- Self-contained: must render even when the portal app or base.css is unavailable. -->
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --surface: #ffffff;
+            --border-color: #e2e8f0;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-on-primary: #ffffff;
+            --font-body: 'Inter', Arial, Helvetica, sans-serif;
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        html, body { margin: 0; padding: 0; height: 100%; }
+        body {
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            padding: 2rem 2.5rem;
+            max-width: 28rem;
+            text-align: center;
+        }
+        .code { font-size: 3.5rem; font-weight: 700; color: var(--primary); margin: 0; }
+        h1 { font-size: 1.4rem; margin: 0.5rem 0; }
+        p { color: var(--text-muted); line-height: 1.5; }
+        a.btn {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.55rem 1.25rem;
+            border-radius: 8px;
+            background: var(--primary);
+            color: var(--text-on-primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        a.btn:hover { background: var(--primary-hover); }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <p class="code">404</p>
+        <h1>Page not found</h1>
+        <p>We couldn't find the page you were looking for. It may have moved or no longer exist.</p>
+        <a class="btn" href="/">Back to the portal home</a>
+    </main>
+</body>
+</html>

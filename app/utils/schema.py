@@ -5,7 +5,7 @@ KNOWN_SETTINGS = {
         "grid_name": {
             "label": "Grid Name",
             "type": "text",
-            "default": "OS Pariah",
+            "default": "OS-Pariah",
             "no_reset": True,
         },
         "grid_website_url": {
@@ -59,7 +59,7 @@ KNOWN_SETTINGS = {
         "portal_favicon": {
             "label": "Portal Favicon / Shortcut Icon URL or Path (.ico)",
             "type": "text",
-            "default": "/static/images/pariah.ico",
+            "default": "/static/images/os-pariah.ico",
         },
     },
     "Registration & Captcha": {
@@ -81,12 +81,13 @@ KNOWN_SETTINGS = {
         "TURNSTILE_SITE_KEY": {
             "label": "Turnstile Site Key",
             "type": "text",
-            "default": "3x00000000000000000000FF",
+            # Empty until configured — Cloudflare always-pass test keys must not ship as defaults.
+            "default": "",
         },
         "TURNSTILE_SECRET_KEY": {
             "label": "Turnstile Secret Key",
             "type": "password",
-            "default": "1x0000000000000000000000000000000AA",
+            "default": "",
         },
     },
     "User Access & Policies": {
@@ -355,7 +356,7 @@ KNOWN_SETTINGS = {
         "texture_cache_path": {
             "label": "Cache Directory Location",
             "type": "text",
-            "default": "/home/opensim/FSAssets/pariahcache",
+            "default": "/home/opensim/FSAssets/os-pariah-cache",
         },
         "texture_cache_retention_days": {
             "label": "Texture Gallery Cache Retention (Days)",
@@ -578,6 +579,22 @@ RBAC_SCHEMA = {
         },
     },
 }
+
+
+def known_rbac_bits():
+    """Return the set of single-bit permission values defined in RBAC_SCHEMA."""
+    bits = set()
+    for perms in RBAC_SCHEMA.values():
+        bits.update(perms.keys())
+    return bits
+
+
+def all_known_rbac_mask():
+    """Bitwise OR of every known RBAC bit (for masking composite submissions)."""
+    mask = 0
+    for bit in known_rbac_bits():
+        mask |= bit
+    return mask
 
 
 def format_rbac_labels(bitmask):

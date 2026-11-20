@@ -68,20 +68,28 @@
                     <td class="text-center" style="vertical-align: middle;">
                         <div class="flex-center gap-10">
                             {% if view == 'email' %}
-                            <button class="btn-info btn-resend flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
-                                    onclick="resendVerification('{{ user.user_uuid }}', 'row_{{ user.user_uuid }}')">
+                            <button type="button" class="btn-info btn-resend flex-center gap-5 js-resend"
+                                    style="padding: 6px 12px; font-size: 0.9rem;"
+                                    data-uuid="{{ user.user_uuid }}"
+                                    data-row-id="row_{{ user.user_uuid }}">
                                 <span class="btn-text">Resend Email</span>
                                 <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
                             {% else %}
-                            <button class="btn-success btn-approve flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
-                                    onclick="processUser('approve', '{{ user.user_uuid }}', '{{ user.email }}', 'row_{{ user.user_uuid }}')">
+                            <button type="button" class="btn-success btn-approve flex-center gap-5 js-approve"
+                                    style="padding: 6px 12px; font-size: 0.9rem;"
+                                    data-uuid="{{ user.user_uuid }}"
+                                    data-email="{{ user.email }}"
+                                    data-row-id="row_{{ user.user_uuid }}">
                                 <span class="btn-text">Approve</span>
                                 <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
 
-                            <button class="btn-danger btn-reject flex-center gap-5" style="padding: 6px 12px; font-size: 0.9rem;"
-                                    onclick="processUser('reject', '{{ user.user_uuid }}', '{{ user.email }}', 'row_{{ user.user_uuid }}')">
+                            <button type="button" class="btn-danger btn-reject flex-center gap-5 js-reject"
+                                    style="padding: 6px 12px; font-size: 0.9rem;"
+                                    data-uuid="{{ user.user_uuid }}"
+                                    data-email="{{ user.email }}"
+                                    data-row-id="row_{{ user.user_uuid }}">
                                 <span class="btn-text">Reject</span>
                                 <div class="spinner m-0" style="display: none; width: 12px; height: 12px;"></div>
                             </button>
@@ -105,6 +113,10 @@
 {% endif %}
 
 <script>
+    const APPROVE_URL = {{ url_for("admin.approve_user") | tojson }};
+    const REJECT_URL = {{ url_for("admin.reject_user") | tojson }};
+    const RESEND_URL = {{ url_for("admin.resend_verification") | tojson }};
+
     function setRowLoading(row, activeBtn, loading) {
         const buttons = row.querySelectorAll('button');
         buttons.forEach(btn => { btn.disabled = loading; });
@@ -125,6 +137,11 @@
         }, 500);
     }
 
+    function csrfHeaders() {
+        const token = document.querySelector('meta[name="csrf-token"]');
+        return token ? { 'X-CSRFToken': token.getAttribute('content') } : {};
+    }
+
     function resendVerification(uuid, rowId) {
         if (!confirm('Resend the email verification link to this user?')) return;
 
@@ -135,9 +152,12 @@
         const formData = new URLSearchParams();
         formData.append('uuid', uuid);
 
-        fetch('{{ url_for("admin.resend_verification") }}', {
+        fetch(RESEND_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                ...csrfHeaders()
+            },
             body: formData.toString()
         })
         .then(response => response.json())
@@ -172,11 +192,14 @@
         formData.append('uuid', uuid);
         if (isApprove) formData.append('email', email);
 
-        const endpoint = isApprove ? '{{ url_for("admin.approve_user") }}' : '{{ url_for("admin.reject_user") }}';
+        const endpoint = isApprove ? APPROVE_URL : REJECT_URL;
 
         fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                ...csrfHeaders()
+            },
             body: formData.toString()
         })
         .then(response => response.json())
@@ -193,5 +216,21 @@
             setRowLoading(row, activeBtn, false);
         });
     }
+
+    document.querySelectorAll('.js-resend').forEach(btn => {
+        btn.addEventListener('click', () => {
+            resendVerification(btn.dataset.uuid, btn.dataset.rowId);
+        });
+    });
+    document.querySelectorAll('.js-approve').forEach(btn => {
+        btn.addEventListener('click', () => {
+            processUser('approve', btn.dataset.uuid, btn.dataset.email, btn.dataset.rowId);
+        });
+    });
+    document.querySelectorAll('.js-reject').forEach(btn => {
+        btn.addEventListener('click', () => {
+            processUser('reject', btn.dataset.uuid, btn.dataset.email, btn.dataset.rowId);
+        });
+    });
 </script>
 {% endblock %}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run OS-Pariah calendar notifications every minute
+After=network.target mariadb.service os-pariah.service
+Requires=os-pariah.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

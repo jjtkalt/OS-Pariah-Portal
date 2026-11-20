@@ -1,3 +1,4 @@
+import contextlib
 import glob
 import os
 import sys
@@ -7,21 +8,22 @@ from dotenv import load_dotenv
 from pymysql.constants import CLIENT
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_SCRIPT_DIR)
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
 from ensure_secrets import ensure_secret_key  # noqa: E402
 
 # Try the system config first, fallback to local dev file
-if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-    load_dotenv("/etc/os_pariah/os-pariah.conf")
+if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+    load_dotenv("/etc/os-pariah/os-pariah.conf")
 else:
-    load_dotenv(".env")
+    load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 
-DB_HOST = os.environ.get("PARIAH_DB_HOST")
-DB_USER = os.environ.get("PARIAH_DB_USER")
-DB_PASS = os.environ.get("PARIAH_DB_PASS")
-DB_NAME = os.environ.get("PARIAH_DB_NAME")
+DB_HOST = os.environ.get("OS_PARIAH_DB_HOST")
+DB_USER = os.environ.get("OS_PARIAH_DB_USER")
+DB_PASS = os.environ.get("OS_PARIAH_DB_PASS")
+DB_NAME = os.environ.get("OS_PARIAH_DB_NAME")
 
 
 def get_connection():
@@ -58,18 +60,16 @@ def get_applied_migrations(conn):
 def ensure_bootstrap_admin(conn):
     """Grant portal Super Admin to a configured OpenSim account UUID when set.
 
-    OS-Pariah normally bootstraps admins automatically: the first login by an OpenSim
-    account with userLevel >= 250 is auto-granted PERM_SUPER_ADMIN (see
-    app/blueprints/auth/routes.py). This hook is an optional, env-driven alternative
-    (PlatformStandards ADR-012) for grids that want to pre-seed a known admin UUID
-    without needing a 250+ account first. Idempotent and self-healing: it only ever
-    adds the Super Admin bit and never downgrades an existing grant.
+    OS-Pariah bootstraps admins via ADMIN_UUID (PlatformStandards ADR-012 /
+    docs/NAMING.md). Login only auto-grants Super Admin when
+    the authenticated UUID matches ADMIN_UUID. Idempotent and self-healing: it
+    only ever adds the Super Admin bit and never downgrades an existing grant.
     """
     admin_uuid = (os.environ.get("ADMIN_UUID") or "").strip()
     if not admin_uuid:
         print(
             "No ADMIN_UUID set; skipping bootstrap admin. "
-            "OS-Pariah auto-grants Super Admin to the first userLevel >= 250 login."
+            "Set ADMIN_UUID to the OpenSim PrincipalID that should receive Super Admin."
         )
         return
 
@@ -117,12 +117,13 @@ def apply_migrations():
         init_migration_table(conn)
         applied = get_applied_migrations(conn)
 
-        # Grab all .sql files and sort them (001_, 002_, etc.)
-        migration_files = sorted(glob.glob(os.path.join("migrations", "*.sql")))
+        migrations_dir = os.path.join(_REPO_ROOT, "migrations")
+        migration_files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
 
         if not migration_files:
-            print("No migration files found in the migrations/ directory.")
-            return
+            print(f"No migration files found in {migrations_dir}.")
+            print("CRITICAL ERROR: migrations directory is empty or missing.")
+            sys.exit(1)
 
         for file_path in migration_files:
             filename = os.path.basename(file_path)
@@ -150,11 +151,13 @@ def apply_migrations():
 
     except Exception as e:
         print(f"CRITICAL ERROR: Migration failed: {e}")
-        conn.rollback()
+        with contextlib.suppress(Exception):
+            conn.rollback()
+        sys.exit(1)
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
-    print("--- OS Pariah Database Migration Engine ---")
+    print("--- OS-Pariah Database Migration Engine ---")
     apply_migrations()

@@ -24,8 +24,8 @@ def _seed_conf(path: str, ipv4=None, ipv6=None) -> None:
 
 @pytest.fixture
 def conf_paths(tmp_path, monkeypatch):
-    conf = tmp_path / "pariah-cloudflare-ip.conf"
-    backup = tmp_path / "pariah-cloudflare-ip.conf.bak"
+    conf = tmp_path / "os-pariah-cloudflare-ip.conf"
+    backup = tmp_path / "os-pariah-cloudflare-ip.conf.bak"
     monkeypatch.setattr(cfip, "CONF_FILE", str(conf))
     monkeypatch.setattr(cfip, "BACKUP_FILE", str(backup))
     return conf, backup

@@ -4,11 +4,11 @@ import re
 import subprocess
 import sys
 
-from pariah_env import (
+from os_pariah_env import (
     configure_sync_logging,
+    get_app_db_connection,
     get_dynamic_config_for_scripts,
-    get_pariah_db_connection,
-    load_pariah_dotenv,
+    load_app_dotenv,
 )
 
 # Full unit filename: templated (robust@main.service) or standalone (robust.service).
@@ -46,8 +46,8 @@ def restart_robust_systemd(logger, unit: str) -> None:
 
 def sync_macs(logger):
     logger.info("Starting Robust MAC synchronization...")
-    load_pariah_dotenv()
-    conn = get_pariah_db_connection()
+    load_app_dotenv()
+    conn = get_app_db_connection()
     try:
         raw_path = get_dynamic_config_for_scripts(conn, "robust_main_ini_path")
         robust_conf_path = str(raw_path).strip() if raw_path is not None else ""

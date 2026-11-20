@@ -16,7 +16,7 @@ from flask import (
 )
 
 from app.utils.auth_helpers import has_permission, rbac_required, require_active_user
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.schema import (
     PERM_MANAGE_INFRA,
     PERM_MANAGE_REGIONS,
@@ -200,9 +200,9 @@ def format_uptime(seconds):
 @regions_bp.route("/api/config/<region_uuid>.xml", methods=["GET"])
 def get_region_xml(region_uuid):
     client_ip = request.remote_addr
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT external_hostname FROM region_hosts WHERE host_ip = %s",
                 (client_ip,),
@@ -306,8 +306,8 @@ def manage_regions():
             return redirect(url_for("comms.news_feed"))
 
     try:
-        conn_pariah = get_pariah_db()
-        with conn_pariah.cursor() as cursor:
+        conn_app = get_app_db()
+        with conn_app.cursor() as cursor:
             cursor.execute("""
                 SELECT c.region_uuid as uuid, c.region_name as regionName, c.is_active, c.hud_list_users,
                        MAX(IF(s.setting_key = 'InternalPort', s.setting_value, NULL)) AS serverPort
@@ -351,7 +351,7 @@ def manage_regions():
                         "dns_mapping_warning": False,
                     }
 
-        with conn_pariah.cursor() as cursor:
+        with conn_app.cursor() as cursor:
             cursor.execute("SELECT host_ip, external_hostname FROM region_hosts")
             host_rows = cursor.fetchall()
         ips_lower, ips_canonical, externals_lower = _dns_mapping_lookup_sets(host_rows)
@@ -460,8 +460,8 @@ def control_region(action, region_uuid):
     if action not in allowed_actions:
         return redirect(url_for("regions.manage_regions"))
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT region_name FROM region_configs WHERE region_uuid = %s",
             (region_uuid,),
@@ -589,9 +589,9 @@ def add_region():
             "SizeY": size,
         }
 
-        pariah_conn = get_pariah_db()
+        app_conn = get_app_db()
         try:
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO region_configs (region_uuid, region_name) VALUES (%s, %s)",
                     (region_uuid, region_name),
@@ -604,7 +604,7 @@ def add_region():
                     """,
                         (region_uuid, key, value),
                     )
-            pariah_conn.commit()
+            app_conn.commit()
             flash(f"Region '{region_name}' added successfully.", "success")
             return redirect(url_for("regions.manage_regions"))
         except Exception as e:
@@ -621,9 +621,9 @@ def add_region():
 def toggle_state(region_uuid):
     """Flips a managed region between Enabled (1) and Disabled (0)."""
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # Fetch current state
             cursor.execute(
                 "SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s",
@@ -641,7 +641,7 @@ def toggle_state(region_uuid):
                 "UPDATE region_configs SET is_active = %s WHERE region_uuid = %s",
                 (new_state, region_uuid),
             )
-            pariah_conn.commit()
+            app_conn.commit()
 
             status_word = "Enabled" if new_state == 1 else "Disabled"
             flash(f"Region '{region['region_name']}' is now {status_word}.", "success")
@@ -668,9 +668,9 @@ def toggle_hud_list(region_uuid):
         return redirect(url_for("comms.news_feed"))
 
     """Flips public HUD listing for avatars in this region (Users Listed (1)/ Users Unlisted (0))."""
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT hud_list_users, region_name FROM region_configs WHERE region_uuid = %s",
                 (region_uuid,),
@@ -686,7 +686,7 @@ def toggle_hud_list(region_uuid):
                 "UPDATE region_configs SET hud_list_users = %s WHERE region_uuid = %s",
                 (new_val, region_uuid),
             )
-            pariah_conn.commit()
+            app_conn.commit()
 
             state = "Users Listed" if new_val == 1 else "Users Unlisted"
             flash(
@@ -704,9 +704,9 @@ def toggle_hud_list(region_uuid):
 @regions_bp.route("/delete/<region_uuid>", methods=["POST"])
 @rbac_required(PERM_MANAGE_REGIONS)
 def delete_region(region_uuid):
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             # UPDATED: Enforce the Guardrail!
             cursor.execute(
                 "SELECT is_active, region_name FROM region_configs WHERE region_uuid = %s",
@@ -724,7 +724,7 @@ def delete_region(region_uuid):
             cursor.execute(
                 "DELETE FROM region_configs WHERE region_uuid = %s", (region_uuid,)
             )
-        pariah_conn.commit()
+        app_conn.commit()
         flash("Region configuration deleted successfully.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete region: {e}")
@@ -746,8 +746,8 @@ def edit_region(region_uuid):
             "SizeY": size,
         }
         try:
-            pariah_conn = get_pariah_db()
-            with pariah_conn.cursor() as cursor:
+            app_conn = get_app_db()
+            with app_conn.cursor() as cursor:
                 new_name = request.form.get("region_name")
                 if new_name:
                     cursor.execute(
@@ -764,7 +764,7 @@ def edit_region(region_uuid):
                         """,
                             (region_uuid, key, value),
                         )
-            pariah_conn.commit()
+            app_conn.commit()
             flash("Region configuration updated successfully.", "success")
         except Exception as e:
             current_app.logger.error(f"Failed to update region config: {e}")
@@ -772,8 +772,8 @@ def edit_region(region_uuid):
         return redirect(url_for("regions.edit_region", region_uuid=region_uuid))
 
     try:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT region_name FROM region_configs WHERE region_uuid = %s",
                 (region_uuid,),
@@ -825,8 +825,8 @@ def import_region(region_uuid):
         grid_x = loc_x // 256 if loc_x > 10000 else loc_x
         grid_y = loc_y // 256 if loc_y > 10000 else loc_y
 
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT IGNORE INTO region_configs (region_uuid, region_name)
@@ -855,7 +855,7 @@ def import_region(region_uuid):
                         (region_uuid, key, str(value)),
                     )
 
-        pariah_conn.commit()
+        app_conn.commit()
         flash(f"Successfully imported {region_data['regionName']}.", "success")
 
     except Exception as e:
@@ -868,7 +868,7 @@ def import_region(region_uuid):
 @regions_bp.route("/hosts", methods=["GET", "POST"])
 @rbac_required(PERM_MANAGE_INFRA)
 def manage_hosts():
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
     if request.method == "POST":
         host_ip = request.form.get("host_ip", "").strip()
@@ -876,7 +876,7 @@ def manage_hosts():
 
         if host_ip and external_hostname:
             try:
-                with pariah_conn.cursor() as cursor:
+                with app_conn.cursor() as cursor:
                     cursor.execute(
                         """
                         INSERT INTO region_hosts (host_ip, external_hostname)
@@ -885,7 +885,7 @@ def manage_hosts():
                     """,
                         (host_ip, external_hostname),
                     )
-                pariah_conn.commit()
+                app_conn.commit()
                 flash(
                     f"Mapping for {host_ip} updated to {external_hostname}.", "success"
                 )
@@ -898,7 +898,7 @@ def manage_hosts():
         return redirect(url_for("regions.manage_hosts"))
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT host_ip, external_hostname FROM region_hosts ORDER BY host_ip ASC"
             )
@@ -914,10 +914,10 @@ def manage_hosts():
 @rbac_required(PERM_MANAGE_INFRA)
 def delete_host(ip):
     try:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute("DELETE FROM region_hosts WHERE host_ip = %s", (ip,))
-        pariah_conn.commit()
+        app_conn.commit()
         flash(f"Mapping for {ip} deleted permanently.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete host mapping for {ip}: {e}")

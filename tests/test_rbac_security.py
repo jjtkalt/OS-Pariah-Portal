@@ -51,7 +51,7 @@ def test_manage_roles_preserves_super_bits(mock_get_robust, client, db_cursor):
     )
     mock_cursor.fetchone.return_value = {"FirstName": "Target", "LastName": "User"}
 
-    # 2. Tell the Pariah DB that the Target User is currently a Super Admin
+    # 2. Tell the OS-Pariah DB that the Target User is currently a Super Admin
     # FIX: Use side_effect to prevent crashing get_dynamic_config
     db_cursor.fetchone.side_effect = [{"permissions": PERM_SUPER_ADMIN}] + [None] * 20
 
@@ -107,3 +107,63 @@ def test_ppi_search_blocked_without_permission(client):
         b"Unauthorized: You do not have clearance to search by connection PPI"
         in response.data
     )
+
+
+# -------------------------------------------------------------------
+# Test 4: Reject composite permission values (privilege escalation)
+# -------------------------------------------------------------------
+@patch("app.blueprints.admin.user_mgmt.get_robust_db")
+def test_manage_roles_rejects_composite_bitmask(mock_get_robust, client, db_cursor):
+    """Composite values like permissions=3 must not grant PERM_SUPER_ADMIN."""
+
+    mock_cursor = MagicMock()
+    mock_get_robust.return_value.cursor.return_value.__enter__.return_value = (
+        mock_cursor
+    )
+    mock_cursor.fetchone.return_value = {
+        "FirstName": "Target",
+        "LastName": "User",
+        "userLevel": 1,
+    }
+
+    db_cursor.fetchone.side_effect = [{"permissions": 0}] + [None] * 20
+
+    with client.session_transaction() as sess:
+        sess["uuid"] = "standard-admin-uuid"
+        sess["permissions"] = PERM_MANAGE_ROLES
+
+    # 3 == PERM_SUPER_ADMIN | PERM_MANAGE_ROLES — must be ignored as unknown bit
+    client.post(
+        "/admin/users/target-uuid-456/roles",
+        data={"permissions": str(PERM_SUPER_ADMIN | PERM_MANAGE_ROLES)},
+        follow_redirects=True,
+    )
+
+    for call in db_cursor.execute.call_args_list:
+        query = call[0][0]
+        args = call[0][1] if len(call[0]) > 1 else ()
+        if "INSERT INTO user_rbac" in query:
+            assert args[1] & PERM_SUPER_ADMIN == 0, (
+                f"Composite submission granted Super Admin: {args}"
+            )
+
+
+# -------------------------------------------------------------------
+# Test 5: set_level requires Super Admin
+# -------------------------------------------------------------------
+@patch("app.blueprints.admin.user_mgmt.set_user_level")
+def test_set_level_blocked_without_super_admin(mock_set_level, client):
+    """PERM_MANAGE_ROLES alone must not change Robust user levels."""
+
+    with client.session_transaction() as sess:
+        sess["uuid"] = "standard-admin-uuid"
+        sess["permissions"] = PERM_MANAGE_ROLES
+
+    response = client.post(
+        "/admin/users/target-uuid-456/set_level",
+        data={"new_level": "250"},
+        follow_redirects=True,
+    )
+
+    assert b"Only Super Admins can change Robust user levels" in response.data
+    mock_set_level.assert_not_called()

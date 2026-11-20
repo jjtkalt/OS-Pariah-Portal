@@ -1,4 +1,8 @@
-"""Install or upgrade venv packages to match requirements.txt before service start."""
+"""Install or upgrade venv packages to match requirements.txt before service start.
+
+requirements.txt is compiled by pip-tools with ``--generate-hashes`` (see requirements.in),
+so installs always use ``--require-hashes`` (supply-chain integrity).
+"""
 
 import subprocess
 import sys
@@ -19,6 +23,7 @@ def main():
         "pip",
         "install",
         "--disable-pip-version-check",
+        "--require-hashes",
         "-r",
         str(REQUIREMENTS),
     ]

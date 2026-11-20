@@ -1,4 +1,4 @@
-// Grid Service Bot — OS Pariah Portal message delivery
+// Grid Service Bot — OS-Pariah portal message delivery
 // Place in a dedicated bot avatar on your grid's announce region.
 // Requires notecard "GridBotConfig" (see GridBotConfig.example.txt).
 // Add GridServiceBotGroup.lsl in the same object for group chat/notices.

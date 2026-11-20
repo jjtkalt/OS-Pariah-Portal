@@ -2,7 +2,7 @@
 
 from flask import current_app
 
-from app.utils.db import get_dynamic_config, get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_dynamic_config, get_robust_db
 from app.utils.events import format_pacific
 from app.utils.grid_bot import enqueue_bot_message, enqueue_event_announcements
 from app.utils.notifications import send_matrix_discord_webhook
@@ -111,7 +111,7 @@ def broadcast_event_cancelled(event, occurrence_start=None):
 
 
 def notify_followers_cancelled(event, occurrence_start=None):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT user_uuid, notify_email, notify_inworld FROM event_follows WHERE event_id = %s",
@@ -141,7 +141,7 @@ def notify_followers_cancelled(event, occurrence_start=None):
 
 
 def log_notification_sent(event_id, user_uuid, occurrence_start, notification_type):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         try:
             cursor.execute(
@@ -160,7 +160,7 @@ def log_notification_sent(event_id, user_uuid, occurrence_start, notification_ty
 
 
 def notification_already_sent(event_id, user_uuid, occurrence_start, notification_type):
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             """

@@ -1,12 +1,12 @@
-#OS-Pariah Philosophy
-So many of the ideas, best practices, and choices of OS Pariah were made by the Original Author because of various experiences had over the the span of their career.  Having started in UNIX administration in the late 1980s and am early adopter of Linux and a strong believer that it was the only sustainable high-end server Operating System for ongoing use, they have had a long time to build completely unreasonable expectations of stability, reliability, and functionality.
+# OS-Pariah Philosophy
+So many of the ideas, best practices, and choices of OS-Pariah were made by the Original Author because of various experiences had over the the span of their career.  Having started in UNIX administration in the late 1980s and am early adopter of Linux and a strong believer that it was the only sustainable high-end server Operating System for ongoing use, they have had a long time to build completely unreasonable expectations of stability, reliability, and functionality.
 
 Sadly, not all of those can be applied to OpenSimulator because of the very nature of the development and evolution.  And yet, that fails to distract them.
 
 ## OpenSUSE and SUSE Linux Enterprise Server
 ### File System Layout
 
-## OS Pariah Installation
+## OS-Pariah Installation
 ### OpenSimulator
 #### NGC Tanquility
 #### IAR Password Patch
@@ -19,18 +19,18 @@ Sadly, not all of those can be applied to OpenSimulator because of the very natu
 ### The Splash Page
 ### Non-containerized/Non-virtualized
 
-## Portal (This project)
+## OS-Pariah web component (This project)
 
 ### Basic Tenants
 
 * **Rule #1 (No Guessing / Single Source of Truth):** If data exists in two places, it is broken. Configuration values, user levels, and ban data must flow from a single, verifiable source to prevent split-brain architecture.
-* **The Principle of Least Privilege:** A web portal should never have `root` access to the host machine. OS-level changes must be handled by dedicated, localized scripts triggered securely.
+* **The Principle of Least Privilege:** The web process never runs as `root`, and the installed code tree (`/opt/os-pariah`, including the venv) is `root:root` and not writable by the service account. OS-level changes are handled by dedicated, localized scripts; the only sudoers grants are narrow (`sync_firewall.py`, `sync_robust.py`, starting the IAR worker, and OpenSim/Robust unit control).
 * **Automate the Administration:** Grid owners should spend their time building communities, not manually editing `.ini` files or grepping log files. The portal must act as a force multiplier that distills complex server management into a few clicks.
 * **Test to Trust:** Code that is not mathematically proven to work by an automated test suite is code that will eventually break in production. Every critical path must be verifiable.
-* **Dual MariaDB Connection Pooling:** Implemented `PooledDB` for both the Pariah CMS database and the OpenSim Robust database. This ensures thread-safe, high-concurrency database access while preventing memory leaks and connection drops (`InvalidConnection`).
+* **Dual MariaDB Connection Pooling:** Implemented `PooledDB` for both the OS-Pariah (`os_pariah`) CMS database and the OpenSim Robust database. This ensures thread-safe, high-concurrency database access while preventing memory leaks and connection drops (`InvalidConnection`).
 * **Single Source of Truth (SSOT) Configuration:** Eradicated "split-brain" configurations by moving all portal settings into a dynamic, database-driven `KNOWN_SETTINGS` schema. Settings are automatically injected globally into all Jinja templates and cached for performance.
 * **Gunicorn "Worker Storm" Prevention:** Solved the pre-fork concurrency issue using Linux native `fcntl` file locking. This ensures that when multiple web workers boot simultaneously, only one worker is allowed to trigger system-level background processes, keeping systemd logs clean and CPU usage low.
-* **Automated RPM Deployment:** Engineered a comprehensive `.spec` file that automatically handles user creation (`pariah` user), directory permissions, Nginx routing, systemd service installation, and surgical `sudoers` rule injection for secure background script execution.
+* **Automated RPM Deployment:** Engineered a comprehensive `.spec` file that automatically handles user creation (`os-pariah` user), directory permissions, Nginx routing, systemd service installation, and surgical `sudoers` rule injection for secure background script execution.
 * **Rate Limiting & Proxy Security:** Configured Nginx `limit_req_zone` to prevent brute-force and DDoS attacks, while properly forwarding `X-Real-IP` headers so the portal can accurately track and ban malicious actors.
 
 ### Python
@@ -38,9 +38,9 @@ Sadly, not all of those can be applied to OpenSimulator because of the very natu
 ### Ticket System
 ### Registration Page
 
-Robust's `createuser` API requires the chosen password in plain text so OpenSimulator can hash and salt it internally. Deferring that call until after admin approval would force the portal to store plaintext passwords in `OS_Pariah` while applicants wait — unacceptable.
+Robust's `createuser` API requires the chosen password in plain text so OpenSimulator can hash and salt it internally. Deferring that call until after admin approval would force the portal to store plaintext passwords in `os_pariah` while applicants wait — unacceptable.
 
-**Decision:** On a valid registration, call `createuser` immediately so Robust owns the credential, then call `setaccount` to set `UserLevel` to `-1` (cannot log in). Track email verification and admin approval in `OS_Pariah`. On approval, raise `UserLevel` to `0` via the same Robust API path. Never persist registration passwords in the portal database.
+**Decision:** On a valid registration, call `createuser` immediately so Robust owns the credential, then call `setaccount` to set `UserLevel` to `-1` (cannot log in). Track email verification and admin approval in `os_pariah`. On approval, raise `UserLevel` to `0` via the same Robust API path. Never persist registration passwords in the portal database.
 
 ### Rental System
 ### Patreon/PayPal/Venmo
@@ -58,7 +58,7 @@ We implemented a multi-layered ban system to.
 * **OS-Level Network Enforcement (Firewalld):** Created a bridge between the web database and the host OS.
     * Uses advanced string-matching algorithms to drop packets on the OpenSim login port.
 * **Surgical Robust Configuration Injection:** Safely injects bans into Robust's configuration.
-* **Secure Boundary Crossing:** The web application never requires `root` access. Instead, it asynchronously triggers highly restricted, dedicated scripts firewall and Robust configurations.
+* **Secure Boundary Crossing:** The web application never runs as `root`. Instead, it asynchronously triggers highly restricted, dedicated scripts (firewall and Robust configuration) through narrow `sudoers` rules; because those scripts run as root, the code tree they live in is root-owned and read-only to the `os-pariah` service user.
 
 ### Name Changes
 ### Partner System

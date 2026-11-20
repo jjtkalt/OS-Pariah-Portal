@@ -1,16 +1,22 @@
 import fcntl
+import os
 import subprocess
 
 import pymysql
 from dbutils.pooled_db import PooledDB
 from flask import Flask, flash, g, redirect, request, session, url_for
 from flask_caching import Cache
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from app.config import validate_secret_key
+from app.error_handlers import register_error_handlers
+
 cache = Cache()
+csrf = CSRFProtect()
 
 robust_pool = None
-pariah_pool = None
+app_pool = None
 
 
 def resolve_grid_identity_asset(key):
@@ -24,11 +30,56 @@ def resolve_grid_identity_asset(key):
     return value
 
 
-def create_app(config_class="app.config.Config"):
-    app = Flask(__name__)
-    app.config.from_object(config_class)
+# Pragmatic Content-Security-Policy (also set by nginx in packaged installs; Flask sends it
+# too so dev / `flask run` / any non-nginx front end gets the same protection).
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' https://challenges.cloudflare.com; "
+    "frame-src https://challenges.cloudflare.com; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'self';"
+)
 
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+PERMISSIONS_POLICY = (
+    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+    "magnetometer=(), microphone=(), payment=(), usb=()"
+)
+
+# Production state directory (created by the RPM). When present it becomes Flask's
+# instance_path so uploads live OUTSIDE the code tree and OUTSIDE app/static.
+PRODUCTION_STATE_DIR = "/var/lib/os-pariah"
+
+
+def create_app(config_class="app.config.Config"):
+    # instance_path: /var/lib/os-pariah when it exists (packaged install), otherwise
+    # Flask's default <project>/instance directory (development).
+    if os.path.isdir(PRODUCTION_STATE_DIR):
+        app = Flask(__name__, instance_path=PRODUCTION_STATE_DIR)
+    else:
+        app = Flask(__name__)
+    app.config.from_object(config_class)
+    validate_secret_key(app)
+
+    # Ticket attachments are private (served only via tickets.view_attachment after an
+    # ownership / staff check). They must never live under app/static: nginx serves
+    # /static/ directly and would expose them without authentication.
+    # Override with OS_PARIAH_UPLOAD_FOLDER (see .env.example).
+    app.config["UPLOAD_FOLDER"] = os.environ.get(
+        "OS_PARIAH_UPLOAD_FOLDER"
+    ) or os.path.join(app.instance_path, "uploads", "tickets")
+
+    # Trust X-Forwarded-For / Proto only. Do NOT trust Host or Prefix — nginx clears
+    # X-Forwarded-Host/Prefix and sets Host itself (host-header poisoning defense).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+    csrf.init_app(app)
+    register_error_handlers(app)
 
     with app.app_context():
         init_db_pools(app)
@@ -39,10 +90,16 @@ def create_app(config_class="app.config.Config"):
         # --- WORKER STORM FIX: Only run in production/dev, NEVER in tests ---
         if not app.config.get("TESTING"):
             try:
+                runtime_dir = "/run/os-pariah"
+                lock_path = (
+                    f"{runtime_dir}/iar_worker.lock"
+                    if os.path.isdir(runtime_dir)
+                    else "/tmp/.os-pariah-iar-worker.lock"
+                )
                 # Keep the lock file open for the worker lifetime (intentional; do not use
                 # a context manager or the GC will release the flock).
                 app._iar_lock_file = open(  # noqa: SIM115
-                    "/tmp/.pariah_iar_worker.lock", "w"
+                    lock_path, "w"
                 )
 
                 # Request an Exclusive, Non-Blocking lock (LOCK_EX | LOCK_NB)
@@ -54,7 +111,7 @@ def create_app(config_class="app.config.Config"):
                         "/usr/bin/sudo",
                         "/bin/systemctl",
                         "start",
-                        "pariah-worker-iar.service",
+                        "os-pariah-worker-iar.service",
                     ],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -118,6 +175,34 @@ def create_app(config_class="app.config.Config"):
     app.register_blueprint(policies_bp, url_prefix="/policies")
     app.register_blueprint(events_bp, url_prefix="/events")
 
+    # Bot API uses its own bearer/token auth; OIDC token uses client_secret.
+    csrf.exempt(api_bp)
+    from app.blueprints.auth.routes import token as oidc_token_view
+
+    csrf.exempt(oidc_token_view)
+
+    @app.before_request
+    def refresh_session_permissions():
+        """Re-sync session permissions / userLevel from the DBs on every request.
+
+        This is how bans (set_user_level), role changes (manage_roles) and level changes
+        invalidate already-issued session cookies: no cookie kill is needed on those
+        success paths because the next request overwrites session['permissions'] and
+        session['user_level'], and logs out users whose Robust userLevel is now negative
+        (unless it is the policy-decline tier).
+        """
+        # Tests set session permissions directly; opt in with REFRESH_SESSION_AUTH.
+        if app.config.get("TESTING") and not app.config.get("REFRESH_SESSION_AUTH"):
+            return
+        if "uuid" not in session:
+            return
+        if request.endpoint in ("static", "auth.login", "auth.logout"):
+            return
+
+        from app.utils.auth_helpers import refresh_session_auth
+
+        return refresh_session_auth()
+
     @app.before_request
     def require_policy_agreement():
         # --- TEST BOT IMMUNITY ---
@@ -126,7 +211,7 @@ def create_app(config_class="app.config.Config"):
         # -------------------------
 
         from app.utils.auth_helpers import is_policy_decline_session
-        from app.utils.db import get_dynamic_config, get_pariah_db
+        from app.utils.db import get_app_db, get_dynamic_config
 
         if "uuid" not in session:
             return
@@ -163,8 +248,8 @@ def create_app(config_class="app.config.Config"):
         if current_version == "0.0":
             return
 
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT 1 FROM policy_agreements WHERE user_uuid = %s AND policy_version = %s",
                 (session["uuid"], current_version),
@@ -175,15 +260,26 @@ def create_app(config_class="app.config.Config"):
             flash("You must agree to the updated policies before continuing.", "info")
             return redirect(url_for("user.policy_agreement"))
 
+    @app.after_request
+    def set_security_headers(response):
+        response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
+        response.headers.setdefault("Permissions-Policy", PERMISSIONS_POLICY)
+        return response
+
     @app.teardown_appcontext
     def close_db_connections(exception):
         robust_conn = g.pop("robust_conn", None)
         if robust_conn is not None:
             robust_conn.close()
 
-        pariah_conn = g.pop("pariah_conn", None)
-        if pariah_conn is not None:
-            pariah_conn.close()
+        app_conn = g.pop("app_conn", None)
+        if app_conn is not None:
+            app_conn.close()
 
     @app.route("/")
     def index():
@@ -191,6 +287,12 @@ def create_app(config_class="app.config.Config"):
 
     @app.route("/manual.html")
     def manual():
+        """Fallback when nginx is not serving the static manual (dev / flask run)."""
+        from flask import send_from_directory
+
+        static_manual = os.path.join(app.static_folder, "manual.html")
+        if os.path.isfile(static_manual):
+            return send_from_directory(app.static_folder, "manual.html")
         from flask import render_template
 
         return render_template("manual.html")
@@ -204,10 +306,10 @@ def create_app(config_class="app.config.Config"):
     def docs():
         from flask import render_template
 
-        from app.utils.db import get_pariah_db
+        from app.utils.db import get_app_db
 
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "SELECT slug, title, category, requires_login FROM policies ORDER BY title ASC"
             )
@@ -226,24 +328,24 @@ def create_app(config_class="app.config.Config"):
 
 
 def init_db_pools(app):
-    global robust_pool, pariah_pool
+    global robust_pool, app_pool
     try:
-        # 1. Initialize Pariah Pool FIRST from system config
-        pariah_pool = PooledDB(
+        # 1. Initialize OS-Pariah Pool FIRST from system config
+        app_pool = PooledDB(
             creator=pymysql,
             maxconnections=10,
             mincached=2,
             blocking=True,
             ping=1,
-            host=app.config["PARIAH_DB_HOST"],
-            user=app.config["PARIAH_DB_USER"],
-            password=app.config["PARIAH_DB_PASS"],
-            database=app.config["PARIAH_DB_NAME"],
+            host=app.config["OS_PARIAH_DB_HOST"],
+            user=app.config["OS_PARIAH_DB_USER"],
+            password=app.config["OS_PARIAH_DB_PASS"],
+            database=app.config["OS_PARIAH_DB_NAME"],
             cursorclass=pymysql.cursors.DictCursor,
         )
 
         # 2. Fetch dynamic portal settings (cache, session) from the config table
-        conn = pariah_pool.connection()
+        conn = app_pool.connection()
         db_configs = {}
         with conn.cursor() as cursor:
             cursor.execute("SELECT config_key, config_value FROM config")
@@ -260,7 +362,7 @@ def init_db_pools(app):
             db_configs.get("CACHE_DEFAULT_TIMEOUT", 30)
         )
 
-        # 4. Initialize Robust Pool using system config (NO LONGER RELIES ON PARIAH DB)
+        # 4. Initialize Robust Pool using system config (NO LONGER RELIES ON PORTAL DB)
         robust_pool = PooledDB(
             creator=pymysql,
             maxconnections=10,

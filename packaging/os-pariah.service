@@ -1,0 +1,40 @@
+[Unit]
+Description=Gunicorn instance to serve OS-Pariah
+After=network.target mariadb.service
+Before=os-pariah-worker-iar.service os-pariah-worker-log.service os-pariah-worker-log.timer os-pariah-worker-iar.timer os-pariah-worker-calendar.timer os-pariah-cloudflare-ip.timer os-pariah-backup.timer
+# Wants= (not Requires=) for the IAR oneshot worker: its failure must not stop the portal.
+# Timers stay on Requires= so the packaged schedule is pulled in by the master unit.
+Wants=os-pariah-worker-iar.service
+Requires=os-pariah-worker-log.timer os-pariah-worker-iar.timer os-pariah-worker-calendar.timer os-pariah-cloudflare-ip.timer os-pariah-backup.timer
+
+[Service]
+# The RPM creates this user during installation
+User=os-pariah
+Group=nginx
+WorkingDirectory=/opt/os-pariah
+Environment="PATH=/opt/os-pariah/venv/bin"
+EnvironmentFile=/etc/os-pariah/os-pariah.conf
+# Auto-generated SECRET_KEY (created by migrate.py on first start); optional so the
+# service still starts before the file exists.
+EnvironmentFile=-/etc/os-pariah/secrets
+
+# Automatically creates /run/os-pariah/ owned by the os-pariah user
+RuntimeDirectory=os-pariah
+
+# Gunicorn Command
+# The application tree is root-owned (see spec %post); the "+" prefix runs this one
+# step as root so pip can update the venv. Remaining pre-start steps run as os-pariah.
+ExecStartPre=+/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/sync_requirements.py
+ExecStartPre=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/check_mariadb.py
+ExecStartPre=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/migrate.py
+ExecStart=/opt/os-pariah/venv/bin/gunicorn \
+    --workers 4 \
+    --forwarded-allow-ips="127.0.0.1" \
+    --bind unix:/run/os-pariah/os-pariah.sock \
+    -m 007 \
+    wsgi:app
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -11,7 +11,7 @@ from scripts import backup_portal as backup
 
 def test_copy_significant_files_skips_missing_and_copies_present(tmp_path, monkeypatch):
     conf = tmp_path / "os-pariah.conf"
-    conf.write_text("PARIAH_DB_NAME=os_pariah\n", encoding="utf-8")
+    conf.write_text("OS_PARIAH_DB_NAME=os_pariah\n", encoding="utf-8")
     secrets = tmp_path / "secrets"
     secrets.write_text("SECRET_KEY=test\n", encoding="utf-8")
 

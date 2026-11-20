@@ -6,9 +6,10 @@ import uuid
 from email.message import EmailMessage
 
 import requests
-from flask import current_app, url_for
+from flask import current_app
 
 from app.utils.db import get_dynamic_config
+from app.utils.urls import absolute_portal_url
 
 
 def send_matrix_discord_webhook(title, message, color=3447003, fields=None):
@@ -61,8 +62,8 @@ def send_verification_email(to_email, token):
     smtp_pass = get_dynamic_config("smtp_pass")
     smtp_from = get_dynamic_config("smtp_from")
 
-    # Generate the absolute URL to the verification endpoint
-    verify_url = url_for("register.verify_email", token=token, _external=True)
+    # Generate the absolute URL to the verification endpoint (configured portal_url)
+    verify_url = absolute_portal_url("register.verify_email", token=token)
 
     msg = EmailMessage()
     msg.set_content(
@@ -139,8 +140,8 @@ def send_email_change_verification(to_email, token):
     smtp_pass = get_dynamic_config("smtp_pass")
     smtp_from = get_dynamic_config("smtp_from")
 
-    # NEW ENDPOINT specifically for profile changes
-    verify_url = url_for("user.verify_email_change", token=token, _external=True)
+    # NEW ENDPOINT specifically for profile changes (configured portal_url)
+    verify_url = absolute_portal_url("user.verify_email_change", token=token)
 
     msg = EmailMessage()
     msg.set_content(
@@ -244,7 +245,7 @@ def send_password_reset_email(to_email, token):
     smtp_pass = get_dynamic_config("smtp_pass")
     smtp_from = get_dynamic_config("smtp_from")
 
-    reset_url = url_for("auth.reset_password", token=token, _external=True)
+    reset_url = absolute_portal_url("auth.reset_password", token=token)
 
     msg = EmailMessage()
     msg.set_content(
