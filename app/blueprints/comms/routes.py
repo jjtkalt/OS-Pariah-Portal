@@ -11,7 +11,7 @@ from flask import (
 
 from app.blueprints.api.routes import fetch_all_online_users, get_online_snapshot
 from app.utils.auth_helpers import has_permission, rbac_required, require_active_user
-from app.utils.db import get_pariah_db
+from app.utils.db import get_app_db
 from app.utils.robust_api import get_total_regions_count
 from app.utils.schema import PERM_DELETE_NEWS, PERM_ONLINE_HUD_ALL, PERM_POST_NEWS
 
@@ -21,8 +21,8 @@ comms_bp = Blueprint("comms", __name__, url_prefix="/comms")
 @comms_bp.route("/news", methods=["GET"])
 def news_feed():
     """Publicly accessible news feed and global alerts."""
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute("""
             SELECT id, title, body, author_name, created_at, is_alert
             FROM global_news
@@ -42,8 +42,8 @@ def post_news():
         body = request.form.get("body")
         is_alert = request.form.get("is_alert") == "on"  # High priority sticky alert
 
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO global_news (title, body, author_uuid, author_name, is_alert)
@@ -51,7 +51,7 @@ def post_news():
             """,
                 (title, body, session["uuid"], session["name"], is_alert),
             )
-        pariah_conn.commit()
+        app_conn.commit()
 
         flash("News item posted successfully.", "success")
         return redirect(url_for("comms.news_feed"))
@@ -79,8 +79,8 @@ def user_notices():
     if not session.get("uuid"):
         return redirect(url_for("auth.login"))
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         # Fetch unread notices
         cursor.execute(
             """
@@ -98,7 +98,7 @@ def user_notices():
             "UPDATE user_notices SET is_read = TRUE WHERE user_uuid = %s AND is_read = FALSE",
             (session["uuid"],),
         )
-    pariah_conn.commit()
+    app_conn.commit()
 
     return render_template("comms/user_notices.html", notices=notices)
 
@@ -108,10 +108,10 @@ def user_notices():
 def delete_news(news_id):
     """Permanently deletes a news/announcement item."""
     try:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute("DELETE FROM global_news WHERE id = %s", (news_id,))
-        pariah_conn.commit()
+        app_conn.commit()
         flash("Announcement permanently deleted.", "success")
     except Exception as e:
         current_app.logger.error(f"Failed to delete news item {news_id}: {e}")
@@ -130,8 +130,8 @@ def viewer_splash():
     region_count = get_total_regions_count()
 
     # 2. Fetch Latest News (Limit to top 10 for the splash screen)
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute("""
             SELECT id, title, body, author_name, created_at, is_alert
             FROM global_news

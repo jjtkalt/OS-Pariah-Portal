@@ -1,9 +1,9 @@
-"""Texture gallery listing helpers (inverted Robust query + Pariah snapshot).
+"""Texture gallery listing helpers (inverted Robust query + OS-Pariah snapshot).
 
 The gallery used to drive from inventoryitems JOIN fsassets with GROUP BY/ORDER BY
 before LIMIT, which pegs a single MariaDB thread on large grids. Callers should:
 
-1. Prefer reading ``texture_gallery_snapshot`` in the Pariah DB (filled by the worker
+1. Prefer reading ``texture_gallery_snapshot`` in the OS-Pariah DB (filled by the worker
    for a recent time window — default last 14 days, topped up to at least 2000 rows —
    for casual admin monitoring).
 2. Fall back to ``fetch_textures_inverted`` against Robust (fsassets-first plan).
@@ -134,7 +134,7 @@ def fetch_textures_for_snapshot(
     min_rows: int = 2000,
     max_rows: int = 50000,
 ) -> list[dict[str, Any]]:
-    """Build the Pariah snapshot row set for casual monitoring.
+    """Build the OS-Pariah snapshot row set for casual monitoring.
 
     1. Include **all** textures with ``create_time >= since_unix`` (default window:
        last 14 days), up to ``max_rows``.
@@ -192,9 +192,9 @@ def fetch_textures_for_snapshot(
     return normalize_owner_names(merged[:max_rows])
 
 
-def replace_texture_gallery_snapshot(pariah_conn, rows: list[dict[str, Any]]) -> int:
+def replace_texture_gallery_snapshot(app_conn, rows: list[dict[str, Any]]) -> int:
     """Replace the snapshot table contents in one transaction. Returns row count."""
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute("DELETE FROM texture_gallery_snapshot")
         if rows:
             cursor.executemany(
@@ -216,25 +216,25 @@ def replace_texture_gallery_snapshot(pariah_conn, rows: list[dict[str, Any]]) ->
                     if r.get("hash")
                 ],
             )
-        pariah_conn.commit()
+        app_conn.commit()
         return len(rows)
 
 
-def snapshot_count(pariah_conn) -> int:
-    with pariah_conn.cursor() as cursor:
+def snapshot_count(app_conn) -> int:
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) AS c FROM texture_gallery_snapshot")
         row = cursor.fetchone() or {}
         return int(row.get("c") or 0)
 
 
 def fetch_textures_from_snapshot(
-    pariah_conn,
+    app_conn,
     *,
     limit: int,
     offset: int = 0,
     owner_uuid: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Read paginated gallery rows from the Pariah snapshot (request path)."""
+    """Read paginated gallery rows from the OS-Pariah snapshot (request path)."""
     if limit < 1:
         return []
 
@@ -256,6 +256,6 @@ def fetch_textures_from_snapshot(
         """
         params = (limit, offset)
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(sql, params)
         return normalize_owner_names(list(cursor.fetchall() or []))

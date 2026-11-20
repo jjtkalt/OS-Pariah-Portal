@@ -32,3 +32,6 @@ app/static/downloads/
 # Ignore workspace-specific files
 *.code-workspace
 .history/
+
+# Private runtime state (ticket attachments etc.)
+instance/

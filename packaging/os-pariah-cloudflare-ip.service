@@ -1,0 +1,10 @@
+[Unit]
+Description=OS-Pariah Cloudflare real-IP nginx conf updater
+After=network-online.target nginx.service
+Wants=network-online.target
+Requires=os-pariah.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/os-pariah
+ExecStart=/opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/update_cloudflare_real_ip.py

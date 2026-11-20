@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, request, session
 
 from app import cache
 from app.utils.auth_helpers import has_permission
-from app.utils.db import get_pariah_db, get_robust_db
+from app.utils.db import get_app_db, get_robust_db
 from app.utils.schema import PERM_ONLINE_HUD_ALL, PERM_SUPER_ADMIN
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -35,8 +35,8 @@ def has_admin_view_access():
         return False
 
     client_ip = request.remote_addr
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT 1 FROM region_hosts WHERE host_ip = %s LIMIT 1", (client_ip,)
         )
@@ -136,8 +136,8 @@ def _hud_listable_region_names():
     """
     names = set()
     try:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT region_name
@@ -225,13 +225,13 @@ def bot_ack(message_id):
 
 @api_bp.route("/bot/status", methods=["GET"])
 def bot_status():
-    from app.utils.db import get_pariah_db
+    from app.utils.db import get_app_db
     from app.utils.grid_bot import verify_bot_api_request
 
     if not verify_bot_api_request():
         return {"error": "Unauthorized"}, 401
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     with conn.cursor() as cursor:
         cursor.execute(
             "SELECT status, COUNT(*) AS c FROM bot_message_queue GROUP BY status"

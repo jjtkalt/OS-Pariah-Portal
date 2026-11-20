@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, call, patch
 @patch("scripts.worker.os.path.exists")
 @patch("scripts.worker.get_dynamic_config_int")
 @patch("scripts.worker.get_dynamic_config")
-@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_app_db")
 def test_cleanup_old_iars_removes_expired_keeps_recent(
     mock_get_db,
     mock_get_config,
@@ -60,7 +60,7 @@ def test_cleanup_old_iars_removes_expired_keeps_recent(
 @patch("scripts.worker.os.path.exists")
 @patch("scripts.worker.get_dynamic_config_int")
 @patch("scripts.worker.get_dynamic_config")
-@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_app_db")
 def test_cleanup_old_iars_noop_when_none_expired(
     mock_get_db,
     mock_get_config,
@@ -95,7 +95,7 @@ def test_cleanup_old_iars_noop_when_none_expired(
 @patch("scripts.worker.os.path.exists")
 @patch("scripts.worker.get_dynamic_config_int")
 @patch("scripts.worker.get_dynamic_config")
-@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_app_db")
 def test_cleanup_old_iars_uses_configured_retention_in_sql(
     mock_get_db,
     mock_get_config,
@@ -123,7 +123,7 @@ def test_cleanup_old_iars_uses_configured_retention_in_sql(
     assert select.args[1] == (3,)
 
 
-@patch("scripts.worker.get_pariah_db")
+@patch("scripts.worker.get_app_db")
 def test_get_dynamic_config_prefers_schema_over_call_default(mock_get_db):
     """DB miss must resolve from KNOWN_SETTINGS, not a misleading call-site default."""
     from scripts import worker as worker_mod

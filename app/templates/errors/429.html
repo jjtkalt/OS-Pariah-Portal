@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Too many requests - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="text-center mb-20">
+    <h1 class="text-primary m-0">Too many requests</h1>
+    <p class="text-muted mt-10">You are sending requests too quickly. Please wait a moment and try again.</p>
+    <p class="mt-10"><a href="{{ url_for('index') }}" class="btn btn-outline">Back to Home</a></p>
+</div>
+{% endblock %}

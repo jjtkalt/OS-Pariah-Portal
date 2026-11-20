@@ -1,5 +1,5 @@
 # Shared pre-commit hooks (PlatformStandards ADR-015).
-# Setup: pip install -r requirements-dev.txt && pre-commit install
+# Setup: pip install -r requirements-dev.txt && pre-commit install --hook-type pre-commit --hook-type pre-push
 # Keep `rev` pinned to the same Ruff version as requirements-dev.txt and the CI lint job.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -10,11 +10,13 @@ repos:
       - id: ruff-format
   - repo: local
     hooks:
-      # Full local gate (CI parity + pip-audit). Ruff hooks above auto-fix first;
-      # this hook re-checks and runs pytest + advisory scans. Needs network for pip-audit.
+      # Full local gate (CI parity + pip-audit). Ruff runs on every commit above;
+      # this heavier hook (pytest + advisory scans, needs network for pip-audit) runs
+      # only on push. Install with: pre-commit install --hook-type pre-commit --hook-type pre-push
       - id: check-local
         name: Local CI + pip-audit
         entry: python3 scripts/check_local.py
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-push]

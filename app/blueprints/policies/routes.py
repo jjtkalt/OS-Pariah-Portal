@@ -13,7 +13,7 @@ from flask import (
 
 from app.utils.audit import log_audit_action
 from app.utils.auth_helpers import has_permission
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 from app.utils.schema import (
     PERM_MANAGE_GUIDES,
     PERM_MANAGE_POLICIES,
@@ -55,8 +55,8 @@ def _compute_next_policy_versions(current_version: str):
 @policies_bp.route("/<slug>", methods=["GET"])
 def view_policy(slug):
     """Publicly viewable policy with version and timestamp."""
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT title, body, category, updated_at, requires_login FROM policies WHERE slug = %s",
             (slug,),
@@ -87,10 +87,10 @@ def manage_policies():
         flash("Unauthorized", "error")
         return redirect(url_for("comms.news_feed"))
 
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
     current_version = get_dynamic_config("global_policy_version")
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT slug, title, category, requires_login, updated_at FROM policies ORDER BY category ASC, title ASC"
         )
@@ -131,9 +131,9 @@ def create_policy():
             request.form.get("version_action") if category == "Policy" else "none"
         )
 
-        pariah_conn = get_pariah_db()
+        app_conn = get_app_db()
         try:
-            with pariah_conn.cursor() as cursor:
+            with app_conn.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO policies (slug, title, body, category, requires_login) VALUES (%s, %s, %s, %s, %s)",
                     (slug, title, body, category, requires_login),
@@ -165,7 +165,7 @@ def create_policy():
                 else:
                     flash(f"Document '{title}' created silently.", "success")
 
-            pariah_conn.commit()
+            app_conn.commit()
             return redirect(url_for("policies.manage_policies"))
         except Exception as e:
             current_app.logger.error(f"Failed to create policy: {e}")
@@ -189,9 +189,9 @@ def create_policy():
 @policies_bp.route("/admin/edit/<slug>", methods=["GET", "POST"])
 def edit_policy(slug):
     """Edits an existing document."""
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT * FROM policies WHERE slug = %s", (slug,))
         policy = cursor.fetchone()
 
@@ -219,7 +219,7 @@ def edit_policy(slug):
             request.form.get("version_action") if category == "Policy" else "none"
         )
 
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE policies SET title = %s, body = %s, category = %s, requires_login = %s WHERE slug = %s",
                 (title, body, category, requires_login, slug),
@@ -255,10 +255,10 @@ def edit_policy(slug):
             else:
                 flash("Document updated silently.", "success")
 
-        pariah_conn.commit()
+        app_conn.commit()
         return redirect(url_for("policies.manage_policies"))
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute(
             "SELECT slug, title, body, category, requires_login FROM policies WHERE slug = %s",
             (slug,),
@@ -280,9 +280,9 @@ def edit_policy(slug):
 
 @policies_bp.route("/admin/delete/<slug>", methods=["POST"])
 def delete_policy(slug):
-    pariah_conn = get_pariah_db()
+    app_conn = get_app_db()
 
-    with pariah_conn.cursor() as cursor:
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT * FROM policies WHERE slug = %s", (slug,))
         policy = cursor.fetchone()
 
@@ -291,9 +291,9 @@ def delete_policy(slug):
         return redirect(url_for("policies.manage_policies"))
 
     try:
-        with pariah_conn.cursor() as cursor:
+        with app_conn.cursor() as cursor:
             cursor.execute("DELETE FROM policies WHERE slug = %s", (slug,))
-        pariah_conn.commit()
+        app_conn.commit()
         log_audit_action("Policies", f"Deleted the policy for '{slug}'")
         flash(f"Document '{slug}' permanently deleted.", "success")
     except Exception as e:

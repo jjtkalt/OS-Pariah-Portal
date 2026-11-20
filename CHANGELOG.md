@@ -1,10 +1,50 @@
 # Changelog
 
-All notable changes to OS Pariah Portal are documented in this file.
+All notable changes to OS-Pariah (this web component; formerly “OS Pariah Portal”) are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) where practical. Release history was migrated from the former `ROADMAP.md` completed sections; future release notes should be appended here.
 
 ## [Unreleased]
+
+### Breaking
+
+- **Rename to the `os-pariah` slug** ([docs/NAMING.md](docs/NAMING.md)): product name **OS-Pariah**; RPM `os-pariah` (was `os-pariah-portal`); install root `/opt/os-pariah`, config `/etc/os-pariah`, runtime `/run/os-pariah` (socket `os-pariah.sock`), logs `/var/log/os-pariah`; Linux user/group `os-pariah` (was `pariah`); master unit `os-pariah.service` with `os-pariah-worker-{iar,log,calendar}`, `os-pariah-cloudflare-ip`, `os-pariah-backup` (was `pariah*`); sudoers `/etc/sudoers.d/os-pariah-worker`; nginx `os-pariah.conf` / `os-pariah-cloudflare-ip.conf`; texture cache `/home/opensim/FSAssets/os-pariah-cache`. Database name stays `os_pariah`; env vars are `OS_PARIAH_DB_*`. Enable only `os-pariah.service`. No in-place migration from v1.x paths/units is provided (zero installed base during QA).
+- **Private ticket uploads:** attachments move to `/var/lib/os-pariah/uploads/tickets` (`0750`), served only through authenticated routes (not `app/static/uploads`).
+- `docs/ARCHITECTURE-EXCEPTIONS.md` removed; replaced by `docs/NAMING.md` (naming + `ADMIN_UUID` exception) and `docs/ROADMAP.md`.
+
+### Security
+
+- **CSP / headers:** Content-Security-Policy (`object-src 'none'`, Turnstile allowlist) plus `Permissions-Policy`, `Referrer-Policy`, and HSTS `max-age=31536000; includeSubDomains` on the packaged vhost; Flask sends the same CSP/frame/nosniff/permissions/referrer headers as a non-nginx fallback.
+- **Session refresh:** session permissions and `userLevel` are re-synced from the databases on every request, so bans and role/level changes take effect without waiting for cookie expiry.
+- **Supply chain:** `requirements.txt` is hash-pinned (`pip-compile --generate-hashes`) and installed with `--require-hashes`.
+- **RBAC:** role form accepts only known single-bit permissions (blocks composite values that previously minted Super Admin); `set_level` is Super-Admin-only with range checks; login bootstrap grants Super Admin only for configured `ADMIN_UUID` (not bare `userLevel >= 250`).
+- **CSRF:** Flask-WTF `CSRFProtect` enabled globally (API bot + OIDC token exempt); logout is POST; templates inject CSRF meta/token.
+- **Host-header:** `ProxyFix` no longer trusts `X-Forwarded-Host`/`Prefix`; emailed/OIDC absolute URLs use configured `portal_url`.
+- **XSS / IDOR:** approvals and settings admin JS use `data-*` attributes; ticket replies require owner or staff.
+- **OIDC:** requires registered `oidc_clients` row, exact redirect URI, and client secret; signing key prefers `/etc/os-pariah/oidc_private.pem`.
+- **Secrets / captcha:** production refuses insecure default `SECRET_KEY`; Turnstile defaults are empty (fail closed until configured); audit log uses its own DB connection (no mid-request commit).
+- **`migrate.py`:** exits non-zero on failure; resolves `migrations/` from repo root.
+- **Packaging:** `/opt/os-pariah` (code, scripts, venv) is now `root:root` with `go-w`; only upload/runtime dirs stay `os-pariah`-owned. `opensim` group is created in `%pre` if missing; sudoers drop-in is `0440 root:root`; `sudo` and `screen` are RPM `Requires:`.
+- **sudoers:** the `os-pariah` user may only `systemctl start os-pariah-worker-iar.service` (stop/restart removed).
+- **Release workflow:** RPM builds are gated on a successful *Automated Tests* run for the release SHA; `softprops/action-gh-release` is pinned by commit; tag/run values are passed via `env`.
+- **Nginx:** removed duplicate `include` of the Cloudflare real-IP conf; security headers repeated in nested locations (`always`); `limit_req_status 429`; client-supplied `X-Forwarded-Host` / `X-Forwarded-Prefix` cleared.
+- **`SECURITY.md`:** reports go through GitHub Private Vulnerability Reporting; supported versions = latest release on `main`.
+
+### Changed
+
+- **systemd:** `os-pariah.service` uses `Wants=` for the IAR worker (timers stay `Requires=`); `sync_requirements.py` runs as root via `ExecStartPre=+`. `os-pariah-worker-iar.service` no longer `Requires=os-pariah.service`.
+- **Calendar:** `os-pariah-worker-calendar.timer` now fires every **1 minute**; start/halfway/reminder windows in `scripts/calendar_notifications.py` are late-tolerant (90 s / 90 s / 60 s) and rely on `notification_already_sent` for dedup.
+- **Firewall sync:** `scripts/sync_firewall.py` diffs against `firewall-cmd --permanent --direct --get-all-rules`, removing Host-ID DROP rules for hosts no longer banned and only adding missing rules.
+- **Backup:** IAR timer drop-in now resets `OnUnitActiveSec=` before setting the configured interval.
+- **Pre-commit:** only Ruff runs on commit; the full `check-local` gate runs on `pre-push`.
+- **requirements.txt:** test-only packages and unused `dicttoxml` / `Pygments` removed; added `Flask-WTF`.
+
+### Added
+
+- Branded static error pages (`app/static/errors/`), `app/error_handlers.py` + `templates/errors/*`, static `app/static/manual.html` served by nginx at `/manual.html`.
+- `Makefile` (`lint`, `fmt`, `test`, `check`, `audit`, `sync`, `lock`), `tests/test_packaging_units.py`, `docs/NAMING.md`, `docs/ROADMAP.md`, OIDC notes in `docs/OPERATIONS.md`.
+- Dependabot tracks GitHub Actions.
+- Regression tests for composite RBAC bits, `set_level` gate, and ticket reply IDOR.
 
 ### Known issues
 

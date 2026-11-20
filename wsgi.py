@@ -13,8 +13,8 @@ from app import create_app  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 # Try the system config first, fallback to local dev file
-if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-    load_dotenv("/etc/os_pariah/os-pariah.conf")
+if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+    load_dotenv("/etc/os-pariah/os-pariah.conf")
 else:
     load_dotenv(".env")
 

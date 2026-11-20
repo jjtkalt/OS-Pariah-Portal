@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ grid_name }} Portal{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ portal_favicon }}" type="image/x-icon">
     <link rel="shortcut icon" href="{{ portal_favicon }}" type="image/x-icon">
     <link rel="stylesheet" href="{{ custom_css_path }}">
@@ -66,7 +67,10 @@
                             </div>
                         {% endif %}
                         <a href="{{ url_for('user.profile') }}" class="btn" Title="My Profile">&#128100;</a>
-                        <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
+                        <form action="{{ url_for('auth.logout') }}" method="post" style="display:inline; margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger">Logout</button>
+                        </form>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}" class="btn btn-success">Login</a>
                         <a href="{{ url_for('register.register') }}" class="btn">Register</a>
@@ -87,7 +91,22 @@
             {% block content %}{% endblock %}
         </div>
     </div>
-    
+
+    <script>
+    (function () {
+        var tokenMeta = document.querySelector('meta[name="csrf-token"]');
+        if (!tokenMeta) return;
+        var token = tokenMeta.getAttribute('content');
+        document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function (form) {
+            if (form.querySelector('input[name="csrf_token"]')) return;
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'csrf_token';
+            input.value = token;
+            form.appendChild(input);
+        });
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

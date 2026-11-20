@@ -1,7 +1,7 @@
 """Auto-generate SECRET_KEY in a dedicated secrets file on first run.
 
 Platform standard (PlatformStandards ADR-013): the signing key lives in
-/etc/os_pariah/secrets (mode 0600, owned by the pariah user), separate from the
+/etc/os-pariah/secrets (mode 0600, owned by the os-pariah user), separate from the
 main config file and never shipped in the RPM. Development falls back to a
 project-root .secrets file.
 """
@@ -13,14 +13,14 @@ import secrets
 import stat
 from pathlib import Path
 
-_SYSTEM_SECRETS = Path("/etc/os_pariah/secrets")
+_SYSTEM_SECRETS = Path("/etc/os-pariah/secrets")
 _DEV_SECRETS = Path(__file__).resolve().parent.parent / ".secrets"
-_APP_USER = "pariah"
+_APP_USER = "os-pariah"
 
 
 def resolve_secrets_path() -> Path:
     """Return the secrets file path for this environment."""
-    override = (os.environ.get("PARIAH_SECRETS_FILE") or "").strip()
+    override = (os.environ.get("OS_PARIAH_SECRETS_FILE") or "").strip()
     if override:
         return Path(override)
     if _SYSTEM_SECRETS.parent.is_dir():

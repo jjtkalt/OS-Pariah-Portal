@@ -16,7 +16,7 @@ from werkzeug.utils import secure_filename
 
 from app.blueprints.auth.routes import verify_turnstile
 from app.utils.auth_helpers import has_permission
-from app.utils.db import get_dynamic_config, get_pariah_db
+from app.utils.db import get_app_db, get_dynamic_config
 from app.utils.notifications import (
     send_matrix_discord_webhook,
     send_ticket_transcript_email,
@@ -50,8 +50,8 @@ def index():
     )
 
     if user_uuid:
-        pariah_conn = get_pariah_db()
-        with pariah_conn.cursor() as cursor:
+        app_conn = get_app_db()
+        with app_conn.cursor() as cursor:
             if is_staff:
                 # ADMIN LOGIC
                 if status_filter == "All Open":
@@ -121,7 +121,7 @@ def new_ticket():
 
             message = f"[GUEST SUBMISSION]\n\n{message}"
 
-        conn = get_pariah_db()
+        conn = get_app_db()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -141,9 +141,7 @@ def new_ticket():
                 ):
                     filename = secure_filename(attachment.filename)
                     unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    upload_folder = os.path.join(
-                        current_app.root_path, "static", "uploads", "tickets"
-                    )
+                    upload_folder = current_app.config["UPLOAD_FOLDER"]
                     os.makedirs(upload_folder, exist_ok=True)
                     file_path = os.path.join(upload_folder, unique_filename)
                     attachment.save(file_path)
@@ -187,8 +185,8 @@ def view(ticket_id):
         flash("You must be logged in to view tickets.", "error")
         return redirect(url_for("auth.login"))
 
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT * FROM tickets WHERE id = %s", (ticket_id,))
         ticket = cursor.fetchone()
 
@@ -231,16 +229,28 @@ def view_attachment(ticket_id, filename):
         return redirect(url_for("auth.login"))
 
     is_staff = has_permission(PERM_STAFF_TICKETS)
-    pariah_conn = get_pariah_db()
-    with pariah_conn.cursor() as cursor:
+    app_conn = get_app_db()
+    with app_conn.cursor() as cursor:
         cursor.execute("SELECT user_uuid FROM tickets WHERE id = %s", (ticket_id,))
         ticket = cursor.fetchone()
+        if not ticket or (ticket["user_uuid"] != user_uuid and not is_staff):
+            flash("Access denied.", "error")
+            return redirect(url_for("tickets.index"))
 
-    if not ticket or (ticket["user_uuid"] != user_uuid and not is_staff):
-        flash("Access denied.", "error")
-        return redirect(url_for("tickets.index"))
+        # Bind filename to this ticket so one UUID-prefixed name cannot be fetched
+        # under another ticket id.
+        cursor.execute(
+            """
+            SELECT 1 FROM ticket_attachments
+            WHERE ticket_id = %s AND file_path = %s
+            """,
+            (ticket_id, filename),
+        )
+        if not cursor.fetchone():
+            flash("Attachment not found.", "error")
+            return redirect(url_for("tickets.view", ticket_id=ticket_id))
 
-    upload_folder = os.path.join(current_app.root_path, "static", "uploads", "tickets")
+    upload_folder = current_app.config["UPLOAD_FOLDER"]
     return send_from_directory(upload_folder, filename)
 
 
@@ -267,12 +277,16 @@ def reply_ticket(ticket_id):
     user_name = session.get("name", "Staff")
     is_staff = has_permission(PERM_STAFF_TICKETS)
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM tickets WHERE id = %s", (ticket_id,))
             ticket = cursor.fetchone()
             if not ticket:
+                return redirect(url_for("tickets.index"))
+
+            if not is_staff and ticket["user_uuid"] != user_uuid:
+                flash("Access denied. You do not own this ticket.", "error")
                 return redirect(url_for("tickets.index"))
 
             # --- SMART ASSIGNMENT & STATUS LOGIC ---
@@ -296,9 +310,8 @@ def reply_ticket(ticket_id):
                         "Completed" if not ticket["user_uuid"] else "Waiting on User"
                     )
             else:
-                # Users replying pushes it back to staff
-                if not new_status:
-                    new_status = "Waiting on Staff"
+                # Non-staff may not set arbitrary status values
+                new_status = "Waiting on Staff"
 
             # Insert the reply
             reply_id = None
@@ -321,9 +334,7 @@ def reply_ticket(ticket_id):
                 ):
                     filename = secure_filename(attachment.filename)
                     unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    upload_folder = os.path.join(
-                        current_app.root_path, "static", "uploads", "tickets"
-                    )
+                    upload_folder = current_app.config["UPLOAD_FOLDER"]
                     os.makedirs(upload_folder, exist_ok=True)
                     file_path = os.path.join(upload_folder, unique_filename)
                     attachment.save(file_path)
@@ -380,7 +391,7 @@ def delete_ticket(ticket_id):
         )
         return redirect(url_for("tickets.view", ticket_id=ticket_id))
 
-    conn = get_pariah_db()
+    conn = get_app_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute("DELETE FROM tickets WHERE id = %s", (ticket_id,))

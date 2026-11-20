@@ -5,7 +5,7 @@ from app.utils.schema import PERM_APPROVE_USERS, PERM_MANAGE_REGIONS, PERM_SUPER
 # --- TOGGLE STATE TESTS ---
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_state_unauthorized(mock_db, client):
     """Ensure users without PERM_MANAGE_REGIONS cannot toggle region state."""
     with client.session_transaction() as sess:
@@ -21,7 +21,7 @@ def test_toggle_state_unauthorized(mock_db, client):
     mock_db.assert_not_called()
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_state_success(mock_db, client):
     """Ensure Admins with PERM_MANAGE_REGIONS can successfully toggle state."""
     mock_conn = MagicMock()
@@ -49,7 +49,7 @@ def test_toggle_state_success(mock_db, client):
 # --- DELETE TESTS & GUARDRAILS ---
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_delete_region_safety_lock(mock_db, client):
     """Ensure Delete fails if the region is still active, even for Super Admins."""
     mock_conn = MagicMock()
@@ -73,7 +73,7 @@ def test_delete_region_safety_lock(mock_db, client):
     assert response.status_code == 302
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_delete_region_success(mock_db, client):
     """Ensure Delete succeeds if the region is explicitly disabled AND user has PERM_MANAGE_REGIONS."""
     mock_conn = MagicMock()
@@ -100,7 +100,7 @@ def test_delete_region_success(mock_db, client):
 # --- WEBXML DELIVERY TESTS ---
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_webxml_blocks_disabled_region(mock_db, client):
     """Ensure WebXML returns a 403 Forbidden if the simulator requests a disabled config."""
     mock_conn = MagicMock()
@@ -122,7 +122,7 @@ def test_webxml_blocks_disabled_region(mock_db, client):
     assert b"Region Disabled By Administrator" in response.data
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_webxml_rejects_ip_without_dns_mapping(mock_db, client):
     """WebXML must refuse callers whose IP is not listed in region_hosts."""
     mock_conn = MagicMock()

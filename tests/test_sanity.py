@@ -26,7 +26,7 @@ def test_favicon_redirects_to_configured_icon(client):
     """Clients probing /favicon.ico are pointed at the portal_favicon setting."""
     response = client.get("/favicon.ico")
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/static/images/pariah.ico")
+    assert response.headers["Location"].endswith("/static/images/os-pariah.ico")
 
 
 def test_pages_link_shortcut_icon(client):

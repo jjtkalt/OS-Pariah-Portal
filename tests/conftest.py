@@ -20,9 +20,9 @@ def db_cursor():
 @pytest.fixture
 def app(db_cursor):
     # Patch Popen to prevent rogue systemctl restarts
-    with patch("app.__init__.subprocess.Popen"):
-        # Boot the app
-        app = create_app()
+    with patch("app.subprocess.Popen"):
+        # Boot the app with an explicit test config (CSRF off, safe SECRET_KEY)
+        app = create_app("app.config.TestingConfig")
 
         # --- THE GLOBAL DATABASE SANDBOX ---
         # Overwrite the failed DB pools with Mocks
@@ -37,10 +37,10 @@ def app(db_cursor):
         db_cursor.fetchone.return_value = None
 
         # Inject our mocks globally into the running app
-        main_app.pariah_pool = mock_pool
+        main_app.app_pool = mock_pool
         main_app.robust_pool = MagicMock()
 
-        # Force the app into testing mode
+        # Force the app into testing mode (belt-and-suspenders with TestingConfig)
         app.config.update(
             {"TESTING": True, "WTF_CSRF_ENABLED": False, "CACHE_TYPE": "SimpleCache"}
         )

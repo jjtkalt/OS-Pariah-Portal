@@ -6,24 +6,24 @@ import pymysql
 from dotenv import load_dotenv
 
 # Try the system config first, fallback to local dev file
-if os.path.exists("/etc/os_pariah/os-pariah.conf"):
-    load_dotenv("/etc/os_pariah/os-pariah.conf")
+if os.path.exists("/etc/os-pariah/os-pariah.conf"):
+    load_dotenv("/etc/os-pariah/os-pariah.conf")
 else:
     load_dotenv(".env")
 
-# Database 1: OS Pariah
-PARIAH_DB_HOST = os.environ.get("PARIAH_DB_HOST", "127.0.0.1")
-PARIAH_DB_USER = os.environ.get("PARIAH_DB_USER", "pariah_user")
-PARIAH_DB_PASS = os.environ.get("PARIAH_DB_PASS", "pariah_password")
-PARIAH_DB_NAME = os.environ.get("PARIAH_DB_NAME", "os_pariah")
+# Database 1: OS-Pariah
+OS_PARIAH_DB_HOST = os.environ.get("OS_PARIAH_DB_HOST", "127.0.0.1")
+OS_PARIAH_DB_USER = os.environ.get("OS_PARIAH_DB_USER", "os-pariah")
+OS_PARIAH_DB_PASS = os.environ.get("OS_PARIAH_DB_PASS", "os-pariah-password")
+OS_PARIAH_DB_NAME = os.environ.get("OS_PARIAH_DB_NAME", "os_pariah")
 
 
-def get_pariah_db():
+def get_app_db():
     return pymysql.connect(
-        host=PARIAH_DB_HOST,
-        user=PARIAH_DB_USER,
-        password=PARIAH_DB_PASS,
-        database=PARIAH_DB_NAME,
+        host=OS_PARIAH_DB_HOST,
+        user=OS_PARIAH_DB_USER,
+        password=OS_PARIAH_DB_PASS,
+        database=OS_PARIAH_DB_NAME,
         cursorclass=pymysql.cursors.DictCursor,
     )
 
@@ -31,7 +31,7 @@ def get_pariah_db():
 def check_connection():
     conn = None
     try:
-        conn = get_pariah_db()
+        conn = get_app_db()
         # Force an actual query to ensure the engine is fully initialized
         with conn.cursor() as cursor:
             cursor.execute("SHOW DATABASES;")

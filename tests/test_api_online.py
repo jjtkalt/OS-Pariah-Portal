@@ -43,7 +43,7 @@ def test_online_lister_admin_view_shows_all_regions(
     assert b"Bob B,Private Estate" in response.data
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_hud_list_unauthorized(mock_db, client):
     # Route now consults owner-control setting when user lacks Region Control
     with patch("app.blueprints.regions.routes.get_dynamic_config", return_value="no"):
@@ -56,7 +56,7 @@ def test_toggle_hud_list_unauthorized(mock_db, client):
         mock_db.assert_not_called()
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_hud_list_success(mock_db, client):
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
@@ -76,7 +76,7 @@ def test_toggle_hud_list_success(mock_db, client):
     )
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_hud_list_allowed_with_region_control_only(mock_db, client):
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
@@ -96,7 +96,7 @@ def test_toggle_hud_list_allowed_with_region_control_only(mock_db, client):
     )
 
 
-@patch("app.blueprints.regions.routes.get_pariah_db")
+@patch("app.blueprints.regions.routes.get_app_db")
 def test_toggle_hud_list_manage_regions_without_region_control_denied(mock_db, client):
     """HUD listing toggle requires Region Control, not Manage Regions alone."""
     with client.session_transaction() as sess:
