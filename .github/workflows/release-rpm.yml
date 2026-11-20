@@ -11,9 +11,8 @@ permissions:
 jobs:
   build-rpm:
     runs-on: ubuntu-latest
-    # Job-level `container:` with opensuse/leap currently fails at Actions
-    # startup (empty job / startup_failure). Build inside docker on the host
-    # runner instead so checkout/Node actions stay on ubuntu-latest.
+    # Avoid job-level `container:` (Leap image pulls have been flaky) and avoid
+    # third-party actions: this repo allows GitHub-owned actions only.
 
     steps:
       - name: Checkout Code
@@ -103,6 +102,16 @@ jobs:
             '
 
       - name: Attach RPM to GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: artifacts/os-pariah-portal-*.rpm
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(artifacts/os-pariah-portal-*.rpm)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No RPM artifacts found under artifacts/"
+            ls -la artifacts || true
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber
