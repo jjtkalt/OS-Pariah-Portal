@@ -6,20 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Known issues
+
+- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+
+---
+
+## [1.1.1] – 2026-11-20
+
+Patch release: dependency security updates, portal self-backup / IAR sweep timers, and CI/release workflow hardening for the `develop`/`main` branch model.
+
 ### Added
 
 - **Portal self-backup:** `pariah-backup.service` / `.timer` runs `scripts/backup_portal.py` daily (03:30) to dump the Pariah MariaDB database and copy significant files (`/etc/os_pariah/os-pariah.conf`, `secrets`, nginx vhost, Cloudflare real-IP conf) under `portal_backup_dir` (default `/home/opensim/Backups/portal`), with `portal_backup_retention_days` (default 14). Cache and user IAR download trees are excluded.
 - **IAR sweep timer:** `pariah-worker-iar.timer` periodically starts the same `worker.py iar` entrypoint used for on-demand IAR creation (pending catch-up + retention cleanup). Interval defaults to **7 days** via `iar_sweep_interval_days`; the backup job writes a systemd drop-in so the timer tracks that setting.
 - Worker cleanup tests covering IAR retention SQL/file removal and texture cache age keep/clear behavior.
+- **CI:** `delete-merged-branch.yml` removes merged feature branches while protecting `main` and `develop`. Pull-request CI now runs for both `main` and `develop`. RPM builds refuse releases whose commit is not on `main`.
 
 ### Changed
 
 - Dynamic config resolution treats **DB override → `KNOWN_SETTINGS` schema default → call-site default** as authority in both `app.utils.db.get_dynamic_config` and `scripts/worker.py` (call-site defaults no longer shadow schema). Worker retention helpers use `get_dynamic_config_int` for `iar_retention_days` and `texture_cache_retention_days`.
-- Dependency security bumps for local/CI `pip-audit`: `certifi` 2026.10.18, `PyJWT` 2.15.0, `urllib3` 2.8.0, `Werkzeug` 3.1.9.
+- Dependency security and maintenance bumps (Dependabot + `pip-audit` track), including `certifi` 2026.10.23, `cryptography` 50.0.2, `gunicorn` 27.0.1, `numpy` 2.5.5, `PyJWT` 2.15.1, `urllib3` 2.8.0, `Werkzeug` 3.1.9, and related transitive pins.
+- Ruff pinned to **0.17.5** across CI, pre-commit, and `requirements-dev.txt`.
 
 ### Known issues
 
-- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+- None recorded.
 
 ---
 
