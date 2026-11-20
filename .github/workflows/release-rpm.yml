@@ -61,7 +61,7 @@ jobs:
 
     # 2. Checkout the code (full history so we can verify the tag is on main).
     - name: Checkout Code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
