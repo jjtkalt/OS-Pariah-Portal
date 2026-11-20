@@ -13,7 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     # THIS is the magic: GitHub will pull a native openSUSE container to run our commands!
     container:
-      image: opensuse/leap:16.0
+      # Prefer the openSUSE registry; Docker Hub anonymous pulls have caused
+      # job startup_failure on GitHub-hosted runners for this workflow.
+      image: registry.opensuse.org/opensuse/leap:16.0
 
     steps:
     # 1. OpenSUSE minimal containers don't come with git or tar, so we install them first
