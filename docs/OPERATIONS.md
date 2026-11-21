@@ -69,6 +69,19 @@ sudo systemctl start os-pariah
 All sessions are invalidated. Back up the secrets file **separately** from MariaDB dumps
 (see [DEPLOYMENT.md](DEPLOYMENT.md) §4).
 
+## Releasing (GitHub → signed RPM)
+
+Stable releases are published from **`main` only** (never `develop`). Publishing a GitHub Release tag (`vX.Y.Z`) triggers [`.github/workflows/release-rpm.yml`](../.github/workflows/release-rpm.yml):
+
+| Job | Runs on | Responsibility |
+|-----|---------|----------------|
+| `ci-gate` | Ubuntu host | **Policy only:** release commit must be on `main` (`target_commitish` ≠ `develop`, compare `main...SHA` has `ahead_by=0`); *Automated Tests* must have succeeded for that SHA |
+| `build-rpm` | `opensuse/leap:16.0` container | **Packaging only:** checkout tagged tree, `rpmbuild`, GPG sign, attach `os-pariah-*.rpm` to the Release |
+
+Keep git ancestry / branch policy out of `build-rpm`. The Leap container bind-mounts the Actions workspace, and a follow-up `git fetch` / `merge-base` there hits “dubious ownership” (git exit 128) even when the commit is on `main`.
+
+Workflow YAML for a given release is the copy at the **tagged commit**. Fixing the workflow after tagging does not change a re-run of that release; ship a new patch tag (or a new Release) that includes the fixed workflow if the RPM job must be rebuilt.
+
 ## Upgrades
 
 1. Check [COMPATIBILITY.md](../COMPATIBILITY.md) for the OpenSimulator version.

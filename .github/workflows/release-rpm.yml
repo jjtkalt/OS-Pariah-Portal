@@ -9,14 +9,37 @@ permissions:
   contents: write
 
 jobs:
-  # Do not build or publish an RPM for a commit that has not passed Automated Tests
-  # (.github/workflows/ci-tests.yml, which runs on push to main/develop and on PRs).
+  # Policy gates only (host runner). Do not put git ancestry checks in build-rpm:
+  # the Leap container + bind-mounted workspace trips "dubious ownership" (git exit 128).
   ci-gate:
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
     steps:
+      # Stable releases must come from main (develop is integration-only).
+      - name: Require release commit on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          set -euo pipefail
+          if [ "$TARGET" = "develop" ]; then
+            echo "::error::Releases must be created from main (got target_commitish=develop)."
+            exit 1
+          fi
+          # ahead_by == 0 means SHA is main or an ancestor of main (GitHub compare API).
+          ahead_by=$(gh api "repos/${REPO}/compare/main...${SHA}" --jq '.ahead_by')
+          if [ "$ahead_by" != "0" ]; then
+            echo "::error::Release commit ${SHA} is not on main (compare main...SHA ahead_by=${ahead_by}). Tag and publish releases from main only."
+            exit 1
+          fi
+          echo "OK: release commit is on main (target_commitish=${TARGET}, ahead_by=0)"
+
+      # Do not build or publish an RPM for a commit that has not passed Automated Tests
+      # (.github/workflows/ci-tests.yml, which runs on push to main/develop and on PRs).
       - name: Require successful Automated Tests for release SHA
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,6 +67,7 @@ jobs:
           echo "::error::Timed out waiting for a successful Automated Tests run on ${SHA}."
           exit 1
 
+  # Packaging only: Leap container builds, signs, and attaches the RPM.
   build-rpm:
     needs: ci-gate
     runs-on: ubuntu-latest
@@ -59,30 +83,11 @@ jobs:
         zypper refresh
         zypper install -y git tar gzip rsync rpm-build rpmdevtools sed
 
-    # 2. Checkout the code (full history so we can verify the tag is on main).
+    # 2. Checkout the tagged release tree (policy already enforced in ci-gate).
     - name: Checkout Code
       uses: actions/checkout@v7
-      with:
-        fetch-depth: 0
 
-    # 3. Stable releases must come from main (develop is integration-only).
-    - name: Require release commit on main
-      env:
-        TARGET: ${{ github.event.release.target_commitish }}
-      run: |
-        set -euo pipefail
-        if [ "$TARGET" = "develop" ]; then
-          echo "::error::Releases must be created from main (got target_commitish=develop)."
-          exit 1
-        fi
-        git fetch --no-tags origin main
-        if ! git merge-base --is-ancestor HEAD origin/main; then
-          echo "::error::Release commit ${GITHUB_SHA} is not on main. Tag and publish releases from main only."
-          exit 1
-        fi
-        echo "OK: release commit is on main (target_commitish=${TARGET})"
-
-    # 4. Setup the build tree, extract version, and pack the tarball
+    # 3. Setup the build tree, extract version, and pack the tarball
     - name: Prepare RPM Environment
       env:
         TAG: ${{ github.event.release.tag_name }}
@@ -117,13 +122,13 @@ jobs:
         cp packaging/os-pariah.spec $HOME/rpmbuild/SPECS/
         sed -i "s/^Version:.*/Version: $APP_VERSION/" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 5. Compile the RPM natively on openSUSE!
+    # 4. Compile the RPM natively on openSUSE!
     - name: Compile the RPM
       env:
         BUILD_NUMBER: ${{ github.run_number }}
       run: rpmbuild -ba --define "build_number ${BUILD_NUMBER}" $HOME/rpmbuild/SPECS/os-pariah.spec
 
-    # 6. Sign the RPM using our injected GPG Key
+    # 5. Sign the RPM using our injected GPG Key
     - name: Sign the RPM
       env:
         GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -157,7 +162,7 @@ jobs:
         # 7. Sign the package!
         rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/*.rpm
 
-    # 7. Attach the finished .rpm file to your GitHub Release
+    # 6. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
       with:

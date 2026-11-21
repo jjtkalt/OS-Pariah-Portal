@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Release RPM workflow:** move “commit must be on `main`” into host `ci-gate` (GitHub compare API); `build-rpm` Leap container is packaging-only. Avoids git exit 128 from dubious ownership on the bind-mounted workspace (broke the v1.2.0 RPM attach). Documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) § Releasing.
+
 ### Known issues
 
 - None recorded. Track new findings as GitHub issues or append here before tagging a release.
