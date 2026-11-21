@@ -6,13 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
-
-- **Release RPM workflow:** move “commit must be on `main`” into host `ci-gate` (GitHub compare API); `build-rpm` Leap container is packaging-only. Avoids git exit 128 from dubious ownership on the bind-mounted workspace (broke the v1.2.0 RPM attach). Documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) § Releasing.
-
 ### Known issues
 
 - None recorded. Track new findings as GitHub issues or append here before tagging a release.
+
+---
+
+## [1.2.1] – 2026-11-20
+
+Patch re-release of **v1.2.0**: same application/product content; only GitHub release automation is updated so the signed openSUSE RPM can build and attach. Prefer this tag over v1.2.0 for the RPM asset.
+
+### Fixed
+
+- **Release RPM workflow:** move “commit must be on `main`” into host `ci-gate` (GitHub compare API); `build-rpm` Leap container is packaging-only. Avoids git exit 128 from dubious ownership on the bind-mounted workspace (a side effect of running ancestry checks inside the Leap job after security/assurance hardening). Documented in [docs/OPERATIONS.md](docs/OPERATIONS.md) § Releasing.
+
+### Known issues
+
+- None recorded.
 
 ---
 
