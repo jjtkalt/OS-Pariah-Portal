@@ -31,7 +31,7 @@ Short agent index in that repo: [AGENTS.md](https://github.com/jjtkalt/PlatformS
 | Dev docs | `README`, `CHANGELOG`, `SECURITY`, `docs/DEPLOYMENT.md` |
 | Tests | Integration-first; mock email/SMTP only |
 | Lint/format | **Ruff** (lint + format), config in `pyproject.toml`; pre-commit + CI `lint` job |
-| CI | **Required** `.github/workflows/ci-tests.yml` (`lint` + `test` jobs); optional `release-rpm.yml` |
+| CI | **Required** `.github/workflows/ci-tests.yml` (`lint` + `test` jobs); optional `release-rpm.yml` (`ci-gate` = policy on host; `build-rpm` = packaging in Leap container only — see [docs/OPERATIONS.md](docs/OPERATIONS.md) § Releasing) |
 | TLS | HTTPS on origin; Cloudflare Full (strict); `<app>-cloudflare-ip.conf` + daily updater timer pulled in by master unit |
 | Package | RPM spec for openSUSE when deploying to CVG infrastructure |
 | Packaged timers | List on master `<app>.service` `Before=` / `Requires=`; do not separately enable each timer (this app: enable only `os-pariah.service`) |
