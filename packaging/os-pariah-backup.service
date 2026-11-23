@@ -1,5 +1,5 @@
 [Unit]
-Description=OS-Pariah portal self-backup (MariaDB + significant config files)
+Description=OS-Pariah portal self-backup (MariaDB + config + durable uploads)
 After=network.target mariadb.service os-pariah.service
 Requires=os-pariah.service
 

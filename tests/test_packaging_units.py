@@ -86,6 +86,7 @@ def test_spec_locks_down_code_tree_and_sudoers():
     # No ELF to strip — skip empty debuginfo/debugsource on Leap.
     assert "%global debug_package %{nil}" in spec
     assert "%attr(0440, root, root) /etc/sudoers.d/os-pariah-worker" in spec
+    assert "%dir %attr(0750, os-pariah, opensim) /home/opensim/Backups/portal/" in spec
     assert "/var/lib/os-pariah/uploads/tickets" in spec
     assert "app/static/uploads" not in spec
     assert "pip install --require-hashes -r /opt/os-pariah/requirements.txt" in spec

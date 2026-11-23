@@ -132,6 +132,10 @@ chmod 0750 /var/lib/os-pariah/uploads /var/lib/os-pariah/uploads/tickets
 chown -R os-pariah:opensim /var/log/os-pariah /home/opensim/FSAssets/os-pariah-cache
 chmod 0770 /var/log/os-pariah
 chmod 0775 /home/opensim/FSAssets/os-pariah-cache
+# Portal self-backup tree (DB dumps + conf + ticket uploads); not root-only.
+mkdir -p /home/opensim/Backups/portal
+chown os-pariah:opensim /home/opensim/Backups/portal
+chmod 0750 /home/opensim/Backups/portal
 
 # Sudoers drop-ins must be 0440 root:root or sudo ignores/rejects them.
 chown root:root /etc/sudoers.d/os-pariah-worker
@@ -171,7 +175,7 @@ echo "========================================================="
 %dir %attr(0750, os-pariah, os-pariah) /var/lib/os-pariah/uploads/tickets/
 %dir %attr(0775, os-pariah, opensim) /home/opensim/FSAssets/os-pariah-cache/
 %attr(0775, os-pariah, opensim) /home/opensim/Backups/downloads/
-%dir %attr(0750, root, root) /home/opensim/Backups/portal/
+%dir %attr(0750, os-pariah, opensim) /home/opensim/Backups/portal/
 %dir %attr(0770, os-pariah, opensim) /var/log/os-pariah/
 /usr/lib/systemd/system/os-pariah.service
 /usr/lib/systemd/system/os-pariah-worker-iar.service

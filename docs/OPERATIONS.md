@@ -27,7 +27,7 @@ sudo systemctl restart os-pariah.service
 | `os-pariah-worker-log.service` + `.timer` | Ingest gatekeeper logs; clean texture JPG cache; refresh texture gallery snapshot |
 | `os-pariah-worker-calendar.service` + `.timer` | Deliver calendar notification emails / in-world messages (timer fires every **1 minute**; windows are tolerant of ~60–90 s lateness and deduplicated) |
 | `os-pariah-cloudflare-ip.service` + `.timer` | Refresh Cloudflare proxy ranges in nginx real-IP conf (root; pulled in by `os-pariah.service`) |
-| `os-pariah-backup.service` + `.timer` | Daily self-backup of the `os_pariah` DB + significant conf/secrets (not cache/IAR downloads) |
+| `os-pariah-backup.service` + `.timer` | Daily self-backup of the `os_pariah` DB + conf/secrets + durable uploads (ticket attachments); not cache/IAR downloads. Backup dir is `os-pariah:opensim` `0750`. |
 
 ```bash
 sudo systemctl list-timers 'os-pariah-*'
@@ -54,7 +54,7 @@ Worker logs also land in `/var/log/os-pariah/` when that directory is writable b
 | Texture gallery cache | `/home/opensim/FSAssets/os-pariah-cache/` (`0775 os-pariah:opensim`; override path in System Settings) |
 | Ticket uploads (private) | `/var/lib/os-pariah/uploads/tickets/` (`0750 os-pariah:os-pariah`; served only via authenticated routes, not nginx static) |
 | IAR downloads | `/home/opensim/Backups/downloads/` |
-| Self-backups | `/home/opensim/Backups/portal/` (override with `portal_backup_dir`; contains DB dump + conf/secrets copies) |
+| Self-backups | `/home/opensim/Backups/portal/` (`0750 os-pariah:opensim`; override with `portal_backup_dir`; DB dump + conf/secrets + `/var/lib/os-pariah/uploads`) |
 | Nginx vhost | `/etc/nginx/vhosts.d/os-pariah.conf` |
 | Cloudflare real-IP | `/etc/nginx/conf.d/os-pariah-cloudflare-ip.conf` |
 
