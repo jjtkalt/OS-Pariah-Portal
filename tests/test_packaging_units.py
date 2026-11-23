@@ -77,7 +77,12 @@ def test_spec_locks_down_code_tree_and_sudoers():
     spec = (PACKAGING / "os-pariah.spec").read_text(encoding="utf-8")
     assert "chown -R root:root /opt/os-pariah" in spec
     assert "chown -R os-pariah:os-pariah /opt/os-pariah\n" not in spec
-    assert "getent group opensim" in spec
+    # Satisfy rpm auto-Requires from %attr ownership; create accounts in %pre.
+    assert "Requires(pre):  shadow" in spec
+    assert "Provides:       group(opensim)" in spec
+    assert "Provides:       user(os-pariah)" in spec
+    assert "Provides:       group(os-pariah)" in spec
+    assert "groupadd -r opensim" in spec
     assert "%attr(0440, root, root) /etc/sudoers.d/os-pariah-worker" in spec
     assert "/var/lib/os-pariah/uploads/tickets" in spec
     assert "app/static/uploads" not in spec

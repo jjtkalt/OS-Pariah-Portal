@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah
-Version:        1.2.1
+Version:        1.2.2
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS-Pariah - OpenSim CMS and Grid Management
 
@@ -19,8 +19,12 @@ Requires:       nginx
 Requires:       mariadb
 Requires:       sudo
 Requires:       screen
+Requires(pre):  shadow
 Recommends:     python313
 Recommends:     python313-devel
+Provides:       user(os-pariah)
+Provides:       group(os-pariah)
+Provides:       group(opensim)
 
 %description
 A high-performance, Flask-based CMS, Support Portal, and Grid Management interface for OpenSimulator.
@@ -33,14 +37,16 @@ see docs/DEPLOYMENT.md § "Python 3.13 on Leap 15.6".
 %setup -q
 
 %pre
-# This runs BEFORE the files are copied. We create the secure 'os-pariah' user.
-getent group os-pariah >/dev/null || groupadd -r os-pariah
+# This runs BEFORE the files are copied.
+
+#We create the secure 'os-pariah' user.
+%{_sbindir}/groupadd -r os-pariah 2> /dev/null || :
+%{_sbindir}/useradd -r -g os-pariah -d /opt/os-pariah -s /sbin/false \
+    -c "OS-Pariah Daemon User" os-pariah || :
+
 # Workers (User=opensim) and runtime dirs use the opensim group; create it if the
-# OpenSim host account has not been provisioned yet so chown below cannot fail.
-getent group opensim >/dev/null || groupadd -r opensim
-getent passwd os-pariah >/dev/null || \
-    useradd -r -g os-pariah -d /opt/os-pariah -s /sbin/nologin \
-    -c "OS-Pariah Daemon User" os-pariah
+#   OpenSim host account has not been provisioned yet so chown below cannot fail.
+%{_sbindir}/groupadd -r opensim 2> /dev/null || :
 
 if [ ! -x /usr/bin/python3.13 ]; then
     echo "=========================================================" >&2

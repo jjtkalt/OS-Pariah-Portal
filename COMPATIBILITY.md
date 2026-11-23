@@ -10,12 +10,13 @@ While OS-Pariah *may* work with standard OpenSimulator Core or other forks, we d
 
 | OS-Pariah | NGC-Tranquility | Status | Notes |
 | :--- | :--- | :--- | :--- |
-| **v1.2.1** | 🟢`v0.9.3.9333` | 🟢Active | Current supported stable release (same product as v1.2.0; release-RPM workflow fix so the signed package attaches). Prefer this tag for the RPM. Prefer Leap 16 (`python313`); Leap 15.6 needs a local 3.13 — see `docs/DEPLOYMENT.md`. |
-| **v1.2.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Same app as v1.2.1; GitHub Release may lack the signed RPM (workflow ancestry check failed in Leap). Use v1.2.1. Breaking `os-pariah` rename; security hardening. |
-| **v1.1.1** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.1 recommended (new install paths). Dependency security updates; portal self-backup and IAR sweep timers; CI/release hardening. |
-| **v1.1.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.1 recommended. Python 3.13 runtime; #61 ownership hotfixes; texture gallery snapshot. |
-| **v1.0.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Packaging (old paths: `/etc/os_pariah`, user `pariah`) set the config dir to `pariah:pariah` `0750`, so `opensim` workers cannot read conf (see #61). Upgrade to v1.2.1, or apply the ownership workaround on v1.0.0. |
-| **v1.0.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.1 recommended. |
+| **v1.2.2** | 🟢`v0.9.3.9333` | 🟢Active | Current supported stable release. Same product as v1.2.0 plus RPM `Provides` for `group(opensim)` / os-pariah accounts (fixes zypper install). Prefer Leap 16 (`python313`); Leap 15.6 needs a local 3.13 — see `docs/DEPLOYMENT.md`. |
+| **v1.2.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Release/tag removed. RPM lacked `Provides: group(opensim)`, so install failed on hosts without that group. Use v1.2.2. |
+| **v1.2.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Prefer v1.2.2 for the signed RPM + install fix. Breaking `os-pariah` rename; security hardening. |
+| **v1.1.1** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.2 recommended (new install paths). Dependency security updates; portal self-backup and IAR sweep timers; CI/release hardening. |
+| **v1.1.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.2 recommended. Python 3.13 runtime; #61 ownership hotfixes; texture gallery snapshot. |
+| **v1.0.1** | 🟢`v0.9.3.9333` | 🔴Withdrawn | **Do not install.** Packaging (old paths: `/etc/os_pariah`, user `pariah`) set the config dir to `pariah:pariah` `0750`, so `opensim` workers cannot read conf (see #61). Upgrade to v1.2.2, or apply the ownership workaround on v1.0.0. |
+| **v1.0.0** | 🟢`v0.9.3.9333` | 🟡Superseded | Previous stable; upgrade to v1.2.2 recommended. |
 | **v0.10.1** | 🟢`v0.9.3.9333` | 🟡Beta | Beta release (not tagged; see v1.0.0). |
 | **v0.10.0** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
 | **v0.9.4** | 🟢`v0.9.3.9333` | 🟡Beta | Beta Release. |
