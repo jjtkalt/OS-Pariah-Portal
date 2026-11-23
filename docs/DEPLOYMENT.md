@@ -65,6 +65,9 @@ Create a dedicated OS-Pariah database and user (adjust passwords as needed). The
 
 ```bash
 sudo mariadb <<'SQL'
+-- Use utf8mb4_unicode_ci (not MariaDB 11's default utf8mb4_uca1400_ai_ci).
+-- Mixed collations break JOINs (e.g. calendar ↔ region_configs). Migration 012
+-- converts an existing DB if needed.
 CREATE DATABASE os_pariah CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'os-pariah'@'localhost' IDENTIFIED BY 'CHANGE_ME';
 GRANT ALL PRIVILEGES ON os_pariah.* TO 'os-pariah'@'localhost';
