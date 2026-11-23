@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Portal self-backup: MariaDB dump of the OS-Pariah database plus significant config files.
+Portal self-backup: MariaDB dump of the OS-Pariah database plus persistent
+config and upload trees.
 
-Excludes caches and user IAR download trees (those have their own retention workers).
-Also syncs os-pariah-worker-iar.timer OnUnitActiveSec from iar_sweep_interval_days.
+Includes ticket attachments and other durable files under /var/lib/os-pariah
+and /etc/os-pariah. Excludes caches and user IAR download trees (those have
+their own retention workers). Also syncs os-pariah-worker-iar.timer
+OnUnitActiveSec from iar_sweep_interval_days.
 """
 
 from __future__ import annotations
@@ -29,15 +32,27 @@ from scripts.os_pariah_env import (  # noqa: E402
     load_app_dotenv,
 )
 
+# Explicit high-value paths (also covered if present under ETC_DIR).
 SIGNIFICANT_FILES = (
     "/etc/os-pariah/os-pariah.conf",
     "/etc/os-pariah/secrets",
-    "/etc/nginx/vhosts.d/OS-Pariah.conf",
+    "/etc/nginx/vhosts.d/os-pariah.conf",
     "/etc/nginx/conf.d/os-pariah-cloudflare-ip.conf",
 )
 
+# Copy every regular file in this directory (conf, secrets, oidc_private.pem, …).
+ETC_OS_PARIAH_DIR = "/etc/os-pariah"
+
+# Durable application state outside MariaDB (ticket attachments, etc.).
+# Not caches, logs, or IAR download trees.
+SIGNIFICANT_DIRS = ("/var/lib/os-pariah/uploads",)
+
 IAR_TIMER_DROPIN_DIR = "/etc/systemd/system/os-pariah-worker-iar.timer.d"
 IAR_TIMER_DROPIN_FILE = os.path.join(IAR_TIMER_DROPIN_DIR, "interval.conf")
+
+BACKUP_OWNER = "os-pariah"
+BACKUP_GROUP = "opensim"
+BACKUP_DIR_MODE = 0o750
 
 
 def _config_int(conn, key: str, minimum: int = 1) -> int:
@@ -57,6 +72,30 @@ def _find_dump_binary() -> str:
         if path:
             return path
     raise RuntimeError("Neither mariadb-dump nor mysqldump found on PATH.")
+
+
+def ensure_backup_dir_ownership(path: Path) -> None:
+    """Ensure backup roots are os-pariah:opensim (0750) when running as root."""
+    path.mkdir(parents=True, exist_ok=True)
+    if os.geteuid() != 0:
+        return
+    try:
+        shutil.chown(path, user=BACKUP_OWNER, group=BACKUP_GROUP)
+        os.chmod(path, BACKUP_DIR_MODE)
+    except (OSError, LookupError, PermissionError) as exc:
+        print(f"Portal Backup: could not set ownership on {path}: {exc}")
+
+
+def _copy_file_into_files_tree(src_path: Path, files_dir: Path) -> str | None:
+    if not src_path.is_file():
+        return None
+    rel = src_path.as_posix().lstrip("/")
+    target = files_dir / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_path, target)
+    if src_path.name == "secrets":
+        os.chmod(target, 0o600)
+    return src_path.as_posix()
 
 
 def dump_portal_database(dest_sql_gz: Path) -> None:
@@ -102,23 +141,68 @@ def copy_significant_files(dest_dir: Path) -> list[str]:
     copied: list[str] = []
     files_dir = dest_dir / "files"
     files_dir.mkdir(parents=True, exist_ok=True)
+    seen: set[str] = set()
+
+    def _record(path: str | None) -> None:
+        if path and path not in seen:
+            seen.add(path)
+            copied.append(path)
+            print(f"Portal Backup: copied {path}")
 
     for src in SIGNIFICANT_FILES:
         src_path = Path(src)
         if not src_path.is_file():
             print(f"Portal Backup: skip missing {src}")
             continue
-        # Preserve relative path under files/ for restore clarity.
+        _record(_copy_file_into_files_tree(src_path, files_dir))
+
+    etc_dir = Path(ETC_OS_PARIAH_DIR)
+    if etc_dir.is_dir():
+        for child in sorted(etc_dir.iterdir()):
+            if child.is_file():
+                _record(_copy_file_into_files_tree(child, files_dir))
+    else:
+        print(f"Portal Backup: skip missing directory {ETC_OS_PARIAH_DIR}")
+
+    return copied
+
+
+def copy_significant_dirs(dest_dir: Path) -> list[str]:
+    """Copy durable directory trees (ticket uploads, etc.)."""
+    copied: list[str] = []
+    files_dir = dest_dir / "files"
+    files_dir.mkdir(parents=True, exist_ok=True)
+
+    for src in SIGNIFICANT_DIRS:
+        src_path = Path(src)
+        if not src_path.is_dir():
+            print(f"Portal Backup: skip missing directory {src}")
+            continue
         rel = src_path.as_posix().lstrip("/")
         target = files_dir / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src_path, target)
-        # Secrets stay owner-readable only inside the backup tree.
-        if src_path.name == "secrets":
-            os.chmod(target, 0o600)
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(src_path, target, symlinks=False, dirs_exist_ok=False)
         copied.append(src)
-        print(f"Portal Backup: copied {src}")
+        print(f"Portal Backup: copied directory {src}")
     return copied
+
+
+def finalize_run_dir_ownership(run_dir: Path) -> None:
+    """chown -R os-pariah:opensim on a completed run; keep secrets 0600."""
+    if os.geteuid() != 0:
+        return
+    try:
+        for dirpath, _dirnames, filenames in os.walk(run_dir):
+            shutil.chown(dirpath, user=BACKUP_OWNER, group=BACKUP_GROUP)
+            os.chmod(dirpath, BACKUP_DIR_MODE)
+            for name in filenames:
+                fpath = Path(dirpath) / name
+                shutil.chown(fpath, user=BACKUP_OWNER, group=BACKUP_GROUP)
+                if name == "secrets":
+                    os.chmod(fpath, 0o600)
+    except (OSError, LookupError, PermissionError) as exc:
+        print(f"Portal Backup: could not finalize ownership on {run_dir}: {exc}")
 
 
 def purge_old_backups(backup_root: Path, retention_days: int) -> int:
@@ -188,22 +272,30 @@ def run_backup() -> int:
         conn.close()
 
     root = Path(backup_dir)
-    root.mkdir(parents=True, exist_ok=True)
+    ensure_backup_dir_ownership(root)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_dir = root / stamp
     run_dir.mkdir(parents=True, exist_ok=False)
+    ensure_backup_dir_ownership(run_dir)
 
     print(f"Portal Backup: writing {run_dir}")
     try:
         dump_portal_database(run_dir / "os_pariah.sql.gz")
         print("Portal Backup: database dump complete.")
-        copied = copy_significant_files(run_dir)
+        copied_files = copy_significant_files(run_dir)
+        copied_dirs = copy_significant_dirs(run_dir)
+        finalize_run_dir_ownership(run_dir)
         manifest = run_dir / "MANIFEST.txt"
         with open(manifest, "w", encoding="utf-8") as fh:
             fh.write(f"created_utc={stamp}\n")
             fh.write("database=os_pariah.sql.gz\n")
-            for path in copied:
+            for path in copied_files:
                 fh.write(f"file={path}\n")
+            for path in copied_dirs:
+                fh.write(f"dir={path}\n")
+        if os.geteuid() == 0:
+            with suppress(OSError, LookupError, PermissionError):
+                shutil.chown(manifest, user=BACKUP_OWNER, group=BACKUP_GROUP)
         purged = purge_old_backups(root, retention_days)
         if purged:
             print(

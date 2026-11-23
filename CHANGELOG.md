@@ -12,6 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.3] – 2026-11-23
+
+Patch over **v1.2.2**: calendar collation fix, fuller portal self-backups, and cleaner release RPM assets.
+
+### Fixed
+
+- **MariaDB collation mix on calendar pages:** migration `012_unify_utf8mb4_collation.sql` converts the portal DB and all tables to `utf8mb4_unicode_ci`, fixing `Illegal mix of collations (utf8mb4_uca1400_ai_ci … utf8mb4_general_ci)` on `/events/` and `/events/moderation` (JOIN of calendar tables to `region_configs`). Connection pools and `migrate.py` set `charset=utf8mb4`.
+- **Portal backup nginx path:** self-backup copies `/etc/nginx/vhosts.d/os-pariah.conf` (post-rename), not the old `OS-Pariah.conf` name.
+
+### Changed
+
+- **Portal self-backup:** backup directory owned `os-pariah:opensim` `0750`; each run also archives `/etc/os-pariah/*` and `/var/lib/os-pariah/uploads` (ticket attachments). Still excludes texture cache, logs, and IAR download trees.
+- **Release RPM assets:** disable empty `debugsource` generation (`%global debug_package %{nil}`) and attach/sign only `os-pariah-[0-9]*.rpm` so GitHub Releases no longer publish a useless ~6 KB debugsource package. Each release also attaches a `*.rpm.sha256` checksum (computed after GPG signing) for download verification.
+
+### Known issues
+
+- None recorded.
+
+---
+
 ## [1.2.2] – 2026-11-22
 
 Patch hotfix over **v1.2.0** / withdrawn **v1.2.1**: RPM install now declares `Provides` for `user(os-pariah)`, `group(os-pariah)`, and `group(opensim)` so zypper can resolve auto-`Requires(pre)` from `%attr` ownership. Prefer this tag for the signed package.
