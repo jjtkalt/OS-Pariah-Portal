@@ -3,7 +3,7 @@
 #
 
 Name:           os-pariah
-Version:        1.2.2
+Version:        1.2.3
 Release:        %{?build_number}%{!?build_number:1}%{?dist}
 Summary:        OS-Pariah - OpenSim CMS and Grid Management
 
