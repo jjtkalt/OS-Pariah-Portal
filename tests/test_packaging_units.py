@@ -83,6 +83,8 @@ def test_spec_locks_down_code_tree_and_sudoers():
     assert "Provides:       user(os-pariah)" in spec
     assert "Provides:       group(os-pariah)" in spec
     assert "groupadd -r opensim" in spec
+    # No ELF to strip — skip empty debuginfo/debugsource on Leap.
+    assert "%global debug_package %{nil}" in spec
     assert "%attr(0440, root, root) /etc/sudoers.d/os-pariah-worker" in spec
     assert "/var/lib/os-pariah/uploads/tickets" in spec
     assert "app/static/uploads" not in spec

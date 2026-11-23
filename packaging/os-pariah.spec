@@ -11,6 +11,8 @@ License:        GNU-GPLv3
 URL:            https://github.com/jjtkalt/OS-Pariah-Portal
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      x86_64
+# Pure Python / config packaging — no ELF to strip. Skip empty debuginfo/debugsource.
+%global debug_package %{nil}
 
 # File require so Leap 16's python313 *or* a local/altinstall of 3.13 on Leap 15.6
 # (symlink /usr/bin/python3.13) can satisfy the dependency. See docs/DEPLOYMENT.md.
