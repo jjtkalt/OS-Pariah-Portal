@@ -159,11 +159,12 @@ jobs:
         # Tell RPM exactly how to call GPG silently
         echo "%__gpg_sign_cmd %{__gpg} --batch --no-verbose --no-armor --pinentry-mode loopback --passphrase $GPG_PASS -u %{_gpg_name} -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}" >> ~/.rpmmacros
 
-        # 7. Sign the package!
-        rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/*.rpm
+        # 7. Sign the main binary RPM only (exclude debuginfo/debugsource if present).
+        rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm
 
     # 6. Attach the finished .rpm file to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
       with:
-        files: /github/home/rpmbuild/RPMS/x86_64/os-pariah-*.rpm
+        # Main package only — os-pariah-*.rpm also matched empty *-debugsource-*.rpm.
+        files: /github/home/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm
