@@ -76,7 +76,13 @@ Stable releases are published from **`main` only** (never `develop`). Publishing
 | Job | Runs on | Responsibility |
 |-----|---------|----------------|
 | `ci-gate` | Ubuntu host | **Policy only:** release commit must be on `main` (`target_commitish` ≠ `develop`, compare `main...SHA` has `ahead_by=0`); *Automated Tests* must have succeeded for that SHA |
-| `build-rpm` | `opensuse/leap:16.0` container | **Packaging only:** checkout tagged tree, `rpmbuild`, GPG sign, attach `os-pariah-*.rpm` to the Release |
+| `build-rpm` | `opensuse/leap:16.0` container | **Packaging only:** checkout tagged tree, `rpmbuild`, GPG sign, write `os-pariah-….rpm.sha256`, attach the main RPM + checksum (not debugsource) to the Release |
+
+Verify a downloaded RPM against the release checksum:
+
+```bash
+sha256sum -c os-pariah-*.rpm.sha256
+```
 
 Keep git ancestry / branch policy out of `build-rpm`. The Leap container bind-mounts the Actions workspace, and a follow-up `git fetch` / `merge-base` there hits “dubious ownership” (git exit 128) even when the commit is on `main`.
 

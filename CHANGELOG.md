@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- **Release RPM assets:** disable empty `debugsource` generation (`%global debug_package %{nil}`) and attach/sign only `os-pariah-[0-9]*.rpm` so GitHub Releases no longer publish a useless ~6 KB debugsource package.
+- **Release RPM assets:** disable empty `debugsource` generation (`%global debug_package %{nil}`) and attach/sign only `os-pariah-[0-9]*.rpm` so GitHub Releases no longer publish a useless ~6 KB debugsource package. Each release also attaches a `*.rpm.sha256` checksum (computed after GPG signing) for download verification.
 
 ### Known issues
 

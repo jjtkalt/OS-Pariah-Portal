@@ -162,9 +162,22 @@ jobs:
         # 7. Sign the main binary RPM only (exclude debuginfo/debugsource if present).
         rpmsign --addsign $HOME/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm
 
-    # 6. Attach the finished .rpm file to your GitHub Release
+    # 6. Checksum the signed RPM (must run after rpmsign — signing changes the file).
+    - name: Generate SHA256 checksum
+      run: |
+        set -euo pipefail
+        cd "$HOME/rpmbuild/RPMS/x86_64"
+        for rpm in os-pariah-[0-9]*.rpm; do
+          sha256sum "$rpm" > "${rpm}.sha256"
+          echo "Wrote ${rpm}.sha256:"
+          cat "${rpm}.sha256"
+        done
+
+    # 7. Attach the finished .rpm (+ checksum) to your GitHub Release
     - name: Attach RPM to GitHub Release
       uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
       with:
         # Main package only — os-pariah-*.rpm also matched empty *-debugsource-*.rpm.
-        files: /github/home/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm
+        files: |
+          /github/home/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm
+          /github/home/rpmbuild/RPMS/x86_64/os-pariah-[0-9]*.rpm.sha256
