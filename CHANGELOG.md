@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Known issues
+
+- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+
+---
+
+## [1.2.3] – 2026-11-23
+
+Patch over **v1.2.2**: calendar collation fix, fuller portal self-backups, and cleaner release RPM assets.
+
 ### Fixed
 
 - **MariaDB collation mix on calendar pages:** migration `012_unify_utf8mb4_collation.sql` converts the portal DB and all tables to `utf8mb4_unicode_ci`, fixing `Illegal mix of collations (utf8mb4_uca1400_ai_ci … utf8mb4_general_ci)` on `/events/` and `/events/moderation` (JOIN of calendar tables to `region_configs`). Connection pools and `migrate.py` set `charset=utf8mb4`.
@@ -18,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Known issues
 
-- None recorded. Track new findings as GitHub issues or append here before tagging a release.
+- None recorded.
 
 ---
 
