@@ -33,6 +33,7 @@ def get_connection():
         user=DB_USER,
         password=DB_PASS,
         database=DB_NAME,
+        charset="utf8mb4",
         client_flag=CLIENT.MULTI_STATEMENTS,  # The magic flag for executing .sql files!
     )
 

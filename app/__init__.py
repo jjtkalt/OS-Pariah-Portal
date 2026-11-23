@@ -341,6 +341,7 @@ def init_db_pools(app):
             user=app.config["OS_PARIAH_DB_USER"],
             password=app.config["OS_PARIAH_DB_PASS"],
             database=app.config["OS_PARIAH_DB_NAME"],
+            charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor,
         )
 
@@ -373,6 +374,7 @@ def init_db_pools(app):
             user=app.config.get("ROBUST_DB_USER", "robust_user"),
             password=app.config.get("ROBUST_DB_PASS", "robust_password"),
             database=app.config.get("ROBUST_DB_NAME", "robust"),
+            charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor,
         )
 
