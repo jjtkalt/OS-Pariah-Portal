@@ -12,9 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [1.2.2] – 2026-11-22
+
+Patch hotfix over **v1.2.0** / withdrawn **v1.2.1**: RPM install now declares `Provides` for `user(os-pariah)`, `group(os-pariah)`, and `group(opensim)` so zypper can resolve auto-`Requires(pre)` from `%attr` ownership. Prefer this tag for the signed package.
+
+### Fixed
+
+- **RPM install:** `nothing provides 'group(opensim)'` — add `Requires(pre): shadow` and `Provides` for the accounts created in `%pre`; keep idempotent `groupadd`/`useradd` so `%post` chown works when OpenSim is not pre-provisioned.
+
+### Known issues
+
+- None recorded.
+
+---
+
 ## [1.2.1] – 2026-11-20
 
-Patch re-release of **v1.2.0**: same application/product content; only GitHub release automation is updated so the signed openSUSE RPM can build and attach. Prefer this tag over v1.2.0 for the RPM asset.
+> **WITHDRAWN — do not install.** GitHub release artifacts and tag removed. The published RPM failed install on hosts without a pre-existing `opensim` group (`nothing provides 'group(opensim)'`). Use **v1.2.2**.
+
+Patch re-release of **v1.2.0**: same application/product content; only GitHub release automation was updated so the signed openSUSE RPM could build and attach. Superseded by the packaging Provides fix in 1.2.2.
 
 ### Fixed
 
@@ -22,7 +38,7 @@ Patch re-release of **v1.2.0**: same application/product content; only GitHub re
 
 ### Known issues
 
-- None recorded.
+- Install fails without a pre-existing `opensim` group (fixed in 1.2.2).
 
 ---
 
