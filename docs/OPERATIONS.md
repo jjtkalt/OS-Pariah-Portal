@@ -99,6 +99,40 @@ Workflow YAML for a given release is the copy at the **tagged commit**. Fixing t
 
 When the RPM bumps the system Python (for example **3.12 → 3.13**), `%post` recreates `/opt/os-pariah/venv` with `python3.13 -m venv --clear`. On Leap 16, `zypper` can pull `python313` via the package recommends; on Leap 15.6 you must already have provided `/usr/bin/python3.13`. For a manual install, recreate the venv the same way before restarting.
 
+## Theming (custom CSS)
+
+Appearance is configured under **System Settings → Grid Identity**:
+
+| Setting | Default | Applies to |
+|---------|---------|------------|
+| `custom_css_path` | `/static/css/base.css` | Every portal page **and** the viewer splash (`/comms/splash`) |
+| `portal_background_image` | `/static/images/background.png` | Page background (`--portal-background-image`) |
+| `portal_favicon` | `/static/images/os-pariah.ico` | Browser tab icon |
+
+**Rules for theme authors**
+
+- `custom_css_path` **replaces** `base.css`; it is not layered on top. Start from a copy of
+  `base.css` and keep every component block, including the `.splash-screen`, `.group--accent`, and
+  `.group--danger` rules, or those pages will lose their layout.
+- Prefer changing the `:root` design tokens (`--primary`, `--card-bg`, `--border-color`,
+  `--info-bg`, `--danger-bg`, `--font-body`, …) instead of editing component rules. Components and
+  the splash use tokens only (no hard-coded colors), so a token change re-themes everything.
+- Keep your file outside `/opt/os-pariah/app/static/`; the RPM replaces the packaged tree on upgrade, which
+  would overwrite edits to `base.css` itself.
+
+**Rules for template authors**
+
+- Pages extend `base.html`. A page that must stay standalone (today only the viewer splash, which skips the
+  nav bar, Turnstile, and CSRF scripts for the embedded browser) must include
+  `{% include '_head_theme.html' %}` in its `<head>`. That partial emits the favicon, the configured stylesheet,
+  and the background-image variable, and `base.html` uses the same one so the two cannot drift. Never link
+  `css/base.css` directly.
+- Reuse existing classes and utilities from `base.css` (`.panel`, `.card-header`, `.group`, `.alert.*`,
+  `.btn*`, `.text-*`, `.mt-*`/`.mb-*`) instead of inline `style=` attributes. For accent borders on `.group`,
+  use `.group--accent` (primary) or `.group--danger` (alert).
+- The splash frame is `<div class="main splash-screen">`: `.main` supplies the themed card frame, and
+  `.splash-screen` only adds the two-column grid.
+
 ## Robust indexes (Texture Gallery)
 
 The gallery listing can peg MariaDB on large grids without indexes on Robust
@@ -137,6 +171,7 @@ sudo systemctl start os-pariah-worker-log.service
 | Sessions keep dropping after restart | `/etc/os-pariah/secrets` was regenerated or is missing from backups |
 | No Super Admin after install | Set `ADMIN_UUID` to your OpenSim PrincipalID and restart (migrate grants Super Admin; see [NAMING.md](NAMING.md)) |
 | Static CSS 404 after upgrade | `custom_css_path` still points at `/static/css/central.css` — migration `010` should have fixed the default; clear or update the setting |
+| Viewer splash (`/comms/splash`) ignores the custom theme | Upgrade to v1.2.4+ (earlier releases hard-coded `base.css` and skipped the background setting); see [Theming](#theming-custom-css) |
 | Texture gallery hangs before tiles | Confirm migration `011` applied; run `apply_robust_texture_indexes.py`; start `os-pariah-worker-log` to fill `texture_gallery_snapshot` |
 
 ## OIDC login

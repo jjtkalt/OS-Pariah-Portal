@@ -5,21 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to {{ grid_name }}</title>
-    <link rel="icon" href="{{ portal_favicon }}" type="image/x-icon">
-    <link rel="shortcut icon" href="{{ portal_favicon }}" type="image/x-icon">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    {% include '_head_theme.html' %}
 </head>
 
 <body>
+    {# Standalone for the viewer's embedded browser: no nav bar, Turnstile, or CSRF script. Theme comes from _head_theme.html. #}
     <div class="background">
-        <div class="splash-screen">
+        <div class="main splash-screen">
             <div class="panel">
-                <h2 class="text-primary mt-0 mb-20 pb-10" style="border-bottom: 1px solid var(--border-color);">Latest Grid News</h2>
+                <h2 class="card-header">Latest Grid News</h2>
                 {% if news %}
                     {% for item in news %}
-                    <div class="group m-0 mb-20" style="max-height: none; {% if item.is_alert %}border-left: 4px solid var(--danger); background: var(--danger-bg);{% else %}border-left: 4px solid var(--primary);{% endif %}">
+                    <div class="group m-0 mb-20 {% if item.is_alert %}group--danger{% else %}group--accent{% endif %}">
                         <span class="date m-0">{{ item.created_at.strftime('%B %d, %Y') }}</span>
-                        <h3 class="m-0 mt-5 {% if item.is_alert %}text-danger{% else %}text-primary{% endif %}">
+                        <h3 class="m-0 {% if item.is_alert %}text-danger{% else %}text-primary{% endif %}">
                             {% if item.is_alert %}🚨 ALERT: {% endif %}{{ item.title }}
                         </h3>
                         <p class="m-0 mt-10">{{ item.body }}</p>
@@ -31,7 +30,7 @@
             </div>
 
             <div class="panel text-center">
-                <h2 class="text-primary mt-0 mb-20 pb-10" style="border-bottom: 1px solid var(--border-color);">Grid Status</h2>
+                <h2 class="card-header">Grid Status</h2>
 
                 <div class="stats-grid">
                     <div class="stat-box">
@@ -44,7 +43,7 @@
                     </div>
                 </div>
 
-                <h3 class="text-primary mt-20 mb-10 pb-10" style="border-bottom: 1px solid var(--border-color);">Quick Links</h3>
+                <h3 class="card-header mt-20">Quick Links</h3>
                 <a href="{{ url_for('index', _external=True) }}" class="btn btn-outline fw-bold w-100 mb-10" target="_blank">{{grid_name}} User Portal</a>
                 <a href="{{ url_for('register.register', _external=True) }}" class="btn btn-outline fw-bold w-100 mb-10" target="_blank">Create an Account</a>
                 <a href="{{ url_for('tickets.new_ticket', _external=True) }}" class="btn w-100 fw-bold" target="_blank">Support Helpdesk</a>
