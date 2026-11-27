@@ -1,0 +1,12 @@
+{#-
+  Shared theme <head> fragment: favicon, configured stylesheet, and background image.
+
+  Included by base.html and by standalone pages (e.g. comms/splash.html) so that
+  System Settings -> Grid Identity (custom_css_path, portal_background_image,
+  portal_favicon) applies everywhere. Do not hard-code /static/css/base.css in
+  templates; use this partial instead.
+-#}
+    <link rel="icon" href="{{ portal_favicon }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ portal_favicon }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ custom_css_path }}">
+    <style>:root { --portal-background-image: url({{ portal_background_image | tojson }}); }</style>

@@ -353,21 +353,23 @@ tr:hover {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* --- Viewer Splash Screen (CEF Optimized) --- */
+/* --- Group accents (news items, alerts) --- */
+.group--accent { border-left: 4px solid var(--primary); }
+.group--danger { background: var(--danger-bg); border-left: 4px solid var(--danger); }
+
+/* --- Viewer Splash Screen (CEF Optimized) ---
+   Markup: <div class="main splash-screen">. Frame (card background, radius, shadow,
+   padding, position, width) comes from .main; this only adds the two-column grid and
+   lets the frame use more of the viewer window. Colors come from the :root tokens, so
+   custom themes only need to override variables. */
 .splash-screen {
-  background: var(--card-bg);
-  border-radius: 12px;
   bottom: 2%;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
   display: grid;
   gap: 12px;
   grid-template-columns: 2fr 1fr;
-  overflow-y: auto;
-  padding: 12px;
-  position: absolute;
-  top: 20%;
+  max-height: none;
+  min-height: 0;
 }
-.splash-screen h2, .splash-screen h3 { margin-top: 0; }
 .splash-screen .stats-grid {
   display: grid;
   gap: 12px;
@@ -375,7 +377,7 @@ tr:hover {
   margin-bottom: 12px;
 }
 .splash-screen .stat-box {
-  background-color: rgba(14, 165, 233, 0.1);
+  background-color: var(--info-bg);
   border: 1px solid var(--primary);
   border-radius: 6px;
   padding: 15px;
