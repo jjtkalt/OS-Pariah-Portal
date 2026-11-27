@@ -17,7 +17,7 @@
 {% if news_items %}
     <div class="flex-column gap-20">
         {% for item in news_items %}
-            <div class="group m-0" style="max-height: none; {% if item.is_alert %}border-left: 4px solid var(--danger); background: var(--danger-bg);{% else %}border-left: 4px solid var(--primary);{% endif %}">
+            <div class="group m-0 {% if item.is_alert %}group--danger{% else %}group--accent{% endif %}">
 
                 <div class="flex-between mb-10" style="align-items: flex-start;">
                     <h3 class="m-0 {% if item.is_alert %}text-danger{% else %}text-primary{% endif %}">
