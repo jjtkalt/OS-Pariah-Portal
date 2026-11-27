@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ step.title }} - Setup - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar mb-10" style="border-bottom: none;">
+    <h2 class="m-0">{{ step.title }}</h2>
+    <a href="{{ url_for('setup.index') }}" class="btn-outline" style="padding: 8px 16px; text-decoration: none;">Back to setup</a>
+</div>
+<p class="text-muted mt-0 mb-20">{{ step.description }}</p>
+
+{% for message in check.errors %}<div class="alert error">{{ message }}</div>{% endfor %}
+{% for message in check.warnings %}<div class="alert warning">{{ message }}</div>{% endfor %}
+
+<form method="POST" action="{{ url_for('setup.step_form', step_id=step.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="card">
+        <legend>{{ step.title }}</legend>
+        {% for field in fields %}
+            <label for="f_{{ field.key }}">{{ field.label }}{% if field.required %} *{% endif %}</label>
+            {% if field.type == 'selectable' %}
+                <select id="f_{{ field.key }}" name="{{ field.key }}">
+                    {% for option in field.options %}
+                    <option value="{{ option }}" {{ 'selected' if option == field.value else '' }}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+            {% elif field.type == 'boolean' %}
+                <input type="checkbox" id="f_{{ field.key }}" name="{{ field.key }}" value="true"
+                       {{ 'checked' if field.value == 'true' else '' }}>
+            {% elif field.type == 'password' %}
+                <input type="password" id="f_{{ field.key }}" name="{{ field.key }}" autocomplete="new-password"
+                       placeholder="{{ '(unchanged)' if field.has_secret else '' }}">
+            {% else %}
+                <input type="{{ 'number' if field.type == 'number' else ('url' if field.type == 'url' else ('email' if field.type == 'email' else 'text')) }}"
+                       id="f_{{ field.key }}" name="{{ field.key }}" value="{{ field.value }}"
+                       {% if field.default %}placeholder="{{ field.default }}"{% endif %}>
+            {% endif %}
+            {% if field.desc %}<div class="text-muted text-sm mb-10">{{ field.desc }}</div>{% endif %}
+        {% endfor %}
+        <button type="submit" name="action" value="save" class="w-100 mt-20 text-lg">Save and continue</button>
+    </fieldset>
+</form>
+
+{% if step.skippable %}
+<form method="POST" action="{{ url_for('setup.step_form', step_id=step.id) }}" class="mt-20 text-center">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" name="action" value="skip" class="btn-outline">Skip this step for now</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Setup - {{ grid_name }} Portal{% endblock %}
+
+{% block content %}
+<div class="nav-bar mb-10" style="border-bottom: none;">
+    <h2 class="m-0">Portal Setup</h2>
+</div>
+
+{% if uninitialised %}
+<div class="alert warning">
+    Setup state has not been initialised yet. Restart the portal service
+    (<code>sudo systemctl restart os-pariah</code>) so database migrations run, then reload this page.
+</div>
+{% else %}
+
+{% if just_completed %}
+<div class="alert success">
+    <strong>First-boot setup is complete.</strong> The one-time setup token has been removed.
+    <a href="{{ url_for('auth.login') }}">Log in</a> with your admin avatar.
+</div>
+{% elif complete %}
+<p class="text-muted mt-0 mb-20">
+    First-boot setup is finished. Steps below can be reopened at any time; items marked
+    <em>Needs attention</em> were added by a newer release and are optional until you are ready.
+</p>
+{% else %}
+<p class="text-muted mt-0 mb-20">
+    Work through each step. Nothing here changes your OpenSim installation; the portal only
+    reads from it. Steps marked optional can be skipped and revisited later.
+</p>
+{% endif %}
+
+<div class="group p-0 m-0">
+    <table class="m-0 w-100">
+        <thead>
+            <tr>
+                <th>Step</th>
+                <th>Status</th>
+                <th class="text-center">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for step in steps %}
+            {% set row = rows.get(step.id) %}
+            {% set status = row.status if row else 'pending' %}
+            {% set check = auto_checks.get(step.id) %}
+            <tr>
+                <td>
+                    <strong class="d-block mb-5">{{ step.title }}
+                        {% if step.skippable %}<span class="text-muted text-sm">(optional)</span>{% endif %}
+                        {% if step.kind.value == 'advisory' %}<span class="text-muted text-sm">(new)</span>{% endif %}
+                    </strong>
+                    <span class="text-muted text-sm">{{ step.description }}</span>
+                    {% if check %}
+                        {% for message in check.errors %}<div class="text-sm" style="color: var(--danger);">{{ message }}</div>{% endfor %}
+                        {% for message in check.warnings %}<div class="text-sm" style="color: var(--warning-text);">{{ message }}</div>{% endfor %}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if status == 'done' %}<span class="btn-success text-sm" style="padding: 2px 8px; border-radius: 999px;">Done</span>
+                    {% elif status == 'skipped' %}<span class="btn-muted text-sm" style="padding: 2px 8px; border-radius: 999px;">Skipped</span>
+                    {% else %}<span class="btn-warning text-sm" style="padding: 2px 8px; border-radius: 999px;">Needs attention</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if step.auto %}
+                        <span class="text-muted text-sm">Automatic</span>
+                    {% else %}
+                        <a href="{{ url_for('setup.step_form', step_id=step.id) }}" class="btn btn-info text-sm"
+                           style="text-decoration: none;">{{ 'Review' if status == 'done' else 'Configure' }}</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

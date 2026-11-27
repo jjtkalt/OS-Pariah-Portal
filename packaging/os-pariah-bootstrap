@@ -1,0 +1,4 @@
+#!/bin/sh
+# Root-once first-boot helper for OS-Pariah (installed as /usr/sbin/os-pariah-bootstrap).
+# Thin wrapper: all logic lives in /opt/os-pariah/scripts/os_pariah_bootstrap.py.
+exec /opt/os-pariah/venv/bin/python /opt/os-pariah/scripts/os_pariah_bootstrap.py "$@"

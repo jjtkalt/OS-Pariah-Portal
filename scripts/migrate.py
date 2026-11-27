@@ -25,6 +25,11 @@ DB_USER = os.environ.get("OS_PARIAH_DB_USER")
 DB_PASS = os.environ.get("OS_PARIAH_DB_PASS")
 DB_NAME = os.environ.get("OS_PARIAH_DB_NAME")
 
+# schema_versions marker written when migrations first run against an empty database.
+# Not a real migration file; it lets the setup wizard tell a fresh install from an
+# upgrade even when the first run is interrupted.
+FRESH_INSTALL_SENTINEL = "__fresh_install__"
+
 
 def get_connection():
     """Establishes a connection capable of running full SQL dump files."""
@@ -109,6 +114,44 @@ def ensure_bootstrap_admin(conn):
     conn.commit()
 
 
+def ensure_setup_state(conn, *, preexisting):
+    """Reconcile the setup wizard's step table (issue #25). Never blocks startup.
+
+    ``preexisting`` is True when the database already had migrations before this run,
+    i.e. the portal was installed before the wizard existed: those installs are
+    backfilled as complete and are never gated. A brand-new database is "fresh" and
+    gets the first-boot wizard.
+    """
+    try:
+        if _REPO_ROOT not in sys.path:
+            sys.path.insert(0, _REPO_ROOT)
+        from app.setup import state as setup_state
+        from app.setup.providers import get_provider
+        from app.utils import instance as instance_ctx
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT config_value FROM config WHERE config_key = 'grid_provider'"
+            )
+            row = cursor.fetchone()
+        provider = get_provider(row[0] if row else None)
+        result = setup_state.reconcile(
+            conn,
+            provider.steps(),
+            provider_id=provider.id,
+            instance_id=instance_ctx.current().id,
+            preexisting=preexisting,
+        )
+        if result and (result["created"] or result["reopened"]):
+            print(
+                f"Setup wizard state ({result['origin']} install): "
+                f"{len(result['created'])} step(s) added, "
+                f"{len(result['reopened'])} reopened."
+            )
+    except Exception as e:  # noqa: BLE001 - bookkeeping must not stop the portal
+        print(f"WARNING: could not reconcile setup wizard state: {e}")
+
+
 def apply_migrations():
     """Scans the migrations folder and applies anything new."""
     # Platform standard: generate the signing key before any DB work (ADR-013).
@@ -117,6 +160,27 @@ def apply_migrations():
     try:
         init_migration_table(conn)
         applied = get_applied_migrations(conn)
+        # Remember that this database started empty, even if this run fails halfway and a
+        # later run finds migrations already applied (see ensure_setup_state).
+        if not applied:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO schema_versions (version) VALUES (%s)",
+                    (FRESH_INSTALL_SENTINEL,),
+                )
+            conn.commit()
+            applied = {FRESH_INSTALL_SENTINEL}
+        preexisting = FRESH_INSTALL_SENTINEL not in applied
+        if not preexisting and not os.environ.get("OS_PARIAH_INSTANCE"):
+            # Only installs created by os-pariah-bootstrap (which writes
+            # OS_PARIAH_INSTANCE into the conf) get the first-boot gate. Hand-written
+            # confs and local dev databases are configured by their owners and are
+            # never locked behind /setup.
+            print(
+                "Not a bootstrap-managed install (OS_PARIAH_INSTANCE unset): "
+                "first-boot setup gate disabled."
+            )
+            preexisting = True
 
         migrations_dir = os.path.join(_REPO_ROOT, "migrations")
         migration_files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
@@ -148,6 +212,7 @@ def apply_migrations():
                 print(f"Skipping {filename} (Already applied to this database).")
 
         ensure_bootstrap_admin(conn)
+        ensure_setup_state(conn, preexisting=preexisting)
         print("Database is fully up to date!")
 
     except Exception as e:

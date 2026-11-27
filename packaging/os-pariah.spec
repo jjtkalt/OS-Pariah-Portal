@@ -83,6 +83,10 @@ cp -r packaging/inworld/* %{buildroot}/opt/os-pariah/packaging/inworld/
 # Install the default blank config template
 cp .env.example %{buildroot}/etc/os-pariah/os-pariah.conf
 
+# Root-once first-boot helper (thin wrapper around scripts/os_pariah_bootstrap.py).
+mkdir -p %{buildroot}%{_sbindir}
+install -m 0755 packaging/os-pariah-bootstrap %{buildroot}%{_sbindir}/os-pariah-bootstrap
+
 # Setup OS-Pariah worker's limited sudo privileges.
 cp packaging/os-pariah-worker.sudo %{buildroot}/etc/sudoers.d/os-pariah-worker
 chmod 0440 %{buildroot}/etc/sudoers.d/os-pariah-worker
@@ -159,9 +163,12 @@ nginx -t && systemctl reload nginx.service || echo "Need to manually fix and sta
 
 echo "========================================================="
 echo "OS-Pariah Installed Successfully!"
-echo "1. Edit /etc/os-pariah/os-pariah.conf with your DB credentials."
-echo "   (MariaDB database name stays os_pariah; set OS_PARIAH_DB_* variables.)"
-echo "2. Start the portal: sudo systemctl enable --now os-pariah"
+echo "Next (one command, as root):"
+echo "  sudo os-pariah-bootstrap"
+echo "It creates the portal database and a read-only account on your EXISTING grid"
+echo "database, writes /etc/os-pariah/os-pariah.conf, and starts the portal. It never"
+echo "modifies OpenSim. Then open https://<your-host>/setup/unlock to finish setup."
+echo "(Preview first with: sudo os-pariah-bootstrap --dry-run)"
 echo ""
 echo "IMPORTANT: If your FSAssets path differs from the default, update the cache path in the Portal UI (System & Backend)."
 echo "========================================================="
@@ -170,6 +177,7 @@ echo "========================================================="
 # We claim ownership of these directories and files
 %defattr(-, root, root, -)
 /opt/os-pariah/
+%attr(0755, root, root) %{_sbindir}/os-pariah-bootstrap
 %dir %attr(0750, os-pariah, os-pariah) /var/lib/os-pariah/
 %dir %attr(0750, os-pariah, os-pariah) /var/lib/os-pariah/uploads/
 %dir %attr(0750, os-pariah, os-pariah) /var/lib/os-pariah/uploads/tickets/
@@ -203,4 +211,5 @@ echo "========================================================="
 %doc docs/OPERATIONS.md
 %doc docs/NAMING.md
 %doc docs/ROADMAP.md
+%doc docs/INSTANCE-ASSUMPTIONS.md
 %license LICENSE

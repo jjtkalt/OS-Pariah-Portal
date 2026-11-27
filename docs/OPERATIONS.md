@@ -48,6 +48,7 @@ Worker logs also land in `/var/log/os-pariah/` when that directory is writable b
 | Config | `/etc/os-pariah/os-pariah.conf` (`0640 os-pariah:opensim`) |
 | Config directory | `/etc/os-pariah/` (`0750 os-pariah:opensim` — workers need group traverse) |
 | Secrets (`SECRET_KEY`) | `/etc/os-pariah/secrets` (auto-generated; mode `0600`, `os-pariah` only) |
+| Setup token (first boot only) | `/etc/os-pariah/setup_token` (`0600 os-pariah`; written by `os-pariah-bootstrap`, deleted when setup completes) |
 | Runtime socket | `/run/os-pariah/os-pariah.sock` |
 | Logs | `/var/log/os-pariah/` |
 | Texture gallery snapshot | `os_pariah` table `texture_gallery_snapshot` (log worker; ≥14 days and ≥2000 rows by default, see System Settings) |
@@ -96,8 +97,35 @@ Workflow YAML for a given release is the copy at the **tagged commit**. Fixing t
 4. `systemctl restart os-pariah` — migrations and dependency sync run automatically.
 5. Confirm `journalctl -u os-pariah -n 50` shows a clean migrate.
 6. Spot-check `/manual.html`, login, and one admin page.
+7. If a release added setup steps, Super Admins see a "Setup: N steps still need your attention" banner; nothing is blocked ([Setup steps](#setup-steps)).
 
 When the RPM bumps the system Python (for example **3.12 → 3.13**), `%post` recreates `/opt/os-pariah/venv` with `python3.13 -m venv --clear`. On Leap 16, `zypper` can pull `python313` via the package recommends; on Leap 15.6 you must already have provided `/usr/bin/python3.13`. For a manual install, recreate the venv the same way before restarting.
+
+## Setup steps
+
+First-boot configuration is a registry of **versioned steps** (`app/setup/steps.py`) with persisted state in the `setup_state` table (migration 013). `scripts/migrate.py` reconciles it on every start.
+
+**Who is gated.** Only an install created by `os-pariah-bootstrap` on an empty database (origin `fresh`, conf contains `OS_PARIAH_INSTANCE`) is redirected to `/setup` until every *blocking* step is done or (if skippable) skipped. Installs that existed before the wizard, hand-configured installs, and local dev databases are `upgraded`: all steps are backfilled as done and nothing is ever gated. Every error path (missing table, DB hiccup, never reconciled) fails open.
+
+**Access.** During first boot, the one-time token (`/etc/os-pariah/setup_token`) unlocks `/setup/unlock`; it is deleted when setup completes (`sudo os-pariah-bootstrap --new-token` re-issues it). Afterwards `/setup` is Super Admin only. Wrong tokens are rate limited.
+
+**Inspect or reopen state:**
+
+```bash
+sudo mariadb os_pariah -e "SELECT step_id, step_version, status, updated_at FROM setup_state"
+sudo mariadb os_pariah -e "SELECT detail FROM setup_state WHERE step_id = '_install'"   # origin, provider, instance, first_boot_complete
+sudo mariadb os_pariah -e "UPDATE setup_state SET status='pending' WHERE step_id='turnstile'"  # reopen one step (shows as an admin banner)
+```
+
+Reopening a step after first boot is a nudge (admin banner), not a lock-out. The `_install` row is bookkeeping, not a step; do not delete it.
+
+**How a release adds or changes a step** (rules at the top of `app/setup/steps.py`):
+
+1. Step `id`s are stable forever (rows are keyed by them). Never rename one.
+2. A step added after the wizard shipped must be `StepKind.ADVISORY`: existing installs see it as a pending item and a banner for Super Admins; it never gates a working portal.
+3. Bump a step's `version` when its requirements change; installs that completed an older version get it reopened as pending (advisory).
+4. Settings come from `KNOWN_SETTINGS` (`app/utils/schema.py`), the single source of truth for labels, types and defaults. Bootstrap-level facts (DB credentials, `ADMIN_UUID`, hostnames) belong to the conf file and the bootstrap CLI, not a step.
+5. Steps never touch OpenSim. The `external` grid provider is read-only by construction; only a future provider that declares a mutating capability may contribute such steps (tests enforce that the wizard and bootstrap never reference OpenSim ini files, `sync_robust`/`sync_firewall`, or OpenSim service units).
 
 ## Theming (custom CSS)
 

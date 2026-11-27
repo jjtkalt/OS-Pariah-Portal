@@ -97,8 +97,11 @@ def get_robust_db():
 def parse_gatekeeper_logs():
     """Parses rotated Gatekeeper logs for the Admin Lookup tool."""
 
+    # Log directory is a setting (gatekeeper_log_dir); LOG_DIR is the legacy fallback.
+    log_dir = get_dynamic_config("gatekeeper_log_dir", LOG_DIR) or LOG_DIR
+
     # STRICTLY ONLY process rotated logs ending in a date/number
-    rotated_logs = glob.glob(os.path.join(LOG_DIR, "Robust-main.log.*"))
+    rotated_logs = glob.glob(os.path.join(log_dir, "Robust-main.log.*"))
 
     # Prevent picking up logs we have already renamed to "Processed-..."
     rotated_logs = [
