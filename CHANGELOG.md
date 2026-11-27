@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.4] – 2026-11-26
+
+Hotfix over **v1.2.3**: the in-viewer welcome page now follows the grid's theme settings. Upgrade from v1.2.3 is a straight RPM install; no migrations or config changes are required.
+
 ### Fixed
 
 - **Viewer splash ignored the grid theme:** `/comms/splash` linked `base.css` directly and never set the background image, so `custom_css_path` and `portal_background_image` had no effect there. Favicon, stylesheet, and background variable now come from a shared `_head_theme.html` partial that both `base.html` and the splash include.
