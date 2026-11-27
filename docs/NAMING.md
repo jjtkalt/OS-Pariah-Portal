@@ -11,7 +11,7 @@ aligned to a single slug everywhere it matters for operators and packaging.
 | Proper / product name | **OS-Pariah** | Docs titles, UI copy, Descriptions, CHANGELOG |
 | Filesystem / unit / package / conf slug | **os-pariah** | Paths, systemd units, RPM `Name:`, nginx files, Linux user |
 | MariaDB database name | **os_pariah** | SQL identifier (hyphens would need quoting) |
-| Env var prefix | **OS_PARIAH_*** | Config (`OS_PARIAH_DB_*`, `OS_PARIAH_UPLOAD_FOLDER`, …) |
+| Env var prefix | **OS_PARIAH_*** | Config (`OS_PARIAH_DB_*`, `OS_PARIAH_UPLOAD_FOLDER`, `OS_PARIAH_INSTANCE` (reserved; only `default`), …) |
 
 The GitHub repository may still be named `OS-Pariah-Portal` historically; that does
 not change the on-host slug. Prefer saying **OS-Pariah** in prose. “Portal” is an

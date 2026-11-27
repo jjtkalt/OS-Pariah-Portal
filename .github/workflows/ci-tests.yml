@@ -108,7 +108,43 @@ jobs:
           OS_PARIAH_DB_USER: os-pariah
           OS_PARIAH_DB_PASS: Par1ahT3st
           OS_PARIAH_DB_NAME: os_pariah
+          # Behave like a bootstrap-managed install so the first-boot wizard state is seeded.
+          OS_PARIAH_INSTANCE: default
           SECRET_KEY: ci-migrate-test-secret-not-for-production
         run: |
           # ensure_secret_key may write .secrets; SECRET_KEY is already set for CI.
           python scripts/migrate.py
+          # Re-running must be a no-op (idempotent migrations + setup_state reconcile).
+          python scripts/migrate.py
+
+      - name: Verify setup wizard state
+        env:
+          OS_PARIAH_DB_HOST: 127.0.0.1
+          OS_PARIAH_DB_USER: os-pariah
+          OS_PARIAH_DB_PASS: Par1ahT3st
+          OS_PARIAH_DB_NAME: os_pariah
+        run: |
+          python - <<'PY'
+          import json, os
+          import pymysql
+
+          conn = pymysql.connect(
+              host=os.environ["OS_PARIAH_DB_HOST"],
+              user=os.environ["OS_PARIAH_DB_USER"],
+              password=os.environ["OS_PARIAH_DB_PASS"],
+              database=os.environ["OS_PARIAH_DB_NAME"],
+          )
+          with conn.cursor() as cur:
+              cur.execute("SELECT detail FROM setup_state WHERE step_id = '_install'")
+              meta = json.loads(cur.fetchone()[0])
+              assert meta["origin"] == "fresh", meta
+              assert meta["first_boot_complete"] is False, meta
+              cur.execute("SELECT COUNT(*) FROM setup_state WHERE step_id <> '_install'")
+              assert cur.fetchone()[0] >= 6
+              cur.execute(
+                  "SELECT TABLE_COLLATION FROM information_schema.TABLES "
+                  "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'setup_state'"
+              )
+              assert cur.fetchone()[0] == "utf8mb4_unicode_ci"
+          print("setup_state OK")
+          PY

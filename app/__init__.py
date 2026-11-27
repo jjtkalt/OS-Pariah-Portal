@@ -4,7 +4,7 @@ import subprocess
 
 import pymysql
 from dbutils.pooled_db import PooledDB
-from flask import Flask, flash, g, redirect, request, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, request, session, url_for
 from flask_caching import Cache
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -149,7 +149,26 @@ def create_app(config_class="app.config.Config"):
             "PERMS": auth_helpers,  # Allows {{ PERMS.PERM_SUPER_ADMIN }} in HTML
             "RBAC_SCHEMA": RBAC_SCHEMA,
             "check_bit": lambda mask, bit: bool(mask & bit),
+            "setup_advisory_count": _setup_advisory_count(),
         }
+
+    def _setup_advisory_count():
+        """Pending setup steps to nag admins about (0 for everyone else / on any error)."""
+        if app.config.get("TESTING") and not app.config.get("SETUP_GATE_IN_TESTS"):
+            return 0
+        try:
+            from app.setup import gate
+            from app.setup.providers import get_provider
+            from app.utils.auth_helpers import has_permission
+            from app.utils.db import get_dynamic_config
+            from app.utils.schema import PERM_SUPER_ADMIN
+
+            if not session.get("uuid") or not has_permission(PERM_SUPER_ADMIN):
+                return 0
+            provider = get_provider(get_dynamic_config("grid_provider"))
+            return gate.advisory_count(provider.steps())
+        except Exception:  # noqa: BLE001 - a banner must never break a page
+            return 0
 
     from .blueprints.admin.routes import admin_bp
     from .blueprints.admin.user_mgmt import user_mgmt_bp
@@ -175,11 +194,37 @@ def create_app(config_class="app.config.Config"):
     app.register_blueprint(policies_bp, url_prefix="/policies")
     app.register_blueprint(events_bp, url_prefix="/events")
 
+    from .setup.routes import setup_bp
+
+    app.register_blueprint(setup_bp)
+
     # Bot API uses its own bearer/token auth; OIDC token uses client_secret.
     csrf.exempt(api_bp)
     from app.blueprints.auth.routes import token as oidc_token_view
 
     csrf.exempt(oidc_token_view)
+
+    @app.before_request
+    def enforce_first_boot_setup():
+        """Fresh installs are funnelled into /setup until the blocking steps are done.
+
+        Upgraded installs and every error path are never gated (see app/setup/gate.py).
+        """
+        if app.config.get("TESTING") and not app.config.get("SETUP_GATE_IN_TESTS"):
+            return None
+        from app.setup import gate
+
+        if not gate.first_boot_pending():
+            return None
+        if request.blueprint in ("setup", "auth") or request.endpoint in (
+            "static",
+            "manual",
+            "favicon",
+        ):
+            return None
+        if request.blueprint == "api":
+            return jsonify(error="Portal setup is not finished yet."), 503
+        return redirect(url_for("setup.index"))
 
     @app.before_request
     def refresh_session_permissions():

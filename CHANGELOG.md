@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **First-boot setup wizard (issue #25, Slice A):** new root-once `os-pariah-bootstrap` command (`/usr/sbin`, packaged) creates the portal database and a `SELECT`-only account on your existing Robust database, writes `/etc/os-pariah/os-pariah.conf`, patches the nginx vhost (`nginx -t` with rollback), writes a one-time setup token and starts `os-pariah`. Supports `--dry-run`, `--non-interactive --answers FILE` (versioned, strict keys), `--json`, `--force`, and `--new-token`. It never modifies OpenSim.
+- **Gated web wizard at `/setup`:** token-unlocked on a fresh install (Super Admin afterwards) for grid identity, Turnstile, SMTP and Matrix/Discord (skippable), and read-only grid file locations. Fresh bootstrap-created installs are redirected to it until the blocking steps are done; existing installs are never gated and fail-open on any error.
+- **Versioned setup steps** persisted in the new `setup_state` table (migration `013`, explicit `utf8mb4_unicode_ci`). Later releases can add advisory steps or bump versions; Super Admins see an optional banner, nothing locks.
+- **Grid provider interface** with a read-only `external` provider (setting `grid_provider`) and an **instance resolver** (`app/utils/instance.py`, `default` only; other ids reserved). [docs/INSTANCE-ASSUMPTIONS.md](docs/INSTANCE-ASSUMPTIONS.md) records the single-instance assumptions and design rules for future multi-grid and installer work.
+- New setting `gatekeeper_log_dir` (default `/home/opensim/Log`) used by the gatekeeper log worker instead of a hard-coded path.
+- CI: the `migrate` job now runs migrations twice and verifies the seeded `setup_state`.
+
+### Changed
+
+- Docs: [DEPLOYMENT.md](docs/DEPLOYMENT.md) leads with the Quick start (install RPM, `os-pariah-bootstrap`, `/setup`); the manual steps remain as the equivalent reference. [OPERATIONS.md](docs/OPERATIONS.md) gains *Setup steps*; ROADMAP and PHILOSOPHY updated.
+- RPM `%post` message points to `os-pariah-bootstrap`.
+
 ## [1.2.4] – 2026-11-26
 
 Hotfix over **v1.2.3**: the in-viewer welcome page now follows the grid's theme settings. Upgrade from v1.2.3 is a straight RPM install; no migrations or config changes are required.

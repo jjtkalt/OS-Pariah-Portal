@@ -33,6 +33,22 @@ Sadly, not all of those can be applied to OpenSimulator because of the very natu
 * **Automated RPM Deployment:** Engineered a comprehensive `.spec` file that automatically handles user creation (`os-pariah` user), directory permissions, Nginx routing, systemd service installation, and surgical `sudoers` rule injection for secure background script execution.
 * **Rate Limiting & Proxy Security:** Configured Nginx `limit_req_zone` to prevent brute-force and DDoS attacks, while properly forwarding `X-Real-IP` headers so the portal can accurately track and ban malicious actors.
 
+### First Boot Is Grid-Safe
+
+A fresh portal install must be possible without trusting it near the grid. The root-once
+`os-pariah-bootstrap` command and the gated `/setup` wizard only ever *read* the existing
+OpenSim/Robust installation: they create the portal's own database and a `SELECT`-only
+account on Robust, write the portal's own conf, and start the portal's own unit. They do
+not edit OpenSim ini files, install or restart OpenSim, or write to grid tables. Anything
+that would (an optional OpenSim installation, for example) is a separate, explicitly
+declared provider capability, never a side effect of "first boot".
+
+Setup is **versioned and extensible**: steps have stable ids and versions, so later
+releases can add or reopen steps as gentle admin nudges without ever locking out a
+working portal. It is also **instance-aware by seam, not by design**: paths and names
+come from one resolver, and the assumptions that block running several isolated grids on
+one host are written down ([docs/INSTANCE-ASSUMPTIONS.md](docs/INSTANCE-ASSUMPTIONS.md)) rather than papered over.
+
 ### Python
 ### OS Authentication Bridge
 ### Ticket System

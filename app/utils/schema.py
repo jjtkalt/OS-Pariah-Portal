@@ -348,6 +348,11 @@ KNOWN_SETTINGS = {
             "type": "number",
             "default": "28800",
         },
+        "gatekeeper_log_dir": {
+            "label": "Gatekeeper (Robust) Log Directory",
+            "type": "text",
+            "default": "/home/opensim/Log",
+        },
         "fsassets_path": {
             "label": "FSAssets Directory Location",
             "type": "text",
@@ -387,6 +392,13 @@ KNOWN_SETTINGS = {
             "label": "Robust systemd unit to restart after MAC sync (full name, e.g. robust@main.service)",
             "type": "text",
             "default": "robust@main.service",
+        },
+        "grid_provider": {
+            "label": "Grid Provider (setup wizard; leave as 'external' unless told otherwise)",
+            "type": "selectable",
+            "options": "external",
+            "default": "external",
+            "no_reset": True,
         },
     },
 }

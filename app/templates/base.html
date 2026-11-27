@@ -75,6 +75,14 @@
                 </div>
             </nav>
 
+            {% if setup_advisory_count %}
+                <div class="alert info">
+                    Setup: {{ setup_advisory_count }} step{{ '' if setup_advisory_count == 1 else 's' }}
+                    still need{{ 's' if setup_advisory_count == 1 else '' }} your attention.
+                    <a href="{{ url_for('setup.index') }}">Open setup</a>
+                </div>
+            {% endif %}
+
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}

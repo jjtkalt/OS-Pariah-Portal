@@ -114,7 +114,7 @@ def test_canonical_os_pariah_naming_in_packaging():
     spec = (PACKAGING / "os-pariah.spec").read_text(encoding="utf-8")
     assert re.search(r"^Name:\s+os-pariah\s*$", spec, re.M)
     assert "useradd -r -g os-pariah" in spec
-    assert "systemctl enable --now os-pariah" in spec
+    assert "os-pariah-bootstrap" in spec
     assert "/etc/os-pariah/os-pariah.conf" in spec
 
     unit = (PACKAGING / "os-pariah.service").read_text(encoding="utf-8")
@@ -168,3 +168,11 @@ def test_sync_firewall_parses_only_our_rules(monkeypatch):
     # unbalanced quote must not raise
     assert sync_firewall.parse_host_id_rule("ipv4 'filter") is None
     sys.modules.pop("sync_firewall", None)
+
+
+def test_bootstrap_wrapper_is_packaged():
+    spec = (PACKAGING / "os-pariah.spec").read_text(encoding="utf-8")
+    assert "%{_sbindir}/os-pariah-bootstrap" in spec
+    wrapper = (PACKAGING / "os-pariah-bootstrap").read_text(encoding="utf-8")
+    assert wrapper.startswith("#!/bin/sh")
+    assert "/opt/os-pariah/scripts/os_pariah_bootstrap.py" in wrapper
