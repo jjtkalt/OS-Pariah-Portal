@@ -375,10 +375,15 @@ class Host:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = target.with_name(target.name + ".tmp")
-        tmp.write_text(content, encoding="utf-8")
-        os.chmod(tmp, mode)
+        tmp.unlink(missing_ok=True)
+        # Created 0600 and never wider while it holds secrets; the final mode is
+        # applied (after chown) just before the atomic rename.
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
         try:
             shutil.chown(tmp, user=owner, group=group)
+            os.chmod(tmp, mode)
         except (LookupError, PermissionError) as exc:
             tmp.unlink(missing_ok=True)
             raise BootstrapError(

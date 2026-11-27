@@ -457,3 +457,25 @@ def test_new_token_only_writes_a_token(capsys):
 
 def test_new_token_requires_root(capsys):
     assert _run(["--new-token"], _host(root=False)) == 1
+
+
+def test_real_host_write_file_is_never_wider_than_final_mode(tmp_path, monkeypatch):
+    """Secrets files are created 0600 (no world-readable window) and renamed atomically."""
+    import os
+    import stat
+
+    seen = {}
+    real_chown = boot.shutil.chown
+
+    def fake_chown(path, user=None, group=None):
+        seen["mode_before_chown"] = stat.S_IMODE(os.stat(path).st_mode)
+
+    monkeypatch.setattr(boot.shutil, "chown", fake_chown)
+    target = tmp_path / "etc" / "os-pariah.conf"
+    boot.Host().write_file(str(target), "SECRET=1\n", 0o640, "x", "y")
+    monkeypatch.setattr(boot.shutil, "chown", real_chown)
+
+    assert seen["mode_before_chown"] == 0o600
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    assert target.read_text() == "SECRET=1\n"
+    assert not (tmp_path / "etc" / "os-pariah.conf.tmp").exists()
