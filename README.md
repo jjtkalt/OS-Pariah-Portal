@@ -35,7 +35,7 @@ For all the various reasons that one thing or another was chosen, or to learn mo
 
 Before installing or upgrading, check the [Compatibility Matrix](COMPATIBILITY.md) to ensure your grid's OpenSimulator version is supported.
 
-> **Do not install v1.0.1.** That release is withdrawn (#61): `/etc/os_pariah` ownership broke `opensim` workers. (Those were the *old* paths, user `pariah`, and unit names; current instructions use the `os-pariah` slug, e.g. `/etc/os-pariah`.) Use **v1.2.3** or newer. Do not install withdrawn **v1.2.1** (RPM missing `group(opensim)` Provides).
+> **Do not install v1.0.1.** That release is withdrawn (#61): `/etc/os_pariah` ownership broke `opensim` workers. (Those were the *old* paths, user `pariah`, and unit names; current instructions use the `os-pariah` slug, e.g. `/etc/os-pariah`.) Use **v1.2.4** or newer. Do not install withdrawn **v1.2.1** (RPM missing `group(opensim)` Provides).
 
 **Full install and first-boot guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)  
 **Naming standard (slug, paths, units):** [docs/NAMING.md](docs/NAMING.md)  
